@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "1050312347949",
+    "firebase_url": "https://lupusarena-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "lupusarena",
+    "storage_bucket": "lupusarena.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1050312347949:android:9a78ceacb3b207d1dd03a4",
+        "android_client_info": {
+          "package_name": "DZ.LUPUSARENA"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1050312347949-pfo1pq76f63g969n4lsff6fjg1sc5t1g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvR2rJGNha9DaP0VGuCQAvpCYQeMc7GGQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1050312347949-pfo1pq76f63g969n4lsff6fjg1sc5t1g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

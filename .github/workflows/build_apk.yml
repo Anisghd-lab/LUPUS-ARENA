@@ -34,7 +34,7 @@ jobs:
         working-directory: lupus_arena
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --android-skip-build-dependency-validation
         working-directory: lupus_arena
 
       - name: Upload APK Artifact

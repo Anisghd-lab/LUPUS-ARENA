@@ -29,6 +29,10 @@ jobs:
           sed -i '/org\.gradle\.java\.home/d' android/gradle.properties || true
         working-directory: lupus_arena
 
+      - name: Install Android SDK Platform 31
+        run: |
+          echo "y" | sudo /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-31"
+
       - name: Install dependencies
         run: flutter pub get
         working-directory: lupus_arena

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,6 +20,73 @@ import '../theme/lupus_theme.dart';
 import 'lobby_screen.dart';
 import 'village_chronicles_screen.dart';
 
+/// Widget dédié et totalement isolé pour l'affichage du compte à rebours du tour.
+/// Encapsulé dans un RepaintBoundary avec ValueListenableBuilder pour éliminer
+/// tout rebuild et tout repaint de l'arbre de widgets parent (Arène, Table, Joueurs, Shaders).
+class CountdownTimerBadge extends StatelessWidget {
+  final ValueListenable<int> countdownListenable;
+  final bool isNight;
+
+  const CountdownTimerBadge({
+    super.key,
+    required this.countdownListenable,
+    required this.isNight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: ValueListenableBuilder<int>(
+        valueListenable: countdownListenable,
+        builder: (context, timerSeconds, child) {
+          final isUrgent = timerSeconds <= 10;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isUrgent
+                  ? const Color(0xE0280707)
+                  : const Color(0xE005070F),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isUrgent
+                    ? LupusColors.arcaneCrimson
+                    : LupusColors.arcaneGold.withValues(alpha: 0.4),
+                width: isUrgent ? 1.5 : 1.0,
+              ),
+              boxShadow: isUrgent
+                  ? LupusTheme.glowCrimson(opacity: 0.55)
+                  : LupusTheme.glowGold(opacity: 0.2),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isUrgent ? '⏳' : (isNight ? '🌙' : '☀️'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${timerSeconds}s',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1,
+                    color: isUrgent
+                        ? const Color(0xFFFFA4A4)
+                        : LupusColors.arcaneGold,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// Écran principal d'Arène inspiré directement de la maquette Stitch
 /// "Lupus Arena - Table de Nuit Ultime" (Design gothique nocturne,
 /// table circulaire mystique, carrousel de sélection de cible, HUD arcanique).
@@ -36,9 +104,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   // Gestion du journal et badge de notification des Chroniques
   int _lastSeenLogCount = 0;
 
-  // Gestion du chronomètre décomptant actif
+  // Gestion du chronomètre décomptant actif (découplé via ValueNotifier pour éliminer tout rebuild parent)
   Timer? _phaseCountdownTimer;
-  int _localCountdown = 40;
+  final ValueNotifier<int> _countdownNotifier = ValueNotifier<int>(40);
   GamePhase? _lastTrackedPhase;
   int? _lastTrackedRound;
   String? _lastTrackedSpeaker;
@@ -46,6 +114,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   @override
   void dispose() {
     _phaseCountdownTimer?.cancel();
+    _countdownNotifier.dispose();
     super.dispose();
   }
 
@@ -56,10 +125,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         timer.cancel();
         return;
       }
-      if (_localCountdown > 0) {
-        setState(() {
-          _localCountdown--;
-        });
+      if (_countdownNotifier.value > 0) {
+        _countdownNotifier.value--;
       } else {
         timer.cancel();
         // Clôture du timer : l'hôte fait progresser automatiquement la phase
@@ -88,7 +155,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         _lastTrackedPhase = room.phase;
         _lastTrackedRound = room.round;
         _lastTrackedSpeaker = room.currentSpeakerId;
-        _localCountdown = room.timerSeconds > 0 ? room.timerSeconds : 40;
+        _countdownNotifier.value = room.timerSeconds > 0 ? room.timerSeconds : 40;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _startCountdown();
         });
@@ -123,43 +190,49 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       backgroundColor: LupusColors.background,
       body: Stack(
         children: [
-          // 1. FOND ATMOSPHÉRIQUE STITCH (Village nocturne sous la pleine lune)
+          // 1. FOND ATMOSPHÉRIQUE STITCH (Isolé dans un RepaintBoundary pour mise en cache GPU)
           Positioned.fill(
-            child: LupusAssets.adaptiveImage(
-              assetPath: LupusAssets.villageNightBgAsset,
-              networkUrl: LupusAssets.villageNightBgUrl,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+            child: RepaintBoundary(
+              child: LupusAssets.adaptiveImage(
+                assetPath: LupusAssets.villageNightBgAsset,
+                networkUrl: LupusAssets.villageNightBgUrl,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+              ),
             ),
           ),
 
-          // VIGNETTES ET BRUMES ARCANES STITCH
+          // VIGNETTES ET BRUMES ARCANES STITCH (Isolé dans un RepaintBoundary pour zéro re-draw GPU)
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0xFF060A18).withValues(alpha: 0.92),
-                    const Color(0xFF070B1D).withValues(alpha: 0.50),
-                    const Color(0xFF04060E).withValues(alpha: 0.96),
-                  ],
-                  stops: const [0.0, 0.45, 1.0],
+            child: RepaintBoundary(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      const Color(0xFF060A18).withValues(alpha: 0.92),
+                      const Color(0xFF070B1D).withValues(alpha: 0.50),
+                      const Color(0xFF04060E).withValues(alpha: 0.96),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
                 ),
               ),
             ),
           ),
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.center,
-                  radius: 0.8,
-                  colors: [
-                    LupusColors.arcaneViolet.withValues(alpha: 0.14),
-                    Colors.transparent,
-                  ],
+            child: RepaintBoundary(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 0.8,
+                    colors: [
+                      LupusColors.arcaneViolet.withValues(alpha: 0.14),
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -177,7 +250,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                   context,
                   myRole,
                   isMeAlive,
-                  _localCountdown,
+                  _countdownNotifier,
                   isNight,
                   gameState,
                 ),
@@ -200,12 +273,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                         ? Center(
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
-                              child: MysticRadialTable(
-                                players: room.playerList,
-                                selectedPlayerId: _selectedPlayerId,
-                                currentUserId: gameState.currentUserId,
-                                speakingAgoraUids: speakingUids,
-                                currentSpeakerId: room.currentSpeakerId,
+                              child: RepaintBoundary(
+                                child: MysticRadialTable(
+                                  players: room.playerList,
+                                  selectedPlayerId: _selectedPlayerId,
+                                  currentUserId: gameState.currentUserId,
+                                  speakingAgoraUids: speakingUids,
+                                  currentSpeakerId: room.currentSpeakerId,
                                 revealRoles: revealRoles,
                                 isMeEvil: isMeEvil,
                                 voteCounts: room.voteCounts,
@@ -682,12 +756,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     );
   }
 
-  /// Sous-barre Stitch : Bouton Mon Rôle compact & Minuteur de tour
+  /// Sous-barre Stitch : Bouton Mon Rôle compact & Minuteur de tour isolé
   Widget _buildStitchSubBar(
     BuildContext context,
     dynamic myRole,
     bool isMeAlive,
-    int timerSeconds,
+    ValueListenable<int> countdownNotifier,
     bool isNight,
     dynamic gameState,
   ) {
@@ -739,46 +813,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
             ),
           ),
 
-          // Minuteur de tour réactif avec halo ambré / alerte écarlate sous 10s
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: timerSeconds <= 10
-                  ? const Color(0xE0280707)
-                  : const Color(0xE005070F),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: timerSeconds <= 10
-                    ? LupusColors.arcaneCrimson
-                    : LupusColors.arcaneGold.withValues(alpha: 0.4),
-                width: timerSeconds <= 10 ? 1.5 : 1.0,
-              ),
-              boxShadow: timerSeconds <= 10
-                  ? LupusTheme.glowCrimson(opacity: 0.55)
-                  : LupusTheme.glowGold(opacity: 0.2),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  timerSeconds <= 10 ? '⏳' : (isNight ? '🌙' : '☀️'),
-                  style: const TextStyle(fontSize: 13),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${timerSeconds}s',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.1,
-                    color: timerSeconds <= 10
-                        ? const Color(0xFFFFA4A4)
-                        : LupusColors.arcaneGold,
-                  ),
-                ),
-              ],
-            ),
+          // Minuteur de tour réactif isolé dans son RepaintBoundary avec ValueListenableBuilder
+          CountdownTimerBadge(
+            countdownListenable: countdownNotifier,
+            isNight: isNight,
           ),
         ],
       ),

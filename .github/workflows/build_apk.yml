@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # The debug keystore must not be created under the runner config folder.
-      ANDROID_USER_HOME: ${{ runner.temp }}/android-user-home
+      ANDROID_USER_HOME: /tmp/android-user-home
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

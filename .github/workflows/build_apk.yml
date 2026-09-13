@@ -35,7 +35,7 @@ jobs:
         run: flutter pub get
         working-directory: lupus_arena
 
-      - name: Build universal APK (arm32, arm64, x86, x86_64)
+      - name: Build universal APK (ARM 32-bit, ARM 64-bit, x86_64)
         run: flutter build apk --release --android-skip-build-dependency-validation
         working-directory: lupus_arena
 

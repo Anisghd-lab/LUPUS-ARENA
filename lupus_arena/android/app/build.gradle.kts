@@ -20,7 +20,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-
+        // Do not set abiFilters: Flutter creates a universal APK for the
+        // supported Android targets (ARM 32-bit, ARM 64-bit, and x86_64).
     }
 
     buildTypes {

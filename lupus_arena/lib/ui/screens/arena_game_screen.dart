@@ -300,8 +300,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                 },
                               ),
                             ),
-                          )
-                        : BentoPlayerGrid(
+                          ),
+                        )
+                      : BentoPlayerGrid(
                             players: room.playerList,
                             currentUserId: gameState.currentUserId,
                             speakingAgoraUids: speakingUids,

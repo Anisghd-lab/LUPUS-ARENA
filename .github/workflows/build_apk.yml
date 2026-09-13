@@ -24,6 +24,11 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Fix gradle.properties for Linux
+        run: |
+          sed -i '/org\.gradle\.java\.home/d' android/gradle.properties || true
+        working-directory: lupus_arena
+
       - name: Install dependencies
         run: flutter pub get
         working-directory: lupus_arena

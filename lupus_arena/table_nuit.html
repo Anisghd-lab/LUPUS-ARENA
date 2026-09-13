@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Lupus Arena - La Nuit Tombe</title>
+<!-- Google Fonts: Cinzel Decorative & Cinzel for fantasy feel, Inter for crisp UI numbers -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&amp;family=Inter:wght@400;500;600;700&amp;family=MedievalSharp&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            midnight: '#070a14',
+            arcane: {
+              purple: '#9d4edd',
+              violet: '#7b2cbf',
+              glow: '#c77dff',
+              cyan: '#38bdf8',
+              crimson: '#e63946',
+              gold: '#ffb703',
+              amber: '#fb8500'
+            }
+          },
+          fontFamily: {
+            fantasy: ['Cinzel', 'MedievalSharp', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif']
+          },
+          boxShadow: {
+            'glow-purple': '0 0 20px rgba(157, 78, 221, 0.45)',
+            'glow-gold': '0 0 22px rgba(251, 133, 0, 0.55)',
+            'glow-cyan': '0 0 16px rgba(56, 189, 248, 0.4)',
+            'glow-red': '0 0 16px rgba(230, 57, 70, 0.6)'
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom CSS Styles -->
+<style data-purpose="base-layout">
+    body {
+      background-color: #05070f;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+<style data-purpose="effects-and-cards">
+    .glass-panel {
+      background: rgba(10, 15, 30, 0.68);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(168, 85, 247, 0.22);
+    }
+    .glass-button {
+      background: rgba(18, 24, 46, 0.75);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .text-shadow-gold {
+      text-shadow: 0 0 12px rgba(251, 191, 36, 0.65), 0 2px 4px rgba(0, 0, 0, 0.9);
+    }
+    .text-shadow-purple {
+      text-shadow: 0 0 15px rgba(168, 85, 247, 0.75), 0 2px 5px rgba(0,0,0,0.8);
+    }
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 0.9; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.02); }
+    }
+    .animate-pulse-slow {
+      animation: pulse-slow 3s ease-in-out infinite;
+    }
+  </style>
+<!-- END: Custom CSS Styles -->
+</head>
+<body class="flex justify-center items-center min-h-screen p-0 sm:p-4 bg-black">
+<!-- BEGIN: Mobile Container (iOS Form Factor Frame) -->
+<main class="relative w-full max-w-[430px] h-[932px] max-h-[100vh] overflow-hidden flex flex-col justify-between shadow-2xl rounded-none sm:rounded-[44px] border-0 sm:border border-indigo-950/40 select-none">
+<!-- Atmospheric Backdrop Layers using provided images -->
+<div class="absolute inset-0 z-0 overflow-hidden pointer-events-none" data-purpose="background-layers"><img alt="Gothic Moonlit Village" class="w-full h-full object-cover object-top opacity-85 scale-100 filter saturate-[1.15] brightness-[0.75]" src="https://lh3.googleusercontent.com/aida/AEtjO1VLU-7dEtLiciSxE9WCO-H3XbPVMrQ7vSCVwDcc3L_58zWH96UckrkDtc_KRSTCdFxH0GkH7FsU7BlrvIjlne1mlQfa70B4ikGQ-D9FHOGhwa7SUxSpuKZQtgGUk6IarImvbWC8ryKcGzqiM3Q4L95eFGbcaTOnD4y721apGQDyYo6Vjvjtd_aKQ9MMV8_4jl30vFrp5ksk_KK04JEArUfRzpRccaGh_YJm4lQu3SmHFhZIyGnqfR1QdQY"/><div class="absolute inset-0 bg-gradient-to-b from-[#060a18]/90 via-[#070b1d]/30 to-[#04060e]/95"></div><div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(123,44,191,0.18)_0%,_transparent_75%)]"></div></div>
+<!-- BEGIN: Top HUD & Navigation Bar -->
+<header class="relative z-20 pt-4 px-4 pb-2 space-y-2.5" data-purpose="top-navigation">
+<!-- Status bar / Room identification row -->
+<div class="flex items-center justify-between">
+<!-- Close / Exit Button -->
+<button aria-label="Fermer la partie" class="w-10 h-10 rounded-full glass-button flex items-center justify-center text-slate-300 hover:text-white transition active:scale-95 shadow-lg border-white/10">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+</button>
+<!-- Room & Game Brand Center -->
+<div class="flex flex-col items-center">
+<div class="flex items-center space-x-1.5">
+<span class="text-xl filter drop-shadow">🐺</span>
+<h1 class="font-fantasy tracking-wider text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-100 via-white to-purple-200">
+              Lupus Arena
+            </h1>
+</div>
+<span class="text-[11px] font-mono tracking-widest text-indigo-300/80 bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-500/20">
+            #ROOM-1234
+          </span>
+</div>
+<!-- Right Side: Night Badge & Profile Button -->
+<div class="flex items-center space-x-2">
+<!-- Night Status Pill -->
+<div class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-red-950/70 border border-red-500/40 text-rose-300 text-xs font-semibold tracking-wide shadow-glow-red/30">
+<span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+<span class="text-[10px] tracking-wider uppercase">Nuit</span>
+</div>
+<!-- Profile / Hearts Orb -->
+<div class="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-200 to-rose-300 p-[1.5px] shadow-lg">
+<div class="w-full h-full rounded-full bg-[#1b172a] flex items-center justify-center text-xs">
+              💖
+            </div>
+</div>
+</div>
+</div>
+<!-- Secondary Sub-Bar: Player Role & Phase Timer -->
+<div class="flex items-center justify-between px-1">
+<!-- Role Button -->
+<button class="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl glass-button border-purple-500/30 text-purple-200 shadow-glow-purple/20 active:scale-95 transition">
+<span class="text-sm">🔮</span>
+<span class="font-fantasy text-xs font-bold uppercase tracking-wider text-purple-100">Mon Rôle</span>
+</button>
+<!-- Turn Countdown Timer -->
+<div class="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl glass-button border-amber-500/30 bg-black/40 text-amber-300 font-mono text-xs font-bold shadow-glow-gold/20">
+<span class="text-amber-400 text-sm">🌙</span>
+<span class="tracking-wider">29s</span>
+</div>
+</div>
+</header>
+<!-- END: Top HUD & Navigation Bar -->
+<!-- BEGIN: Phase Banner -->
+<section class="relative z-10 text-center px-4 -mt-1" data-purpose="phase-announcement">
+<h2 class="font-fantasy text-2xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-slate-400 text-shadow-purple">
+        La Nuit Tombe
+      </h2>
+<p class="text-xs text-indigo-200/75 mt-0.5 tracking-normal italic font-serif">
+        sur le village endormi de Thiercelieux
+      </p>
+<div class="inline-flex items-center mt-2 px-3 py-0.5 rounded-full bg-indigo-950/70 border border-indigo-400/30 text-[10px] uppercase font-bold tracking-widest text-indigo-300 shadow-sm">
+        Phase Nuit • Tour 1
+      </div>
+</section>
+<!-- END: Phase Banner -->
+<!-- BEGIN: Central Mystic Table (15 Players Radial Arrangement) -->
+<section class="relative z-10 w-full flex-1 flex items-center justify-center my-0 max-h-[360px]" data-purpose="circular-village-table">
+<!-- Outer Radial Ring Wrapper (320px x 320px) -->
+<div class="relative w-[310px] h-[310px] flex items-center justify-center">
+<!-- Arcane Table Texture & Magic Circles -->
+<div class="absolute inset-4 rounded-full border border-purple-500/25 bg-radial from-purple-950/40 via-indigo-950/20 to-transparent pointer-events-none"></div>
+<div class="absolute inset-8 rounded-full border border-dashed border-cyan-400/25 animate-spin" style="animation-duration: 90s;"></div>
+<div class="absolute inset-16 rounded-full border border-amber-500/20"></div>
+<!-- Center Target Status Card -->
+<div class="relative z-20 flex flex-col items-center justify-center p-3 rounded-2xl glass-panel border-purple-500/40 shadow-glow-purple/30 text-center max-w-[130px]" data-purpose="center-target-card">
+<div class="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-red-950/60 border border-red-500/30 text-[9px] text-red-300 font-bold uppercase tracking-wider mb-1">
+<span class="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping"></span>
+<span>Cible</span>
+</div>
+<p class="text-xs font-semibold text-white tracking-wide leading-tight">
+            Aucune cible
+          </p>
+<span class="text-[9px] text-slate-400 mt-0.5">Votez ci-dessous</span>
+</div>
+<!-- Radial Players (15 Nodes: Alive, Targeted, Eliminated) -->
+<!-- Coordinates positioned with exact absolute math for clean circular symmetry -->
+<!-- Seat #1 (Top Center: 0 rad) -->
+<div class="absolute top-[2px] left-[135px] flex flex-col items-center group cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-gradient-to-b from-[#8d705c] to-[#5a4335] border border-amber-200/40 flex items-center justify-center text-[11px] font-bold text-amber-100 shadow-md">
+            AN
+          </div>
+<span class="text-[8.5px] font-medium text-slate-300 mt-0.5 truncate max-w-[48px]">#1 Anis</span>
+</div>
+<!-- Seat #2: Active / Highlighted Selection -->
+<div class="absolute top-[20px] right-[54px] flex flex-col items-center group cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-gradient-to-b from-[#947761] to-[#5b4437] border-2 border-amber-400 flex items-center justify-center text-[11px] font-bold text-amber-100 shadow-glow-gold">
+            AN
+          </div>
+<span class="text-[9px] font-bold text-amber-300 mt-0.5 truncate max-w-[50px]">#2 Anis</span>
+</div>
+<!-- Seat #3: Eliminated Player (Dimmed + Red Cross) -->
+<div class="absolute top-[68px] right-[10px] flex flex-col items-center opacity-70">
+<div class="relative w-10 h-10 rounded-full bg-[#1e212d]/90 border border-red-500/40 flex items-center justify-center shadow-inner">
+<span class="text-red-500 font-bold text-lg">✕</span>
+</div>
+<span class="text-[8.5px] text-slate-500 mt-0.5">#3 Lar...</span>
+</div>
+<!-- Seat #4: Alive -->
+<div class="absolute top-[132px] right-[0px] flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-gradient-to-b from-[#8d705c] to-[#5a4335] border border-amber-200/30 flex items-center justify-center text-[11px] font-bold text-amber-100">
+            AN
+          </div>
+<span class="text-[8.5px] text-slate-300 mt-0.5">#4</span>
+</div>
+<!-- Seat #5: Eliminated Player -->
+<div class="absolute bottom-[80px] right-[10px] flex flex-col items-center opacity-70">
+<div class="relative w-10 h-10 rounded-full bg-[#1e212d]/90 border border-red-500/40 flex items-center justify-center">
+<span class="text-red-500 font-bold text-lg">✕</span>
+</div>
+<span class="text-[8.5px] text-slate-500 mt-0.5">#5</span>
+</div>
+<!-- Seat #6: Eliminated Player -->
+<div class="absolute bottom-[28px] right-[50px] flex flex-col items-center opacity-70">
+<div class="relative w-10 h-10 rounded-full bg-[#1e212d]/90 border border-red-500/40 flex items-center justify-center">
+<span class="text-red-500 font-bold text-lg">✕</span>
+</div>
+<span class="text-[8.5px] text-slate-500 mt-0.5">#6 s...</span>
+</div>
+<!-- Seat #7: Active Player Token with Amber Pulse (Selected User) -->
+<div class="absolute bottom-[2px] right-[100px] flex flex-col items-center">
+<div class="relative w-11 h-11 rounded-full bg-gradient-to-b from-[#8d705c] to-[#5a4335] border-2 border-amber-400 flex items-center justify-center text-xs font-bold text-white shadow-glow-gold scale-105">
+            AN
+          </div>
+<span class="text-[9px] font-bold text-amber-300 mt-0.5 tracking-tighter">#8 ANIS</span>
+</div>
+<!-- Seat #8: Alive Player -->
+<div class="absolute bottom-[2px] left-[100px] flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-gradient-to-b from-[#8d705c] to-[#5a4335] border border-amber-200/30 flex items-center justify-center text-[11px] font-bold text-amber-100">
+            GA
+          </div>
+<span class="text-[8.5px] text-slate-300 mt-0.5">#9 Gauv</span>
+</div>
+<!-- Seat #9: Eliminated Player -->
+<div class="absolute bottom-[28px] left-[50px] flex flex-col items-center opacity-70">
+<div class="relative w-10 h-10 rounded-full bg-[#1e212d]/90 border border-red-500/40 flex items-center justify-center">
+<span class="text-red-500 font-bold text-lg">✕</span>
+</div>
+<span class="text-[8.5px] text-slate-500 mt-0.5">#10 Bé...</span>
+</div>
+<!-- Seat #10: Eliminated Player -->
+<div class="absolute bottom-[80px] left-[10px] flex flex-col items-center opacity-70">
+<div class="relative w-10 h-10 rounded-full bg-[#1e212d]/90 border border-red-500/40 flex items-center justify-center">
+<span class="text-red-500 font-bold text-lg">✕</span>
+</div>
+<span class="text-[8.5px] text-slate-500 mt-0.5">#11 Ys...</span>
+</div>
+<!-- Seat #11: Eliminated Player -->
+<div class="absolute top-[132px] left-[0px] flex flex-col items-center opacity-70">
+<div class="relative w-10 h-10 rounded-full bg-[#1e212d]/90 border border-red-500/40 flex items-center justify-center">
+<span class="text-red-500 font-bold text-lg">✕</span>
+</div>
+<span class="text-[8.5px] text-slate-500 mt-0.5">#12 G...</span>
+</div>
+<!-- Seat #12: Alive Player -->
+<div class="absolute top-[68px] left-[10px] flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-gradient-to-b from-[#8d705c] to-[#5a4335] border border-amber-200/30 flex items-center justify-center text-[11px] font-bold text-amber-100">
+            GU
+          </div>
+<span class="text-[8.5px] text-slate-300 mt-0.5">#13 Anis</span>
+</div>
+<!-- Seat #13: Alive Player -->
+<div class="absolute top-[20px] left-[54px] flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-gradient-to-b from-[#8d705c] to-[#5a4335] border border-amber-200/30 flex items-center justify-center text-[11px] font-bold text-amber-100">
+            AN
+          </div>
+<span class="text-[8.5px] text-slate-300 mt-0.5">#14 Anis</span>
+</div>
+<!-- Seat #14: Alive Player -->
+<div class="absolute top-[6px] left-[94px] flex flex-col items-center">
+<div class="w-9 h-9 rounded-full bg-gradient-to-b from-[#8d705c] to-[#5a4335] border border-amber-200/30 flex items-center justify-center text-[10px] font-bold text-amber-100">
+            GU
+          </div>
+<span class="text-[8px] text-slate-300 mt-0.5">#15 Gue</span>
+</div>
+<!-- Seat #15: Alive Player -->
+<div class="absolute top-[6px] right-[94px] flex flex-col items-center">
+<div class="w-9 h-9 rounded-full bg-gradient-to-b from-[#8d705c] to-[#5a4335] border border-amber-200/30 flex items-center justify-center text-[10px] font-bold text-amber-100">
+            AN
+          </div>
+<span class="text-[8px] text-slate-300 mt-0.5">#16 An</span>
+</div>
+</div>
+</section>
+<!-- END: Central Mystic Table -->
+<!-- BEGIN: Werewolf Victim Choice & Voting Carousel -->
+<section class="relative z-20 px-4 pt-1 pb-2" data-purpose="victim-selection-panel">
+<!-- Section Title & Status Indicator -->
+<div class="flex items-center justify-between mb-2.5">
+<div class="flex items-center space-x-1.5">
+<span class="text-sm">🎯</span>
+<h3 class="font-fantasy text-xs tracking-wider uppercase font-bold text-slate-100">
+            Choisissez votre victime
+          </h3>
+</div>
+<span class="text-xs font-semibold text-amber-400/90 font-mono tracking-wide">
+          Phase d'accord
+        </span>
+</div>
+<!-- Horizontal Cards Carousel -->
+<div class="flex space-x-3 overflow-x-auto hide-scrollbar py-1 px-0.5" data-purpose="player-cards-deck">
+<!-- Victim Card 1 (Active/Selected) -->
+<div class="flex-shrink-0 w-[104px] rounded-2xl glass-panel border-amber-500/50 bg-[#12172a]/80 p-3 flex flex-col items-center text-center shadow-glow-gold/30 ring-1 ring-amber-400/40 cursor-pointer">
+<div class="w-11 h-11 rounded-full bg-[#8d705c] border-2 border-amber-300/80 flex items-center justify-center text-sm font-bold text-white shadow">
+            A
+          </div>
+<span class="text-xs font-semibold text-slate-100 mt-2 truncate w-full">
+            Anis (Admin)
+          </span>
+<span class="text-[10px] text-cyan-300 font-mono mt-1 flex items-center space-x-1">
+<span>🐾</span>
+<span>0 votes</span>
+</span>
+</div>
+<!-- Victim Card 2 -->
+<div class="flex-shrink-0 w-[104px] rounded-2xl glass-panel border-purple-500/20 bg-[#0d1224]/70 p-3 flex flex-col items-center text-center hover:border-purple-400/50 transition cursor-pointer">
+<div class="w-11 h-11 rounded-full bg-[#8d705c] border border-slate-400/30 flex items-center justify-center text-sm font-bold text-slate-200">
+            A
+          </div>
+<span class="text-xs font-medium text-slate-200 mt-2 truncate w-full">
+            Anis (Admin)
+          </span>
+<span class="text-[10px] text-slate-400 font-mono mt-1 flex items-center space-x-1">
+<span>🐾</span>
+<span>0 votes</span>
+</span>
+</div>
+<!-- Victim Card 3 -->
+<div class="flex-shrink-0 w-[104px] rounded-2xl glass-panel border-purple-500/20 bg-[#0d1224]/70 p-3 flex flex-col items-center text-center hover:border-purple-400/50 transition cursor-pointer">
+<div class="w-11 h-11 rounded-full bg-[#8d705c] border border-slate-400/30 flex items-center justify-center text-sm font-bold text-slate-200">
+            A
+          </div>
+<span class="text-xs font-medium text-slate-200 mt-2 truncate w-full">
+            Anis (Admin)
+          </span>
+<span class="text-[10px] text-slate-400 font-mono mt-1 flex items-center space-x-1">
+<span>🐾</span>
+<span>0 votes</span>
+</span>
+</div>
+<!-- Victim Card 4 -->
+<div class="flex-shrink-0 w-[104px] rounded-2xl glass-panel border-purple-500/20 bg-[#0d1224]/70 p-3 flex flex-col items-center text-center hover:border-purple-400/50 transition cursor-pointer">
+<div class="w-11 h-11 rounded-full bg-[#8d705c] border border-slate-400/30 flex items-center justify-center text-sm font-bold text-slate-200">
+            A
+          </div>
+<span class="text-xs font-medium text-slate-200 mt-2 truncate w-full">
+            Anis (Admin)
+          </span>
+<span class="text-[10px] text-slate-400 font-mono mt-1 flex items-center space-x-1">
+<span>🐾</span>
+<span>0 votes</span>
+</span>
+</div>
+</div>
+</section>
+<!-- END: Werewolf Victim Choice & Voting Carousel -->
+<!-- BEGIN: Primary Actions & iOS Home Indicator Bar -->
+<footer class="relative z-20 px-4 pb-6 pt-1 space-y-3" data-purpose="bottom-actions-footer">
+<!-- Dual Game Action Buttons -->
+<div class="grid grid-cols-2 gap-3">
+<!-- Devour Action (Secondary Dark Obsidian with Blue Glow) -->
+<button class="py-3.5 px-3 rounded-2xl glass-button border-slate-700/60 bg-[#161c31]/90 flex items-center justify-center space-x-2 text-slate-300 active:scale-[0.98] transition shadow-lg hover:border-cyan-500/40">
+<span class="text-base text-cyan-400">🐾</span>
+<span class="font-fantasy text-xs font-extrabold uppercase tracking-wider text-slate-200 truncate">
+            Dévorer la cible
+          </span>
+</button>
+<!-- Dawn / Next Phase Action (Primary Vibrant Radiant Gold) -->
+<button class="py-3.5 px-3 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-slate-950 font-fantasy font-black text-sm uppercase tracking-wider flex items-center justify-center space-x-2 shadow-glow-gold hover:brightness-110 active:scale-[0.98] transition">
+<span class="text-lg">☀️</span>
+<span>Aube</span>
+</button>
+</div>
+<!-- Native iOS Home Indicator Bar -->
+<div class="flex justify-center pt-1" data-purpose="ios-indicator">
+<div class="w-32 h-1 bg-white/30 rounded-full"></div>
+</div>
+</footer>
+<!-- END: Primary Actions & iOS Home Indicator Bar -->
+</main>
+<!-- END: Mobile Container -->
+</body></html>

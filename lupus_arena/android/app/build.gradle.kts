@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services")
 }
 
 android {
@@ -15,7 +14,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "DZ.LUPUSARENA"
+        // A new, conventional identifier avoids package/signature conflicts
+        // with legacy Lupus Arena installs on the device.
+        applicationId = "com.anisghdlab.lupusarena"
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -48,8 +49,4 @@ kotlin {
 
 flutter {
     source = "../.."
-}
-
-dependencies {
-    implementation("com.google.firebase:firebase-common:21.0.0")
 }

@@ -8,12 +8,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # The debug keystore must not be created under the runner config folder.
+      ANDROID_USER_HOME: ${{ runner.temp }}/android-user-home
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -24,20 +27,15 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Fix gradle.properties for Linux
-        run: |
-          sed -i '/org\.gradle\.java\.home/d' android/gradle.properties || true
+      - name: Prepare Android user directory
+        run: mkdir -p "$ANDROID_USER_HOME/.android"
         working-directory: lupus_arena
-
-      - name: Install Android SDK Platform 31 and CMake 3.22.1
-        run: |
-          echo "y" | sudo /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-31" "cmake;3.22.1"
 
       - name: Install dependencies
         run: flutter pub get
         working-directory: lupus_arena
 
-      - name: Build APK
+      - name: Build universal APK (arm32, arm64, x86, x86_64)
         run: flutter build apk --release --android-skip-build-dependency-validation
         working-directory: lupus_arena
 

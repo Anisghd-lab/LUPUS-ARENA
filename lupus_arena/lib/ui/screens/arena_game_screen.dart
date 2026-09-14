@@ -457,6 +457,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         ? gameState.myRole as GameRole
         : GameRole.simpleVillager;
     final isMeAlive = gameState.isAlive as bool? ?? true;
+    final isDevRoom = (room.isDevRoom as bool?) ?? false;
+    final isGodModeActive = (gameState.isGodModeActive as bool?) ?? false;
+    final isGodMode = isGodModeActive && isDevRoom;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

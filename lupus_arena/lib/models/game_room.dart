@@ -35,8 +35,10 @@ class GameRoom {
   final int timerSeconds;
   final List<String> logs;
 
-  // Configuration du Deck de Rôles
+  // Configuration du Deck de Rôles & Disposition des Sièges
   final Map<String, int> rolePool;
+  final bool isDevRoom;
+  final List<String> seatingOrder;
 
   const GameRoom({
     required this.roomCode,
@@ -64,13 +66,38 @@ class GameRoom {
     this.timerSeconds = 60,
     this.logs = const [],
     this.rolePool = const {},
+    this.isDevRoom = false,
+    this.seatingOrder = const [],
   });
 
-  List<PlayerModel> get playerList => players.values.toList();
+  List<PlayerModel> get playerList {
+    if (seatingOrder.isNotEmpty) {
+      final list = <PlayerModel>[];
+      final seen = <String>{};
+      for (final id in seatingOrder) {
+        if (players.containsKey(id)) {
+          list.add(players[id]!);
+          seen.add(id);
+        }
+      }
+      for (final entry in players.entries) {
+        if (!seen.contains(entry.key)) {
+          list.add(entry.value);
+        }
+      }
+      return list;
+    }
+    final all = players.values.toList();
+    if (all.any((p) => p.seatIndex >= 0)) {
+      all.sort((a, b) => a.seatIndex.compareTo(b.seatIndex));
+      return all;
+    }
+    return all;
+  }
   List<PlayerModel> get alivePlayers =>
-      players.values.where((p) => p.isAlive).toList();
+      playerList.where((p) => p.isAlive).toList();
   List<PlayerModel> get deadPlayers =>
-      players.values.where((p) => !p.isAlive).toList();
+      playerList.where((p) => !p.isAlive).toList();
 
   int get aliveWerewolvesCount =>
       alivePlayers.where((p) => p.role.isEvil).length;
@@ -129,6 +156,8 @@ class GameRoom {
     int? timerSeconds,
     List<String>? logs,
     Map<String, int>? rolePool,
+    bool? isDevRoom,
+    List<String>? seatingOrder,
   }) {
     return GameRoom(
       roomCode: roomCode ?? this.roomCode,
@@ -157,6 +186,8 @@ class GameRoom {
       timerSeconds: timerSeconds ?? this.timerSeconds,
       logs: logs ?? this.logs,
       rolePool: rolePool ?? this.rolePool,
+      isDevRoom: isDevRoom ?? this.isDevRoom,
+      seatingOrder: seatingOrder ?? this.seatingOrder,
     );
   }
 
@@ -187,20 +218,37 @@ class GameRoom {
       'timerSeconds': timerSeconds,
       'logs': logs,
       'rolePool': rolePool,
+      'isDevRoom': isDevRoom,
+      'seatingOrder': seatingOrder,
       'config': {
         'rolePool': rolePool,
       },
     };
   }
 
-  factory GameRoom.fromMap(Map<dynamic, dynamic> map, String code) {
+  factory GameRoom.fromMap(
+    Map<dynamic, dynamic> map,
+    String code, [
+    String? currentUserId,
+  ]) {
+    final roomCodeStr = (map['roomCode'] ?? code).toString();
+    final isDevRoom = map['isDevRoom'] == true ||
+        code.toUpperCase().startsWith('TEST') ||
+        code.toUpperCase().startsWith('DEV') ||
+        roomCodeStr.toUpperCase().startsWith('TEST') ||
+        roomCodeStr.toUpperCase().startsWith('DEV');
+
     final rawPlayers = map['players'];
     final Map<String, PlayerModel> parsedPlayers = {};
     if (rawPlayers is Map) {
       rawPlayers.forEach((key, val) {
         if (val is Map) {
-          parsedPlayers[key.toString()] =
-              PlayerModel.fromMap(val, key.toString());
+          parsedPlayers[key.toString()] = PlayerModel.fromMap(
+            val,
+            key.toString(),
+            currentUserId,
+            roomCodeStr,
+          );
         }
       });
     } else if (rawPlayers is List) {
@@ -208,7 +256,12 @@ class GameRoom {
         final val = rawPlayers[i];
         if (val is Map) {
           final id = val['id']?.toString() ?? 'player_$i';
-          parsedPlayers[id] = PlayerModel.fromMap(val, id);
+          parsedPlayers[id] = PlayerModel.fromMap(
+            val,
+            id,
+            currentUserId,
+            roomCodeStr,
+          );
         }
       }
     }
@@ -260,6 +313,14 @@ class GameRoom {
       });
     }
 
+    final rawSeatingOrder = map['seatingOrder'];
+    final List<String> parsedSeatingOrder = [];
+    if (rawSeatingOrder is List) {
+      for (final item in rawSeatingOrder) {
+        if (item != null) parsedSeatingOrder.add(item.toString());
+      }
+    }
+
     return GameRoom(
       roomCode: (map['roomCode'] ?? code).toString(),
       hostId: (map['hostId'] ?? '').toString(),
@@ -290,6 +351,8 @@ class GameRoom {
           : int.tryParse(map['timerSeconds']?.toString() ?? '60') ?? 60,
       logs: parsedLogs,
       rolePool: parsedRolePool,
+      isDevRoom: isDevRoom,
+      seatingOrder: parsedSeatingOrder,
     );
   }
 }

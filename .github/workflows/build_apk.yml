@@ -1,9 +1,12 @@
-﻿name: Build Flutter APK
+name: Build & Release Flutter APK
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -35,12 +38,40 @@ jobs:
         run: flutter pub get
         working-directory: lupus_arena
 
-      - name: Build universal APK (ARM 32-bit, ARM 64-bit, x86_64)
-        run: flutter build apk --release --android-skip-build-dependency-validation
+      - name: Build Split-per-ABI APKs (32-bit & 64-bit)
+        run: |
+          mkdir -p build/app/outputs/symbols
+          flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/app/outputs/symbols --android-skip-build-dependency-validation
+          echo "=== Taille des APKs générés ==="
+          ls -lh build/app/outputs/flutter-apk/
         working-directory: lupus_arena
 
-      - name: Upload APK Artifact
+      - name: Prepare Named Release APKs
+        run: |
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/LupusArena-arm32.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/LupusArena-arm64.apk
+          echo "=== Fichiers prêts pour la Release ==="
+          ls -lh build/app/outputs/flutter-apk/LupusArena-arm32.apk build/app/outputs/flutter-apk/LupusArena-arm64.apk
+        working-directory: lupus_arena
+
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-release.apk
-          path: lupus_arena/build/app/outputs/flutter-apk/app-release.apk
+          name: lupus-arena-apks
+          path: |
+            lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm32.apk
+            lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm64.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0+1
+          name: "Release v1.0.0+1"
+          body: "Builds Android optimisés (32-bit et 64-bit séparés pour réduire la taille de l'APK)."
+          draft: false
+          prerelease: false
+          files: |
+            lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm32.apk
+            lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm64.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -12,6 +12,7 @@ import 'AgoraVoiceService.dart';
 import 'models/game_phase.dart';
 import 'models/game_room.dart';
 import 'models/player_model.dart';
+import 'services/role_security_service.dart';
 
 /// URL spécifique de la Realtime Database configurée dans google-services.json
 const String kFirebaseDatabaseUrl =
@@ -31,8 +32,11 @@ class LupusGameState {
   final bool isVoiceConnected;
   final bool isMuted;
   final bool isAdmin;
+  final bool isGodModeActive;
   final bool isOmniscientVoice;
   final String? currentVoiceChannel;
+  final Map<String, GameRole> seerInspectedRoles;
+  final Set<String> wolfPlayerIds;
 
   const LupusGameState({
     required this.currentUserId,
@@ -47,8 +51,11 @@ class LupusGameState {
     this.isVoiceConnected = false,
     this.isMuted = false,
     this.isAdmin = false,
+    this.isGodModeActive = false,
     this.isOmniscientVoice = false,
     this.currentVoiceChannel,
+    this.seerInspectedRoles = const {},
+    this.wolfPlayerIds = const {},
   });
 
   bool get isInGame => room != null;
@@ -60,6 +67,10 @@ class LupusGameState {
   bool get isLover => currentPlayer?.isLover ?? false;
   bool get isWolfVoiceChannel =>
       currentVoiceChannel != null && currentVoiceChannel!.endsWith('_wolves');
+  bool get isGodMode => isGodModeActive && (room?.isDevRoom == true);
+  bool get canRevealAllRoles =>
+      isGodMode || (room?.phase == GamePhase.gameOver);
+
   String? get loverName {
     if (!isLover || currentPlayer?.loverId == null || room == null) return null;
     return room!.players[currentPlayer!.loverId!]?.name;
@@ -78,9 +89,13 @@ class LupusGameState {
     bool? isVoiceConnected,
     bool? isMuted,
     bool? isAdmin,
+    bool? isGodModeActive,
     bool? isOmniscientVoice,
     String? currentVoiceChannel,
+    Map<String, GameRole>? seerInspectedRoles,
+    Set<String>? wolfPlayerIds,
     bool clearRoom = false,
+    bool clearInspectedRole = false,
   }) {
     return LupusGameState(
       currentUserId: currentUserId ?? this.currentUserId,
@@ -90,13 +105,18 @@ class LupusGameState {
       room: clearRoom ? null : (room ?? this.room),
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
-      inspectedRole: inspectedRole ?? this.inspectedRole,
+      inspectedRole: clearInspectedRole
+          ? null
+          : (inspectedRole ?? this.inspectedRole),
       speakingAgoraUids: speakingAgoraUids ?? this.speakingAgoraUids,
       isVoiceConnected: isVoiceConnected ?? this.isVoiceConnected,
       isMuted: isMuted ?? this.isMuted,
       isAdmin: isAdmin ?? this.isAdmin,
+      isGodModeActive: isGodModeActive ?? this.isGodModeActive,
       isOmniscientVoice: isOmniscientVoice ?? this.isOmniscientVoice,
       currentVoiceChannel: currentVoiceChannel ?? this.currentVoiceChannel,
+      seerInspectedRoles: seerInspectedRoles ?? this.seerInspectedRoles,
+      wolfPlayerIds: wolfPlayerIds ?? this.wolfPlayerIds,
     );
   }
 }
@@ -105,6 +125,8 @@ class LupusGameState {
 class GameNotifier extends StateNotifier<LupusGameState> {
   final AgoraVoiceService _voiceService = AgoraVoiceService();
   StreamSubscription<DatabaseEvent>? _roomSubscription;
+  StreamSubscription<DatabaseEvent>? _secretRoleSubscription;
+  StreamSubscription<DatabaseEvent>? _wolfPackSubscription;
   DatabaseReference? _currentRoomRef;
   String? _lastAppliedVoiceChannel;
   GamePhase? _lastAppliedVoicePhase;
@@ -159,6 +181,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     if (state.room != null &&
         (updates.containsKey('phase') ||
+            updates.containsKey('timerSeconds') ||
             updates.containsKey('currentSpeakerId'))) {
       final updatedPhase = updates.containsKey('phase')
           ? GamePhase.values.firstWhere(
@@ -166,12 +189,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
               orElse: () => state.room!.phase,
             )
           : state.room!.phase;
+      final updatedTimer = updates.containsKey('timerSeconds')
+          ? (updates['timerSeconds'] as int)
+          : state.room!.timerSeconds;
       final provisionalRoom = state.room!.copyWith(
         phase: updatedPhase,
+        timerSeconds: updatedTimer,
         currentSpeakerId: updates.containsKey('currentSpeakerId')
             ? updates['currentSpeakerId']
             : state.room!.currentSpeakerId,
       );
+      state = state.copyWith(room: provisionalRoom);
       await _applyVoiceRulesForPhase(provisionalRoom);
     }
   }
@@ -214,7 +242,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         userAccount: state.currentUserId,
       );
 
-      state = state.copyWith(room: newRoom, isLoading: false);
+      state = state.copyWith(
+        room: newRoom,
+        isLoading: false,
+        isAdmin: false,
+        isGodModeActive: false,
+      );
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -232,49 +265,81 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final roomCode = 'TEST${Random().nextInt(900) + 100}';
       unlockAdmin('03031994');
 
-      final botData = [
-        ('Arthur (Maire)', GameRole.simpleVillager, 0, true),
-        ('Morgane', GameRole.simpleWerewolf, 1, false),
-        ('Gauvain', GameRole.simpleWerewolf, 2, false),
-        ('Lancelot', GameRole.hunter, 3, false),
-        ('Merlin', GameRole.witch, 4, false),
-        ('Perceval', GameRole.defender, 5, false),
-        ('Bohort', GameRole.cupid, 6, false),
-        ('Ygraine', GameRole.littleGirl, 7, false),
-        ('Guenièvre', GameRole.simpleVillager, 8, false),
-        ('Tristan', GameRole.twoSisters, 9, false),
-        ('Iseult', GameRole.twoSisters, 0, false),
-        ('Viviane', GameRole.fox, 1, false),
-        ('Léodagan', GameRole.elder, 2, false),
-        ('Dagonet', GameRole.idiot, 3, false),
+      final secureRandom = Random.secure();
+      final pool = generateDefaultRolePool(15);
+      final List<GameRole> flatRoles = [];
+      pool.forEach((roleId, qty) {
+        final role = GameRole.fromId(roleId);
+        for (int i = 0; i < qty; i++) {
+          flatRoles.add(role);
+        }
+      });
+      flatRoles.shuffle(secureRandom);
+      flatRoles.shuffle(secureRandom); // Double brassage cryptographique
+
+      final botNames = [
+        'Arthur',
+        'Morgane',
+        'Gauvain',
+        'Lancelot',
+        'Merlin',
+        'Perceval',
+        'Bohort',
+        'Ygraine',
+        'Guenièvre',
+        'Tristan',
+        'Iseult',
+        'Viviane',
+        'Léodagan',
+        'Dagonet',
       ];
+      botNames.shuffle(secureRandom);
+
+      final List<String> participantIds = [
+        state.currentUserId,
+        for (int i = 1; i <= 14; i++) 'bot_$i',
+      ];
+      participantIds.shuffle(secureRandom);
+      final seatingOrder = List<String>.from(participantIds);
 
       final Map<String, PlayerModel> players = {};
-      final adminPlayer = PlayerModel(
-        id: state.currentUserId,
-        name: '${state.currentUserName} [Admin]',
-        avatarIndex: state.currentUserAvatar,
-        role: GameRole.seer,
-        isHost: true,
-        isReady: true,
-        isAlive: true,
-        agoraUid: state.agoraUid,
-      );
-      players[state.currentUserId] = adminPlayer;
+      final List<String> wolfPlayerIds = [];
+      final Map<String, dynamic> secretRoles = {};
+      String? initialCaptainId;
 
-      for (int i = 0; i < botData.length; i++) {
-        final b = botData[i];
-        final bId = 'bot_${i + 1}';
-        players[bId] = PlayerModel(
-          id: bId,
-          name: b.$1,
-          avatarIndex: b.$3,
-          role: b.$2,
-          isCaptain: b.$4,
-          isHost: false,
+      for (int i = 0; i < participantIds.length; i++) {
+        final id = participantIds[i];
+        final role = flatRoles[i];
+        final isLocal = id == state.currentUserId;
+        final name = isLocal
+            ? '${state.currentUserName} [Admin]'
+            : botNames[(i - 1 + botNames.length) % botNames.length];
+        final avatar = isLocal ? state.currentUserAvatar : (i % 6);
+        final seat = seatingOrder.indexOf(id);
+        final isCaptain = (i == 0);
+        if (isCaptain) initialCaptainId = id;
+
+        if (role.isEvil) {
+          wolfPlayerIds.add(id);
+        }
+
+        secretRoles[id] = {
+          'roleId': role.id,
+          'roleName': role.displayName,
+          'assignedAt': ServerValue.timestamp,
+        };
+
+        players[id] = PlayerModel(
+          id: id,
+          name: name,
+          avatarIndex: avatar,
+          role: role,
+          isCaptain: isCaptain,
+          isHost: isLocal,
           isReady: true,
           isAlive: true,
-          agoraUid: 2000 + i + 1,
+          seatIndex: seat,
+          agoraUid: isLocal ? state.agoraUid : 2000 + i,
         );
       }
 
@@ -284,14 +349,27 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         phase: GamePhase.nightDefender, // Le Salvateur commence en premier
         round: 1,
         players: players,
-        captainId: 'bot_1',
-        rolePool: generateDefaultRolePool(15),
+        captainId: initialCaptainId ?? 'bot_1',
+        rolePool: pool,
+        isDevRoom: true,
+        seatingOrder: seatingOrder,
         logs: [
           'Partie de test Maître du Jeu initialisée (15 joueurs).',
-          'Arthur (Maire) est le Capitaine du village.',
+          'Rôles et sièges distribués de manière 100% aléatoire.',
           'La première nuit tombe... Salvateur, réveillez-vous !',
         ],
       );
+
+      try {
+        await _database.ref('rooms/$roomCode/secret_roles').set(secretRoles);
+        final encryptedWolves =
+            RoleSecurityService.encryptWolfRoster(wolfPlayerIds, roomCode);
+        await _database
+            .ref('rooms/$roomCode/wolf_pack')
+            .set({'data': encryptedWolves});
+      } catch (e) {
+        debugPrint('[Firebase Test Room Error] $e');
+      }
 
       _currentRoomRef = _database.ref('games/$roomCode');
       await _currentRoomRef!.set(newRoom.toMap());
@@ -310,7 +388,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         _voiceService.addLog('⚠️ Exception vocal test room: $e');
       }
 
-      state = state.copyWith(room: newRoom, isLoading: false, isAdmin: true);
+      state = state.copyWith(
+        room: newRoom,
+        isLoading: false,
+        isAdmin: true,
+        isGodModeActive: true,
+      );
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -637,35 +720,69 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     });
 
-    flatRoles.shuffle(Random());
+    final secureRandom = Random.secure();
+    flatRoles.shuffle(secureRandom);
+    flatRoles.shuffle(secureRandom); // Double brassage cryptographique pour aléatoire 100% garanti
+
     final shuffledPlayers = List<PlayerModel>.from(playersList)
-      ..shuffle(Random());
+      ..shuffle(secureRandom);
+
+    // Distribution des sièges à la table 100% aléatoire à chaque partie
+    final seatingOrder = shuffledPlayers.map((p) => p.id).toList()
+      ..shuffle(secureRandom);
+
+    final roomCode = state.room!.roomCode;
+    final isDevRoom = state.room?.isDevRoom == true;
 
     final Map<String, dynamic> updatedPlayers = {};
     final Map<String, dynamic> secretRoles = {};
+    final List<String> wolfPlayerIds = [];
 
     for (int i = 0; i < shuffledPlayers.length; i++) {
       final p = shuffledPlayers[i];
       final assignedRole = flatRoles[i];
-      final updatedP = p.copyWith(
-        role: assignedRole,
-        isAlive: true,
-        targetVoteId: null,
-        isCaptain: false,
-        isLover: false,
-        loverId: null,
-      );
-      updatedPlayers[p.id] = updatedP.toMap();
+      if (assignedRole.isEvil) {
+        wolfPlayerIds.add(p.id);
+      }
+
       secretRoles[p.id] = {
         'roleId': assignedRole.id,
         'roleName': assignedRole.displayName,
         'assignedAt': ServerValue.timestamp,
       };
+
+      final encryptedRoleToken = RoleSecurityService.encryptRole(
+        assignedRole.id,
+        p.id,
+        roomCode,
+      );
+
+      final seatIdx = seatingOrder.indexOf(p.id);
+
+      final updatedP = p.copyWith(
+        role: isDevRoom ? assignedRole : GameRole.simpleVillager,
+        isAlive: true,
+        targetVoteId: null,
+        isCaptain: false,
+        isLover: false,
+        loverId: null,
+        seatIndex: seatIdx,
+        encryptedRole: encryptedRoleToken,
+      );
+      final pMap = updatedP.toMap();
+      if (!isDevRoom) {
+        pMap['role'] = 'masked';
+      }
+      pMap['seatIndex'] = seatIdx;
+      updatedPlayers[p.id] = pMap;
     }
 
-    final roomCode = state.room!.roomCode;
     try {
       await _database.ref('rooms/$roomCode/secret_roles').set(secretRoles);
+      final encryptedWolves =
+          RoleSecurityService.encryptWolfRoster(wolfPlayerIds, roomCode);
+      await _database.ref('rooms/$roomCode/wolf_pack').set({'data': encryptedWolves});
+      await _currentRoomRef!.child('seatingOrder').set(seatingOrder);
     } catch (e) {
       debugPrint('[Firebase Secret Roles Error] $e');
     }
@@ -700,6 +817,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'phase': firstPhase.name,
       'round': 1,
       'players': updatedPlayers,
+      'seatingOrder': seatingOrder,
       'captainId': null,
       'lastProtectedPlayerId': null,
       'currentProtectedPlayerId': null,
@@ -726,7 +844,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   // ===========================================================================
 
   Future<void> processNightTransitions() async {
-    if (!state.isHost || state.room == null) return;
+    if (state.room == null) return;
 
     final room = state.room!;
     final current = room.phase;
@@ -752,7 +870,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
       // Si les loups terminent leur phase, calculer et fixer leur cible pour la Voyante et la Sorcière
       if (current == GamePhase.nightWerewolves) {
-        String? wolfVictimId = _tallyWerewolfVotes();
+        String? wolfVictimId = _tallyWerewolfVotes() ?? room.nightVictimId;
 
         if (wolfVictimId == null) {
           final innocentLiving = room.alivePlayers
@@ -867,9 +985,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   Future<void> resolveMorningDeaths() async {
-    if (!state.isHost || state.room == null) return;
+    if (state.room == null) return;
 
     final room = state.room!;
+    if (room.phase == GamePhase.morningAnnouncement ||
+        room.phase == GamePhase.dayDebate ||
+        room.phase == GamePhase.gameOver) {
+      return;
+    }
     final updates = <String, dynamic>{};
     final logs = List<String>.from(room.logs);
     final List<String> effectiveDeaths = [];
@@ -930,8 +1053,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['players/$id/isAlive'] = false;
       final player = room.players[id];
       if (player != null) {
+        GameRole revealedRole = player.role;
+        try {
+          final sSnap = await _database
+              .ref('rooms/${room.roomCode}/secret_roles/$id/roleId')
+              .get();
+          if (sSnap.exists && sSnap.value != null) {
+            revealedRole = GameRole.fromId(sSnap.value.toString());
+          }
+        } catch (_) {}
+        updates['players/$id/role'] = revealedRole.id;
         logs.add(
-          '💀 ${player.name} (${player.role.displayNameFr}) a succombé.',
+          '💀 ${player.name} (${revealedRole.displayNameFr}) a succombé.',
         );
       }
     }
@@ -980,6 +1113,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['phase'] = GamePhase.gameOver.name;
       updates['winner'] = win;
       logs.add(_formatVictoryMessage(win));
+      // Révélation publique de tous les rôles restants à la fin de partie
+      for (final p in room.playerList) {
+        GameRole revealedRole = p.role;
+        try {
+          final sSnap = await _database
+              .ref('rooms/${room.roomCode}/secret_roles/${p.id}/roleId')
+              .get();
+          if (sSnap.exists && sSnap.value != null) {
+            revealedRole = GameRole.fromId(sSnap.value.toString());
+          }
+        } catch (_) {}
+        updates['players/${p.id}/role'] = revealedRole.id;
+      }
     } else if (pendingHunter != null) {
       updates['phase'] = GamePhase.hunterDeathChoice.name;
       updates['pendingHunterId'] = pendingHunter;
@@ -1061,6 +1207,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final queue = List<String>.from(room.debateQueue);
     final updates = <String, dynamic>{};
     final logs = List<String>.from(room.logs);
+    final currentSpeakerName =
+        room.players[room.currentSpeakerId]?.name ?? 'Un citoyen';
 
     if (queue.isNotEmpty) {
       queue.removeAt(0);
@@ -1072,7 +1220,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['debateQueue'] = queue;
       updates['currentSpeakerId'] = nextSpeakerId;
       updates['timerSeconds'] = 45;
-      logs.add('🎙️ Fin du temps. La parole passe à $speakerName.');
+      logs.add('🎙️ $currentSpeakerName a cédé sa parole. La parole passe à $speakerName.');
     } else {
       updates['phase'] = GamePhase.dayVoting.name;
       updates['currentSpeakerId'] = null;
@@ -1180,8 +1328,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final condemned = room.players[condemnedId];
     if (condemned == null) return;
 
-    if (room.round == 1 && condemned.role == GameRole.angel) {
+    GameRole condemnedRealRole = condemned.role;
+    try {
+      final sSnap = await _database
+          .ref('rooms/${room.roomCode}/secret_roles/$condemnedId/roleId')
+          .get();
+      if (sSnap.exists && sSnap.value != null) {
+        condemnedRealRole = GameRole.fromId(sSnap.value.toString());
+      }
+    } catch (_) {}
+
+    if (room.round == 1 && condemnedRealRole == GameRole.angel) {
       updates['players/$condemnedId/isAlive'] = false;
+      updates['players/$condemnedId/role'] = condemnedRealRole.id;
       updates['phase'] = GamePhase.gameOver.name;
       updates['winner'] = 'angel';
       logs.add(
@@ -1192,7 +1351,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return;
     }
 
-    if (condemned.role == GameRole.idiot) {
+    if (condemnedRealRole == GameRole.idiot) {
       logs.add(
         '🤪 L\'Idiot du Village ${condemned.name} est gracié par la compassion du village ! Il reste en vie mais perd tout droit de vote.',
       );
@@ -1203,13 +1362,27 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
 
     updates['players/$condemnedId/isAlive'] = false;
+    updates['players/$condemnedId/role'] = condemnedRealRole.id;
     logs.add(
-      '🔥 Le village a jeté ${condemned.name} aux flammes du bûcher ! Il était ${condemned.role.displayNameFr}.',
+      '🔥 Le village a jeté ${condemned.name} aux flammes du bûcher ! Il était ${condemnedRealRole.displayNameFr}.',
     );
 
     final deadPartnerId = handleLoverDeath(condemnedId, room.players, logs);
     if (deadPartnerId != null) {
       updates['players/$deadPartnerId/isAlive'] = false;
+      final deadPartner = room.players[deadPartnerId];
+      if (deadPartner != null) {
+        GameRole partnerRole = deadPartner.role;
+        try {
+          final pSnap = await _database
+              .ref('rooms/${room.roomCode}/secret_roles/$deadPartnerId/roleId')
+              .get();
+          if (pSnap.exists && pSnap.value != null) {
+            partnerRole = GameRole.fromId(pSnap.value.toString());
+          }
+        } catch (_) {}
+        updates['players/$deadPartnerId/role'] = partnerRole.id;
+      }
     }
 
     final allDeaths = {
@@ -1237,6 +1410,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['phase'] = GamePhase.gameOver.name;
       updates['winner'] = win;
       logs.add(_formatVictoryMessage(win));
+      for (final p in room.playerList) {
+        GameRole pRole = p.role;
+        try {
+          final sSnap = await _database
+              .ref('rooms/${room.roomCode}/secret_roles/${p.id}/roleId')
+              .get();
+          if (sSnap.exists && sSnap.value != null) {
+            pRole = GameRole.fromId(sSnap.value.toString());
+          }
+        } catch (_) {}
+        updates['players/${p.id}/role'] = pRole.id;
+      }
     } else if (pendingHunter != null) {
       updates['phase'] = GamePhase.hunterDeathChoice.name;
       updates['pendingHunterId'] = pendingHunter;
@@ -1371,6 +1556,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         'Une ombre a dérobé l\'identité d\'un citoyen cette nuit...',
       ],
     });
+    await processNightTransitions();
   }
 
   Future<void> cupidBindLovers(String p1Id, String p2Id) async {
@@ -1390,6 +1576,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         '💘 Deux flèches ont fendu la nuit : deux cœurs sont désormais unis à la vie, à la mort.',
       ],
     });
+    await processNightTransitions();
   }
 
   Future<void> pyromaniacDouse(String targetPlayerId) async {
@@ -1407,6 +1594,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         '🛢️ Une forte odeur de carburant plane silencieusement sur les toits cette nuit...',
       ],
     });
+    await processNightTransitions();
   }
 
   Future<void> pyromaniacIgnite() async {
@@ -1422,6 +1610,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         '🔥 Le Pyromane frotte une allumette... L\'enfer s\'abattra au petit matin !',
       ],
     });
+    await processNightTransitions();
   }
 
   Future<void> pyromaniacPass() async {
@@ -1448,16 +1637,38 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         'Le salvateur a étendu son bouclier protecteur sur un foyer.',
       ],
     });
+    await processNightTransitions();
     return true;
   }
 
-  PlayerModel? inspectPlayer(String targetId) {
+  Future<PlayerModel?> inspectPlayer(String targetId) async {
     if (state.myRole != GameRole.seer && !state.isAdmin) return null;
     final target = state.room?.players[targetId];
     if (target == null) return null;
 
-    state = state.copyWith(inspectedRole: target.role);
-    return target;
+    GameRole discoveredRole = target.role;
+    final roomCode = state.room?.roomCode;
+    if (roomCode != null) {
+      try {
+        final snap = await _database
+            .ref('rooms/$roomCode/secret_roles/$targetId/roleId')
+            .get();
+        if (snap.exists && snap.value != null) {
+          discoveredRole = GameRole.fromId(snap.value.toString());
+        }
+      } catch (e) {
+        debugPrint('[Seer Inspect Error] $e');
+      }
+    }
+
+    final updatedMap = Map<String, GameRole>.from(state.seerInspectedRoles);
+    updatedMap[targetId] = discoveredRole;
+
+    state = state.copyWith(
+      inspectedRole: discoveredRole,
+      seerInspectedRoles: updatedMap,
+    );
+    return target.copyWith(role: discoveredRole);
   }
 
   Future<void> completeSeerTurn() async {
@@ -1465,6 +1676,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final currentLogs = List<String>.from(state.room!.logs);
     currentLogs.add('La Voyante a achevé sa vision nocturne.');
     await _syncState({'logs': currentLogs});
+    state = state.copyWith(clearInspectedRole: true);
     await processNightTransitions();
   }
 
@@ -1556,7 +1768,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> confirmWitchTurn() async {
     if (state.room == null) return;
-    await resolveMorningDeaths();
+    await processNightTransitions();
   }
 
   Future<void> witchPass() async {
@@ -1571,18 +1783,42 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final victim = room.players[targetId];
     if (victim == null || !victim.isAlive) return;
 
+    GameRole victimRealRole = victim.role;
+    try {
+      final sSnap = await _database
+          .ref('rooms/${room.roomCode}/secret_roles/$targetId/roleId')
+          .get();
+      if (sSnap.exists && sSnap.value != null) {
+        victimRealRole = GameRole.fromId(sSnap.value.toString());
+      }
+    } catch (_) {}
+
     final updates = <String, dynamic>{
       'players/$targetId/isAlive': false,
+      'players/$targetId/role': victimRealRole.id,
       'pendingHunterId': null,
     };
     final logs = List<String>.from(room.logs);
     logs.add(
-      '💥 Le Chasseur a abattu ${victim.name} (${victim.role.displayNameFr}) dans son dernier râle !',
+      '💥 Le Chasseur a abattu ${victim.name} (${victimRealRole.displayNameFr}) dans son dernier râle !',
     );
 
     final deadPartnerId = handleLoverDeath(targetId, room.players, logs);
     if (deadPartnerId != null) {
       updates['players/$deadPartnerId/isAlive'] = false;
+      final deadPartner = room.players[deadPartnerId];
+      if (deadPartner != null) {
+        GameRole partnerRole = deadPartner.role;
+        try {
+          final pSnap = await _database
+              .ref('rooms/${room.roomCode}/secret_roles/$deadPartnerId/roleId')
+              .get();
+          if (pSnap.exists && pSnap.value != null) {
+            partnerRole = GameRole.fromId(pSnap.value.toString());
+          }
+        } catch (_) {}
+        updates['players/$deadPartnerId/role'] = partnerRole.id;
+      }
     }
 
     final simulated = room.copyWith(
@@ -1600,6 +1836,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['phase'] = GamePhase.gameOver.name;
       updates['winner'] = win;
       logs.add(_formatVictoryMessage(win));
+      for (final p in room.playerList) {
+        GameRole pRole = p.role;
+        try {
+          final sSnap = await _database
+              .ref('rooms/${room.roomCode}/secret_roles/${p.id}/roleId')
+              .get();
+          if (sSnap.exists && sSnap.value != null) {
+            pRole = GameRole.fromId(sSnap.value.toString());
+          }
+        } catch (_) {}
+        updates['players/${p.id}/role'] = pRole.id;
+      }
     } else {
       if (room.pendingCaptainId != null) {
         updates['phase'] = GamePhase.captainSuccession.name;
@@ -1699,8 +1947,28 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   Future<void> nextPhase() async {
-    if (!state.isHost || state.room == null) return;
+    if (state.room == null) return;
     final phase = state.room!.phase;
+
+    final canAdvanceNight = phase.isNight &&
+        (state.isHost ||
+            state.isAdmin ||
+            (phase == GamePhase.nightWerewolves &&
+                (state.myRole.isEvil || state.isAdmin)) ||
+            (phase == GamePhase.nightSeer &&
+                (state.myRole == GameRole.seer || state.isAdmin)) ||
+            (phase == GamePhase.nightWitch &&
+                (state.myRole == GameRole.witch || state.isAdmin)) ||
+            (phase == GamePhase.nightDefender &&
+                (state.myRole == GameRole.defender || state.isAdmin)) ||
+            (phase == GamePhase.nightCupid &&
+                (state.myRole == GameRole.cupid || state.isAdmin)) ||
+            (phase == GamePhase.nightThief &&
+                (state.myRole == GameRole.thief || state.isAdmin)) ||
+            (phase == GamePhase.nightPyromaniac &&
+                (state.myRole == GameRole.pyromaniac || state.isAdmin)));
+
+    if (!state.isHost && !state.isAdmin && !canAdvanceNight) return;
 
     if (phase.isNight) {
       await processNightTransitions();
@@ -1787,11 +2055,90 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
 
       final data = event.snapshot.value as Map<dynamic, dynamic>;
-      final updatedRoom = GameRoom.fromMap(data, roomCode);
+      final updatedRoom =
+          GameRoom.fromMap(data, roomCode, state.currentUserId);
       state = state.copyWith(room: updatedRoom);
 
       _applyVoiceRulesForPhase(updatedRoom);
     });
+
+    // Écouter son propre rôle secret depuis la source confidentielle
+    _secretRoleSubscription?.cancel();
+    _secretRoleSubscription = _database
+        .ref('rooms/$roomCode/secret_roles/${state.currentUserId}')
+        .onValue
+        .listen((event) {
+      if (event.snapshot.value != null && event.snapshot.value is Map) {
+        final val = event.snapshot.value as Map;
+        final roleId = val['roleId']?.toString();
+        if (roleId != null && state.room != null) {
+          final realRole = GameRole.fromId(roleId);
+          final me = state.room!.players[state.currentUserId];
+          if (me != null && me.role != realRole) {
+            final updatedMe = me.copyWith(role: realRole);
+            final updatedPlayers =
+                Map<String, PlayerModel>.from(state.room!.players)
+                  ..[state.currentUserId] = updatedMe;
+            final updatedRoom =
+                state.room!.copyWith(players: updatedPlayers);
+            state = state.copyWith(room: updatedRoom);
+            _applyVoiceRulesForPhase(updatedRoom);
+
+            if (realRole.isEvil) {
+              _syncWolfRoster(roomCode);
+            }
+          }
+        }
+      }
+    });
+
+    // Écouter le canal meute des loups-garous (filtré et déchiffré)
+    _wolfPackSubscription?.cancel();
+    _wolfPackSubscription = _database
+        .ref('rooms/$roomCode/wolf_pack')
+        .onValue
+        .listen((event) {
+      if (event.snapshot.value != null && event.snapshot.value is Map) {
+        final val = event.snapshot.value as Map;
+        Set<String> wolfIds = {};
+        if (val.containsKey('data')) {
+          wolfIds = RoleSecurityService.decryptWolfRoster(
+            val['data']?.toString(),
+            roomCode,
+          );
+        } else {
+          wolfIds = val.keys.map((k) => k.toString()).toSet();
+        }
+
+        final isMeWolf = state.myRole.isEvil;
+        final isGodMode =
+            state.isGodModeActive && (state.room?.isDevRoom == true);
+        if (isMeWolf || isGodMode) {
+          state = state.copyWith(wolfPlayerIds: wolfIds);
+        } else {
+          state = state.copyWith(wolfPlayerIds: {});
+        }
+      }
+    });
+  }
+
+  Future<void> _syncWolfRoster(String roomCode) async {
+    try {
+      final snap = await _database.ref('rooms/$roomCode/wolf_pack').get();
+      if (snap.exists && snap.value is Map) {
+        final val = snap.value as Map;
+        Set<String> wolfIds = {};
+        if (val.containsKey('data')) {
+          wolfIds = RoleSecurityService.decryptWolfRoster(
+            val['data']?.toString(),
+            roomCode,
+          );
+        } else {
+          wolfIds = val.keys.map((k) => k.toString()).toSet();
+        }
+        state = state.copyWith(wolfPlayerIds: wolfIds);
+      }
+    } catch (_) {}
   }
 
   Future<void> _applyVoiceRulesForPhase(GameRoom room) async {
@@ -1880,7 +2227,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   bool unlockAdmin(String pin) {
     if (pin.trim() == '03031994') {
-      state = state.copyWith(isAdmin: true);
+      state = state.copyWith(isAdmin: true, isGodModeActive: true);
       return true;
     }
     return false;
@@ -2030,6 +2377,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   Future<void> leaveRoom() async {
     _roomSubscription?.cancel();
     _roomSubscription = null;
+    _secretRoleSubscription?.cancel();
+    _secretRoleSubscription = null;
+    _wolfPackSubscription?.cancel();
+    _wolfPackSubscription = null;
     _lastAppliedVoiceChannel = null;
     _lastAppliedVoicePhase = null;
     await _voiceService.leaveChannel();
@@ -2045,6 +2396,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   @override
   void dispose() {
     _roomSubscription?.cancel();
+    _secretRoleSubscription?.cancel();
+    _wolfPackSubscription?.cancel();
     _voiceService.dispose();
     super.dispose();
   }

@@ -1,3 +1,4 @@
+import '../services/role_security_service.dart';
 import 'game_role.dart';
 export 'game_role.dart';
 
@@ -20,6 +21,8 @@ class PlayerModel {
   final bool hasUsedHealPotion;
   final bool hasUsedPoisonPotion;
   final int agoraUid;
+  final String? encryptedRole;
+  final int seatIndex;
 
   const PlayerModel({
     required this.id,
@@ -40,6 +43,8 @@ class PlayerModel {
     this.hasUsedHealPotion = false,
     this.hasUsedPoisonPotion = false,
     this.agoraUid = 0,
+    this.encryptedRole,
+    this.seatIndex = -1,
   });
 
   PlayerModel copyWith({
@@ -61,6 +66,8 @@ class PlayerModel {
     bool? hasUsedHealPotion,
     bool? hasUsedPoisonPotion,
     int? agoraUid,
+    String? encryptedRole,
+    int? seatIndex,
   }) {
     return PlayerModel(
       id: id ?? this.id,
@@ -81,6 +88,8 @@ class PlayerModel {
       hasUsedHealPotion: hasUsedHealPotion ?? this.hasUsedHealPotion,
       hasUsedPoisonPotion: hasUsedPoisonPotion ?? this.hasUsedPoisonPotion,
       agoraUid: agoraUid ?? this.agoraUid,
+      encryptedRole: encryptedRole ?? this.encryptedRole,
+      seatIndex: seatIndex ?? this.seatIndex,
     );
   }
 
@@ -104,17 +113,47 @@ class PlayerModel {
       'hasUsedHealPotion': hasUsedHealPotion,
       'hasUsedPoisonPotion': hasUsedPoisonPotion,
       'agoraUid': agoraUid,
+      if (encryptedRole != null) 'encryptedRole': encryptedRole,
+      if (seatIndex >= 0) 'seatIndex': seatIndex,
     };
   }
 
-  factory PlayerModel.fromMap(Map<dynamic, dynamic> map, [String? docId]) {
+  factory PlayerModel.fromMap(
+    Map<dynamic, dynamic> map, [
+    String? docId,
+    String? currentUserId,
+    String? roomCode,
+  ]) {
+    final rawRole = map['role']?.toString();
+    final encryptedRoleToken = map['encryptedRole']?.toString();
+    final playerId = (docId ?? map['id'] ?? '').toString();
+
+    GameRole resolvedRole;
+    if (rawRole == 'masked' || rawRole == 'unknown') {
+      if (currentUserId != null &&
+          roomCode != null &&
+          playerId == currentUserId &&
+          encryptedRoleToken != null) {
+        resolvedRole = RoleSecurityService.decryptRole(
+              encryptedRoleToken,
+              currentUserId,
+              roomCode,
+            ) ??
+            GameRole.simpleVillager;
+      } else {
+        resolvedRole = GameRole.simpleVillager;
+      }
+    } else {
+      resolvedRole = GameRole.fromString(rawRole);
+    }
+
     return PlayerModel(
-      id: (docId ?? map['id'] ?? '').toString(),
+      id: playerId,
       name: (map['name'] ?? 'Inconnu').toString(),
       avatarIndex: (map['avatarIndex'] is int)
           ? map['avatarIndex'] as int
           : int.tryParse(map['avatarIndex']?.toString() ?? '0') ?? 0,
-      role: GameRole.fromString(map['role']?.toString()),
+      role: resolvedRole,
       isAlive: map['isAlive'] != false,
       isHost: map['isHost'] == true,
       isReady: map['isReady'] == true,
@@ -131,6 +170,10 @@ class PlayerModel {
       agoraUid: (map['agoraUid'] is int)
           ? map['agoraUid'] as int
           : int.tryParse(map['agoraUid']?.toString() ?? '0') ?? 0,
+      encryptedRole: encryptedRoleToken,
+      seatIndex: (map['seatIndex'] is int)
+          ? map['seatIndex'] as int
+          : int.tryParse(map['seatIndex']?.toString() ?? '-1') ?? -1,
     );
   }
 }

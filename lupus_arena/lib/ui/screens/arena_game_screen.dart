@@ -192,8 +192,11 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     final isMeAlive = gameState.isAlive;
     final myRole = gameState.myRole;
     final isNight = room.phase.isNight;
-    final isMeEvil = myRole.isEvil || gameState.isAdmin;
-    final revealRoles = room.phase == GamePhase.gameOver || gameState.isAdmin;
+    final isGodModeActive = gameState.isGodModeActive;
+    final isDevRoom = room.isDevRoom;
+    final isGodMode = isGodModeActive && isDevRoom;
+    final isMeEvil = myRole.isEvil || isGodMode;
+    final revealRoles = room.phase == GamePhase.gameOver || isGodMode;
 
     return Scaffold(
       backgroundColor: LupusColors.background,
@@ -294,20 +297,30 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                       currentSpeakerId: room.currentSpeakerId,
                                       revealRoles: revealRoles,
                                       isMeEvil: isMeEvil,
+                                      isGodModeActive: isGodModeActive,
+                                      isDevRoom: isDevRoom,
+                                      myRole: myRole,
+                                      seerInspectedRoles:
+                                          gameState.seerInspectedRoles,
+                                      wolfPlayerIds: gameState.wolfPlayerIds,
                                       voteCounts: room.voteCounts,
-                                      captainTargetVoteId: room.captainTargetVoteId,
+                                      captainTargetVoteId:
+                                          room.captainTargetVoteId,
                                       centerActionTitle: _getTargetActionTitle(
                                         room.phase,
                                         room,
                                       ),
-                                      centerActionSubtitle: _getTargetActionSubtitle(
+                                      centerActionSubtitle:
+                                          _getTargetActionSubtitle(
                                         room.phase,
                                         room,
                                       ),
                                       onPlayerSelected: (id) {
                                         setState(() {
                                           _selectedPlayerId =
-                                              (_selectedPlayerId == id) ? null : id;
+                                              (_selectedPlayerId == id)
+                                                  ? null
+                                                  : id;
                                         });
                                       },
                                     ),
@@ -322,6 +335,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                 selectedPlayerId: _selectedPlayerId,
                                 revealRoles: revealRoles,
                                 isMeEvil: isMeEvil,
+                                isGodModeActive: isGodModeActive,
+                                isDevRoom: isDevRoom,
+                                myRole: myRole,
+                                seerInspectedRoles:
+                                    gameState.seerInspectedRoles,
+                                wolfPlayerIds: gameState.wolfPlayerIds,
                                 onPlayerSelected: (id) {
                                   setState(() {
                                     _selectedPlayerId =
@@ -527,7 +546,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                         ((room.phase as GamePhase) ==
                                 GamePhase.nightWerewolves &&
                             ((gameState.myRole as GameRole).isEvil ||
-                                (gameState.isAdmin as bool)));
+                                isGodMode));
                     final isAdmin = gameState.isAdmin as bool;
 
                     return Container(

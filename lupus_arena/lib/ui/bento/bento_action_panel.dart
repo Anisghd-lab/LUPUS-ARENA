@@ -559,26 +559,45 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          height: 40,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3A86FF),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3A86FF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: (selectedTarget != null && selectedTarget.isAlive && !isSameAsLast)
+                      ? () => widget.onDefenderProtect?.call(selectedTarget.id)
+                      : null,
+                  icon: const Icon(Icons.security_rounded, size: 15),
+                  label: Text(
+                    buttonText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+                  ),
+                ),
+              ),
             ),
-            onPressed: (selectedTarget != null && selectedTarget.isAlive && !isSameAsLast)
-                ? () => widget.onDefenderProtect?.call(selectedTarget.id)
-                : null,
-            icon: const Icon(Icons.security_rounded, size: 15),
-            label: Text(
-              buttonText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 40,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: LupusColors.textSecondary,
+                  side: const BorderSide(color: LupusColors.border),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: widget.onNextPhase,
+                child: const Text('Passer', style: TextStyle(fontSize: 11)),
+              ),
             ),
-          ),
+          ],
         ),
         if (lastProtected != null)
           Padding(
@@ -748,13 +767,18 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF00FFCC),
             foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           onPressed: widget.onPassDebate,
-          icon: const Icon(Icons.mic, color: Colors.black, size: 16),
+          icon: const Text('🎙️', style: TextStyle(fontSize: 16)),
           label: const Text(
-            'Vous avez la parole (Cliquer pour passer) 🎙️',
-            style: TextStyle(fontWeight: FontWeight.w800, color: Colors.black, fontSize: 11.5),
+            'Je passe la parole',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Colors.black,
+              fontSize: 13,
+            ),
           ),
         ),
       );

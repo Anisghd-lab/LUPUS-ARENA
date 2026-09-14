@@ -239,7 +239,8 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
             onTap: () => setState(() => _selectedFilter = f),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: isSelected
                     ? LupusColors.arcaneGold.withValues(alpha: 0.2)
@@ -255,14 +256,18 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
                     ? LupusTheme.glowGold(opacity: 0.25)
                     : null,
               ),
-              child: Text(
-                f,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                  color: isSelected
-                      ? LupusColors.arcaneGold
-                      : LupusColors.textSecondary,
+              child: Center(
+                child: Text(
+                  f,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: isSelected
+                        ? LupusColors.arcaneGold
+                        : LupusColors.textSecondary,
+                    height: 1.0,
+                  ),
                 ),
               ),
             ),

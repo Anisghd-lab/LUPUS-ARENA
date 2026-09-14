@@ -14,6 +14,11 @@ class BentoPlayerGrid extends StatelessWidget {
   final ValueChanged<String>? onPlayerSelected;
   final bool revealRoles;
   final bool isMeEvil;
+  final bool isGodModeActive;
+  final bool isDevRoom;
+  final GameRole myRole;
+  final Map<String, GameRole> seerInspectedRoles;
+  final Set<String> wolfPlayerIds;
 
   const BentoPlayerGrid({
     super.key,
@@ -25,6 +30,11 @@ class BentoPlayerGrid extends StatelessWidget {
     this.onPlayerSelected,
     this.revealRoles = false,
     this.isMeEvil = false,
+    this.isGodModeActive = false,
+    this.isDevRoom = false,
+    this.myRole = GameRole.simpleVillager,
+    this.seerInspectedRoles = const {},
+    this.wolfPlayerIds = const {},
   });
 
   @override
@@ -60,8 +70,8 @@ class BentoPlayerGrid extends StatelessWidget {
         : (screenWidth < 500 ? 0.70 : 0.78);
 
     return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      padding: const EdgeInsets.only(top: 4, bottom: 12),
       itemCount: players.length,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -76,6 +86,12 @@ class BentoPlayerGrid extends StatelessWidget {
             (currentSpeakerId != null && currentSpeakerId == player.id);
         final isSelected = selectedPlayerId == player.id;
         final votes = votesPerPlayer[player.id] ?? 0;
+        final isGodMode = isGodModeActive && isDevRoom;
+        final isWolfPeer = (isMeEvil ||
+                myRole.isEvil ||
+                wolfPlayerIds.contains(currentUserId)) &&
+            (player.role.isEvil || wolfPlayerIds.contains(player.id));
+        final seerRole = seerInspectedRoles[player.id];
 
         return BentoPlayerTile(
           player: player,
@@ -83,8 +99,11 @@ class BentoPlayerGrid extends StatelessWidget {
           isSpeaking: isSpeaking,
           isSelected: isSelected,
           votesCount: votes,
-          showRole: revealRoles || (!player.isAlive),
-          isWolfPeer: isMeEvil && player.role.isEvil,
+          showRole: revealRoles || (!player.isAlive) || isGodMode,
+          isWolfPeer: isWolfPeer,
+          seerDiscoveredRole: seerRole,
+          isGodMode: isGodMode,
+          myRole: myRole,
           onTap: onPlayerSelected != null
               ? () => onPlayerSelected!(player.id)
               : null,

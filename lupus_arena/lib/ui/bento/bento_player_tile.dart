@@ -13,6 +13,9 @@ class BentoPlayerTile extends StatelessWidget {
   final int votesCount;
   final bool showRole;
   final bool isWolfPeer;
+  final GameRole? seerDiscoveredRole;
+  final bool isGodMode;
+  final GameRole myRole;
   final VoidCallback? onTap;
 
   const BentoPlayerTile({
@@ -24,6 +27,9 @@ class BentoPlayerTile extends StatelessWidget {
     this.votesCount = 0,
     this.showRole = false,
     this.isWolfPeer = false,
+    this.seerDiscoveredRole,
+    this.isGodMode = false,
+    this.myRole = GameRole.simpleVillager,
     this.onTap,
   });
 
@@ -42,6 +48,38 @@ class BentoPlayerTile extends StatelessWidget {
     final isDead = !player.isAlive;
     final icon = avatarIcons[player.avatarIndex % avatarIcons.length];
 
+    // Seules exceptions autorisées pour afficher le rôle :
+    // 1. Mon propre rôle (isMe)
+    // 2. Joueur éliminé révélé au village (isDead)
+    // 3. Voyante ayant personnellement sondé ce joueur (seerDiscoveredRole != null)
+    // 4. Confrère Loup-Garou (isWolfPeer && player.isAlive)
+    // 5. God Mode strict (isGodMode => isGodModeActive && isDevRoom)
+    final canSeeRole = isMe ||
+        isDead ||
+        isGodMode ||
+        (isWolfPeer && player.isAlive) ||
+        (seerDiscoveredRole != null && player.isAlive);
+
+    final GameRole roleToDisplay =
+        (seerDiscoveredRole != null && !isMe && !isDead)
+            ? seerDiscoveredRole!
+            : player.role;
+
+    String roleLabel;
+    if (isMe) {
+      roleLabel = 'Mon Rôle : ${player.role.displayName}';
+    } else if (isDead) {
+      roleLabel = player.role.displayName;
+    } else if (seerDiscoveredRole != null) {
+      roleLabel = '🔮 ${seerDiscoveredRole!.displayName}';
+    } else if (isWolfPeer) {
+      roleLabel = '🐺 ${player.role.displayName}';
+    } else if (isGodMode) {
+      roleLabel = player.role.displayName;
+    } else {
+      roleLabel = 'VIVANT';
+    }
+
     Color borderColor;
     if (isSpeaking && player.isAlive) {
       borderColor = const Color(0xFF00FF88);
@@ -49,7 +87,7 @@ class BentoPlayerTile extends StatelessWidget {
       borderColor = LupusColors.bloodRed;
     } else if (isDead) {
       borderColor = Colors.black45;
-    } else if (isWolfPeer && player.isAlive) {
+    } else if (isWolfPeer && player.isAlive && !isMe) {
       borderColor = LupusColors.bloodRed.withValues(alpha: 0.7);
     } else {
       borderColor = LupusColors.border;
@@ -180,16 +218,20 @@ class BentoPlayerTile extends StatelessWidget {
                       size: 12, color: Color(0xFFFFD700)),
                   const SizedBox(width: 2),
                 ],
-                if (isWolfPeer && !isMe) ...[
+                if (isWolfPeer && !isMe && player.isAlive) ...[
                   const Text('🐺', style: TextStyle(fontSize: 10)),
                   const SizedBox(width: 2),
                 ],
-                if (player.isLover && (isMe || showRole)) ...[
+                if (seerDiscoveredRole != null && !isMe && player.isAlive) ...[
+                  const Text('🔮', style: TextStyle(fontSize: 10)),
+                  const SizedBox(width: 2),
+                ],
+                if (player.isLover && (isMe || isGodMode || isDead)) ...[
                   const Icon(Icons.favorite_rounded,
                       size: 11, color: LupusColors.bloodRed),
                   const SizedBox(width: 2),
                 ],
-                if (player.isDoused && (isMe || showRole)) ...[
+                if (player.isDoused && (isMe || myRole == GameRole.pyromaniac || isGodMode || isDead)) ...[
                   const Icon(Icons.local_fire_department_rounded,
                       size: 11, color: Color(0xFFFF4800)),
                   const SizedBox(width: 2),
@@ -218,35 +260,33 @@ class BentoPlayerTile extends StatelessWidget {
             ),
           ),
 
-          // 3. Rôle ou État de Vie
-          if (showRole || isDead || isMe || isWolfPeer) ...[
+          // 3. Rôle ou État de Vie (Masqué côté client hors exceptions)
+          if (canSeeRole) ...[
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
-                color: (isWolfPeer && !isMe && !showRole)
+                color: (isWolfPeer && !isMe && !isGodMode && seerDiscoveredRole == null)
                     ? LupusColors.bloodRed.withValues(alpha: 0.25)
-                    : player.role.accentColor.withValues(alpha: 0.18),
+                    : roleToDisplay.accentColor.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: (isWolfPeer && !isMe && !showRole)
+                  color: (isWolfPeer && !isMe && !isGodMode && seerDiscoveredRole == null)
                       ? LupusColors.bloodRed.withValues(alpha: 0.6)
-                      : player.role.accentColor.withValues(alpha: 0.4),
+                      : roleToDisplay.accentColor.withValues(alpha: 0.4),
                   width: 0.8,
                 ),
               ),
               child: Text(
-                (isWolfPeer && !isMe && !showRole)
-                    ? '🐺 ${player.role.displayName}'
-                    : player.role.displayName,
+                roleLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 8.5,
                   fontWeight: FontWeight.w700,
-                  color: (isWolfPeer && !isMe && !showRole)
+                  color: (isWolfPeer && !isMe && !isGodMode && seerDiscoveredRole == null)
                       ? const Color(0xFFFF8B8B)
-                      : player.role.accentColor,
+                      : roleToDisplay.accentColor,
                 ),
               ),
             ),

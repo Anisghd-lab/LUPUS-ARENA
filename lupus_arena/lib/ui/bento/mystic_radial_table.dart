@@ -15,6 +15,11 @@ class MysticRadialTable extends StatefulWidget {
   final String? currentSpeakerId;
   final bool revealRoles;
   final bool isMeEvil;
+  final bool isGodModeActive;
+  final bool isDevRoom;
+  final GameRole myRole;
+  final Map<String, GameRole> seerInspectedRoles;
+  final Set<String> wolfPlayerIds;
   final ValueChanged<String> onPlayerSelected;
   final Map<String, int>? voteCounts;
   final String? centerActionTitle;
@@ -30,6 +35,11 @@ class MysticRadialTable extends StatefulWidget {
     this.currentSpeakerId,
     this.revealRoles = false,
     this.isMeEvil = false,
+    this.isGodModeActive = false,
+    this.isDevRoom = false,
+    this.myRole = GameRole.simpleVillager,
+    this.seerInspectedRoles = const {},
+    this.wolfPlayerIds = const {},
     required this.onPlayerSelected,
     this.voteCounts,
     this.centerActionTitle,
@@ -243,6 +253,64 @@ class _MysticRadialTableState extends State<MysticRadialTable>
           ),
           const SizedBox(height: 2),
 
+          // Affichage sécurisé du rôle de la cible (uniquement si autorisé)
+          if (selectedPlayer != null) ...[
+            Builder(
+              builder: (context) {
+                final isTargetMe = selectedPlayer.id == widget.currentUserId;
+                final isTargetDead = !selectedPlayer.isAlive;
+                final isTargetGodMode =
+                    widget.isGodModeActive && widget.isDevRoom;
+                final isTargetWolf = (widget.isMeEvil ||
+                        widget.myRole.isEvil ||
+                        (widget.currentUserId != null &&
+                            widget.wolfPlayerIds
+                                .contains(widget.currentUserId))) &&
+                    (selectedPlayer.role.isEvil ||
+                        widget.wolfPlayerIds.contains(selectedPlayer.id));
+                final targetSeerRole =
+                    widget.seerInspectedRoles[selectedPlayer.id];
+
+                String? roleText;
+                Color? roleColor;
+
+                if (isTargetMe) {
+                  roleText = 'Mon Rôle : ${selectedPlayer.role.displayName}';
+                  roleColor = selectedPlayer.role.accentColor;
+                } else if (isTargetDead) {
+                  roleText = selectedPlayer.role.displayName;
+                  roleColor = selectedPlayer.role.accentColor;
+                } else if (targetSeerRole != null) {
+                  roleText = '🔮 ${targetSeerRole.displayName}';
+                  roleColor = targetSeerRole.accentColor;
+                } else if (isTargetWolf) {
+                  roleText = '🐺 ${selectedPlayer.role.displayName}';
+                  roleColor = const Color(0xFFFF8B8B);
+                } else if (isTargetGodMode) {
+                  roleText = selectedPlayer.role.displayName;
+                  roleColor = selectedPlayer.role.accentColor;
+                }
+
+                if (roleText != null) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      roleText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: roleColor,
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
+
           // Message d'aide
           Text(
             selectedPlayer != null
@@ -270,7 +338,15 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     final isVoiceActive = widget.speakingAgoraUids.contains(player.agoraUid);
     final hasFloor = widget.currentSpeakerId != null && widget.currentSpeakerId == player.id;
     final isSpeaking = (isVoiceActive || hasFloor) && player.isAlive;
-    final isWolfPeer = player.role.isEvil && (widget.isMeEvil || widget.revealRoles);
+    final isGodMode = widget.isGodModeActive && widget.isDevRoom;
+    final isWolfPeer = (player.role.isEvil ||
+            widget.wolfPlayerIds.contains(player.id)) &&
+        (widget.isMeEvil ||
+            widget.myRole.isEvil ||
+            (widget.currentUserId != null &&
+                widget.wolfPlayerIds.contains(widget.currentUserId)) ||
+            isGodMode);
+    final seerDiscoveredRole = widget.seerInspectedRoles[player.id];
     final isDead = !player.isAlive;
     final votes = widget.voteCounts?[player.id] ?? 0;
 
@@ -348,36 +424,44 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                           ? const LinearGradient(
                               colors: [Color(0xFF1E212D), Color(0xFF12141C)],
                             )
-                          : (isWolfPeer
+                          : ((isWolfPeer && !isMe)
                               ? const LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                   colors: [Color(0xFF8B1E1E), Color(0xFF3F0B0B)],
                                 )
-                              : (isMe
+                              : (seerDiscoveredRole != null && !isMe)
                                   ? const LinearGradient(
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
-                                      colors: [Color(0xFF8D705C), Color(0xFF5A4335)],
+                                      colors: [Color(0xFF312E81), Color(0xFF1E1B4B)],
                                     )
-                                  : const LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [Color(0xFF3F4558), Color(0xFF232734)],
-                                    ))),
+                                  : (isMe
+                                      ? const LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [Color(0xFF8D705C), Color(0xFF5A4335)],
+                                        )
+                                      : const LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [Color(0xFF3F4558), Color(0xFF232734)],
+                                        ))),
                       border: Border.all(
                         color: isSpeaking
                             ? const Color(0xFF00FF88) // Tour de néon électrique vibrant si parle
-                            : (isWolfPeer
+                            : ((isWolfPeer && !isMe)
                                 ? const Color(0xFFFF2A4B) // Bordure rouge sang néon pour les loups
-                                : (isSelected
-                                    ? LupusColors.arcaneGold
-                                    : (isDead
-                                        ? LupusColors.arcaneCrimson.withValues(alpha: 0.45)
-                                        : (isMe
-                                            ? LupusColors.arcaneGold.withValues(alpha: 0.6)
-                                            : LupusColors.arcanePurple.withValues(alpha: 0.35))))),
-                        width: (isSpeaking || isWolfPeer)
+                                : (seerDiscoveredRole != null && !isMe)
+                                    ? const Color(0xFF818CF8) // Bordure violette néon pour rôle sondé
+                                    : (isSelected
+                                        ? LupusColors.arcaneGold
+                                        : (isDead
+                                            ? LupusColors.arcaneCrimson.withValues(alpha: 0.45)
+                                            : (isMe
+                                                ? LupusColors.arcaneGold.withValues(alpha: 0.6)
+                                                : LupusColors.arcanePurple.withValues(alpha: 0.35))))),
+                        width: (isSpeaking || ((isWolfPeer || seerDiscoveredRole != null) && !isMe))
                             ? 3.0 // Contour néon / rouge sang bien affirmé
                             : (isSelected
                                 ? 2.5
@@ -390,9 +474,15 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                                 blurRadius: 12,
                                 spreadRadius: 2,
                               ),
-                              if (isWolfPeer)
+                              if (isWolfPeer && !isMe)
                                 const BoxShadow(
                                   color: Color(0xFFFF2A4B),
+                                  blurRadius: 14,
+                                  spreadRadius: 2,
+                                ),
+                              if (seerDiscoveredRole != null && !isMe)
+                                const BoxShadow(
+                                  color: Color(0xFF6366F1),
                                   blurRadius: 14,
                                   spreadRadius: 2,
                                 ),
@@ -403,7 +493,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                                   spreadRadius: 3,
                                 ),
                             ]
-                          : (isWolfPeer
+                          : ((isWolfPeer && !isMe)
                               ? [
                                   const BoxShadow(
                                     color: Color(0xFFFF2A4B),
@@ -417,9 +507,23 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                                       spreadRadius: 3,
                                     ),
                                 ]
-                              : (isSelected
-                                  ? LupusTheme.glowGold(opacity: 0.6)
-                                  : null)),
+                              : (seerDiscoveredRole != null && !isMe)
+                                  ? [
+                                      const BoxShadow(
+                                        color: Color(0xFF6366F1),
+                                        blurRadius: 14,
+                                        spreadRadius: 2.5,
+                                      ),
+                                      if (isSelected)
+                                        BoxShadow(
+                                          color: LupusColors.arcaneGold.withValues(alpha: 0.7),
+                                          blurRadius: 16,
+                                          spreadRadius: 3,
+                                        ),
+                                    ]
+                                  : (isSelected
+                                      ? LupusTheme.glowGold(opacity: 0.6)
+                                      : null)),
                     ),
                     child: Center(
                       child: isDead
@@ -436,9 +540,11 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: isWolfPeer
+                                color: (isWolfPeer && !isMe)
                                     ? const Color(0xFFFFD4D4)
-                                    : (isMe ? const Color(0xFFFFF0D0) : Colors.white),
+                                    : ((seerDiscoveredRole != null && !isMe)
+                                        ? const Color(0xFFC7D2FE)
+                                        : (isMe ? const Color(0xFFFFF0D0) : Colors.white)),
                               ),
                             ),
                     ),
@@ -474,7 +580,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                     ),
 
                   // Badge Allié Loup-Garou (visible pour les loups)
-                  if (isWolfPeer)
+                  if (isWolfPeer && !isMe && (player.isAlive || isGodMode))
                     Positioned(
                       top: -7,
                       left: -7,
@@ -496,6 +602,29 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       ),
                     ),
 
+                  // Badge Rôle Sondé par la Voyante (visible uniquement par la voyante)
+                  if (seerDiscoveredRole != null && !isMe && (player.isAlive || isGodMode))
+                    Positioned(
+                      top: -7,
+                      right: -7,
+                      child: Container(
+                        padding: const EdgeInsets.all(2.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E1B4B),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF818CF8), width: 1.2),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0xFF6366F1),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: const Text('🔮', style: TextStyle(fontSize: 10)),
+                      ),
+                    ),
+
                   // Badge Capitaine (Étoile dorée)
                   if (player.isCaptain)
                     Positioned(
@@ -511,8 +640,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       ),
                     ),
 
-                  // Badge Amoureux (Cœur)
-                  if (player.isLover)
+                  // Badge Amoureux (Cœur - masqué hors local, godmode ou mort)
+                  if (player.isLover && (isMe || isGodMode || isDead))
                     Positioned(
                       top: -4,
                       left: -4,
@@ -527,7 +656,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                     ),
 
                   // Badge Maison Imbibée de Carburant (Pyromane)
-                  if (player.isDoused && (widget.revealRoles || isMe))
+                  if (player.isDoused && (isMe || widget.myRole == GameRole.pyromaniac || isGodMode || isDead))
                     Positioned(
                       bottom: -4,
                       left: -4,
@@ -588,13 +717,17 @@ class _MysticRadialTableState extends State<MysticRadialTable>
               ),
               const SizedBox(height: 2),
 
-              // Nom et numéro de siège avec icône loup si allié
+              // Nom et numéro de siège avec icône loup si allié ou boule de cristal si sondé
               Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (isWolfPeer) ...[
+                  if (isWolfPeer && !isMe) ...[
                     const Text('🐺', style: TextStyle(fontSize: 8.5)),
+                    const SizedBox(width: 2),
+                  ],
+                  if (seerDiscoveredRole != null && !isMe) ...[
+                    const Text('🔮', style: TextStyle(fontSize: 8.5)),
                     const SizedBox(width: 2),
                   ],
                   Flexible(
@@ -605,12 +738,16 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 8.5,
-                        fontWeight: (isSelected || isWolfPeer) ? FontWeight.w800 : FontWeight.w500,
-                        color: isWolfPeer
+                        fontWeight: (isSelected || (isWolfPeer && !isMe) || (seerDiscoveredRole != null && !isMe))
+                            ? FontWeight.w800
+                            : FontWeight.w500,
+                        color: (isWolfPeer && !isMe)
                             ? const Color(0xFFFF5252)
-                            : (isDead
-                                ? LupusColors.textMuted
-                                : (isSelected ? LupusColors.arcaneGold : LupusColors.textSecondary)),
+                            : ((seerDiscoveredRole != null && !isMe)
+                                ? const Color(0xFFA5B4FC)
+                                : (isDead
+                                    ? LupusColors.textMuted
+                                    : (isSelected ? LupusColors.arcaneGold : LupusColors.textSecondary))),
                       ),
                     ),
                   ),

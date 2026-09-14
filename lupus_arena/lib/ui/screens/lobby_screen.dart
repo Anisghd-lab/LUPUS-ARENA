@@ -26,6 +26,7 @@ class LobbyScreen extends ConsumerStatefulWidget {
 class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
+  bool _isNavigatingToArena = false;
 
   @override
   void initState() {
@@ -60,11 +61,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     // Navigation automatique vers l'arène dès que la partie commence
     if (room != null && room.phase != GamePhase.lobby) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const ArenaGameScreen()),
-        );
-      });
+      if (!_isNavigatingToArena) {
+        _isNavigatingToArena = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const ArenaGameScreen()),
+            );
+          }
+        });
+      }
+    } else {
+      _isNavigatingToArena = false;
     }
 
     return Scaffold(

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../AgoraVoiceService.dart';
 import '../../GameNotifier.dart';
 import '../../models/game_phase.dart';
 import '../../models/player_model.dart';
@@ -100,6 +101,7 @@ class ArenaGameScreen extends ConsumerStatefulWidget {
 class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   String? _selectedPlayerId;
   bool _useRadialView = true; // Bascule entre Table Mystique et Grille Bento
+  bool _isLeavingOrNavigating = false;
 
   // Gestion du journal et badge de notification des Chroniques
   int _lastSeenLogCount = 0;
@@ -152,6 +154,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       if (_lastTrackedPhase != room.phase ||
           _lastTrackedRound != room.round ||
           _lastTrackedSpeaker != room.currentSpeakerId) {
+        // Réinitialisation stricte de la cible à chaque transition de phase (Jour <-> Nuit)
+        if (_lastTrackedPhase != room.phase || _lastTrackedRound != room.round) {
+          _selectedPlayerId = null;
+        }
         _lastTrackedPhase = room.phase;
         _lastTrackedRound = room.round;
         _lastTrackedSpeaker = room.currentSpeakerId;
@@ -162,13 +168,18 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       }
     }
 
-    // Si la salle n'existe plus ou si le joueur a quitté
-    if (room == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LobbyScreen()),
-        );
-      });
+    // Si la salle n'existe plus ou si la partie est revenue au lobby
+    if (room == null || room.phase == GamePhase.lobby) {
+      if (!_isLeavingOrNavigating) {
+        _isLeavingOrNavigating = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const LobbyScreen()),
+            );
+          }
+        });
+      }
       return const Scaffold(
         backgroundColor: LupusColors.background,
         body: Center(
@@ -178,8 +189,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         ),
       );
     }
-
-    final speakingUids = ref.watch(activeSpeakersProvider);
     final isMeAlive = gameState.isAlive;
     final myRole = gameState.myRole;
     final isNight = room.phase.isNight;
@@ -269,54 +278,59 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: _useRadialView
-                        ? Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: RepaintBoundary(
-                                child: MysticRadialTable(
-                                  players: room.playerList,
-                                  selectedPlayerId: _selectedPlayerId,
-                                  currentUserId: gameState.currentUserId,
-                                  speakingAgoraUids: speakingUids,
-                                  currentSpeakerId: room.currentSpeakerId,
+                    child: ValueListenableBuilder<Set<int>>(
+                      valueListenable: AgoraVoiceService().speakingUids,
+                      builder: (context, speakingUids, _) {
+                        return _useRadialView
+                            ? Center(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: RepaintBoundary(
+                                    child: MysticRadialTable(
+                                      players: room.playerList,
+                                      selectedPlayerId: _selectedPlayerId,
+                                      currentUserId: gameState.currentUserId,
+                                      speakingAgoraUids: speakingUids,
+                                      currentSpeakerId: room.currentSpeakerId,
+                                      revealRoles: revealRoles,
+                                      isMeEvil: isMeEvil,
+                                      voteCounts: room.voteCounts,
+                                      captainTargetVoteId: room.captainTargetVoteId,
+                                      centerActionTitle: _getTargetActionTitle(
+                                        room.phase,
+                                        room,
+                                      ),
+                                      centerActionSubtitle: _getTargetActionSubtitle(
+                                        room.phase,
+                                        room,
+                                      ),
+                                      onPlayerSelected: (id) {
+                                        setState(() {
+                                          _selectedPlayerId =
+                                              (_selectedPlayerId == id) ? null : id;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : BentoPlayerGrid(
+                                players: room.playerList,
+                                currentUserId: gameState.currentUserId,
+                                speakingAgoraUids: speakingUids,
+                                currentSpeakerId: room.currentSpeakerId,
+                                selectedPlayerId: _selectedPlayerId,
                                 revealRoles: revealRoles,
                                 isMeEvil: isMeEvil,
-                                voteCounts: room.voteCounts,
-                                captainTargetVoteId: room.captainTargetVoteId,
-                                centerActionTitle: _getTargetActionTitle(
-                                  room.phase,
-                                  room,
-                                ),
-                                centerActionSubtitle: _getTargetActionSubtitle(
-                                  room.phase,
-                                  room,
-                                ),
                                 onPlayerSelected: (id) {
                                   setState(() {
                                     _selectedPlayerId =
                                         (_selectedPlayerId == id) ? null : id;
                                   });
                                 },
-                              ),
-                            ),
-                          ),
-                        )
-                      : BentoPlayerGrid(
-                            players: room.playerList,
-                            currentUserId: gameState.currentUserId,
-                            speakingAgoraUids: speakingUids,
-                            currentSpeakerId: room.currentSpeakerId,
-                            selectedPlayerId: _selectedPlayerId,
-                            revealRoles: revealRoles,
-                            isMeEvil: isMeEvil,
-                            onPlayerSelected: (id) {
-                              setState(() {
-                                _selectedPlayerId =
-                                    (_selectedPlayerId == id) ? null : id;
-                              });
-                            },
-                          ),
+                              );
+                      },
+                    ),
                   ),
                 ),
 

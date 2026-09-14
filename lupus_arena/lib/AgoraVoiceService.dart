@@ -34,6 +34,15 @@ class AgoraVoiceService {
   final ValueNotifier<ConnectionStateType> connectionState =
       ValueNotifier(ConnectionStateType.connectionStateDisconnected);
   final ValueNotifier<String?> lastErrorMessage = ValueNotifier(null);
+  final ValueNotifier<String?> connectionError = ValueNotifier(null);
+
+  // Machine d'état anti-boucle de reconnexion
+  bool _isConnecting = false;
+  bool get isConnecting => _isConnecting;
+  bool _hasFailed = false;
+  String? _targetChannelId;
+  String? _failedChannelId;
+  DateTime? _lastFailureTime;
 
   String? _lastChannelId;
   int? _lastUid;
@@ -99,6 +108,10 @@ class AgoraVoiceService {
           onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
             final uid = connection.localUid ?? 0;
             final ch = connection.channelId ?? '';
+            _isConnecting = false;
+            _hasFailed = false;
+            _failedChannelId = null;
+            connectionError.value = null;
             isConnected.value = true;
             currentChannel.value = ch;
             localUid.value = uid;
@@ -107,6 +120,7 @@ class AgoraVoiceService {
             addLog('✅ Connecté avec succès au salon "$ch" (UID: $uid, délai: ${elapsed}ms)');
           },
           onLeaveChannel: (RtcConnection connection, RtcStats stats) {
+            _isConnecting = false;
             isConnected.value = false;
             currentChannel.value = null;
             speakingUids.value = {};
@@ -145,10 +159,20 @@ class AgoraVoiceService {
             if (reason == ConnectionChangedReasonType.connectionChangedInvalidToken ||
                 reason == ConnectionChangedReasonType.connectionChangedTokenExpired) {
               lastErrorMessage.value = 'Jeton Agora invalide ou expiré';
+              connectionError.value = 'Jeton Agora invalide ou expiré';
             } else if (state == ConnectionStateType.connectionStateFailed) {
               lastErrorMessage.value = 'Échec de connexion Agora (${reason.name})';
+              connectionError.value = 'Échec de connexion Agora (${reason.name})';
+              _isConnecting = false;
+              _hasFailed = true;
+              _failedChannelId = _targetChannelId;
+              _lastFailureTime = DateTime.now();
             } else if (state == ConnectionStateType.connectionStateConnected) {
               lastErrorMessage.value = null;
+              connectionError.value = null;
+              _isConnecting = false;
+              _hasFailed = false;
+              _failedChannelId = null;
             }
           },
           onAudioVolumeIndication:
@@ -169,7 +193,10 @@ class AgoraVoiceService {
                   }
                 }
                 userVolumes.value = volMap;
-                speakingUids.value = active;
+                // Isole strictement les mises à jour : ne notifie QUE si la liste a réellement changé
+                if (!setEquals(speakingUids.value, active)) {
+                  speakingUids.value = active;
+                }
               },
           onTokenPrivilegeWillExpire: (RtcConnection connection, String token) {
             addLog('⏳ Jeton RTC bientôt expiré, renouvellement...');
@@ -190,6 +217,11 @@ class AgoraVoiceService {
             final errorText = 'Erreur Agora ($err): $msg';
             addLog('❌ $errorText');
             lastErrorMessage.value = errorText;
+            connectionError.value = errorText;
+            _isConnecting = false;
+            _hasFailed = true;
+            _failedChannelId = _targetChannelId;
+            _lastFailureTime = DateTime.now();
           },
         ),
       );
@@ -211,6 +243,7 @@ class AgoraVoiceService {
       return true;
     } catch (e, stack) {
       addLog('❌ Exception initialisation Agora: $e');
+      connectionError.value = 'Erreur initialisation Agora: $e';
       debugPrint(
         '[AgoraVoiceService] Erreur lors de l\'initialisation: $e\n$stack',
       );
@@ -218,13 +251,33 @@ class AgoraVoiceService {
     }
   }
 
-  /// Rejoindre un canal vocal de jeu
-  Future<void> joinChannel({
+  /// Rejoindre un canal vocal de jeu (UID int ou String userAccount) avec anti-boucle
+  Future<bool> joinChannel({
     required String channelId,
-    required int uid,
+    int? uid,
+    String? userAccount,
     String? token,
     bool initialMute = false,
   }) async {
+    // 1. Éviter toute reconnexion si déjà connecté sur ce salon précis
+    if (isConnected.value && currentChannel.value == channelId) {
+      return true;
+    }
+
+    // 2. Éviter les tentatives concurrentes vers le même canal
+    if (_isConnecting && _targetChannelId == channelId) {
+      return false;
+    }
+
+    // 3. Temporisation anti-flood : si ce canal a échoué il y a moins de 8 secondes, ne pas boucler
+    if (_failedChannelId == channelId && _hasFailed && _lastFailureTime != null) {
+      final elapsed = DateTime.now().difference(_lastFailureTime!);
+      if (elapsed.inSeconds < 8) {
+        debugPrint('[AgoraVoiceService] Canal $channelId en attente après échec (${elapsed.inSeconds}s)');
+        return false;
+      }
+    }
+
     _lastChannelId = channelId;
     _lastUid = uid;
     _lastInitialMute = initialMute;
@@ -232,11 +285,21 @@ class AgoraVoiceService {
 
     if (_engine == null) {
       final ok = await initialize();
-      if (!ok || _engine == null) return;
+      if (!ok || _engine == null) {
+        _hasFailed = true;
+        _failedChannelId = channelId;
+        _lastFailureTime = DateTime.now();
+        connectionError.value = 'Moteur Agora non disponible';
+        return false;
+      }
     }
 
+    _isConnecting = true;
+    _targetChannelId = channelId;
+    connectionError.value = null;
+
     try {
-      addLog('Tentative de connexion au canal "$channelId" (UID: $uid)...');
+      addLog('Tentative de connexion au canal "$channelId"...');
       final effectiveToken =
           token ??
           (appCertificate.isNotEmpty
@@ -244,34 +307,52 @@ class AgoraVoiceService {
                   appId: defaultAppId,
                   appCertificate: appCertificate,
                   channelName: channelId,
-                  uid: uid,
+                  uid: uid ?? 0,
                 )
               : '');
 
       isMuted.value = initialMute;
-
-      // Définition explicite du rôle Broadcaster pour Interactive Live Streaming
       await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
 
-      await _engine!.joinChannel(
-        token: effectiveToken,
-        channelId: channelId,
-        uid: uid,
-        options: ChannelMediaOptions(
-          channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
-          clientRoleType: ClientRoleType.clientRoleBroadcaster,
-          publishMicrophoneTrack: !initialMute,
-          autoSubscribeAudio: true,
-        ),
+      const options = ChannelMediaOptions(
+        channelProfile: ChannelProfileType.channelProfileCommunication,
+        clientRoleType: ClientRoleType.clientRoleBroadcaster,
+        publishMicrophoneTrack: true,
+        autoSubscribeAudio: true,
       );
 
+      if (userAccount != null && userAccount.isNotEmpty && (uid == null || uid <= 0)) {
+        debugPrint('[AgoraVoiceService] Appel joinChannelWithUserAccount: $userAccount -> $channelId');
+        await _engine!.joinChannelWithUserAccount(
+          token: effectiveToken,
+          channelId: channelId,
+          userAccount: userAccount,
+          options: options,
+        );
+      } else {
+        final safeUid = (uid != null && uid > 0) ? uid : 0;
+        debugPrint('[AgoraVoiceService] Appel joinChannel: UID $safeUid -> $channelId');
+        await _engine!.joinChannel(
+          token: effectiveToken,
+          channelId: channelId,
+          uid: safeUid,
+          options: options,
+        );
+      }
+
       await _engine?.muteLocalAudioStream(initialMute);
-      await _engine?.setDefaultAudioRouteToSpeakerphone(true);
+      return true;
     } catch (e) {
       final err = 'Erreur joinChannel: $e';
       addLog('❌ $err');
+      _isConnecting = false;
+      _hasFailed = true;
+      _failedChannelId = channelId;
+      _lastFailureTime = DateTime.now();
+      connectionError.value = err;
       lastErrorMessage.value = err;
       debugPrint('[AgoraVoiceService] Impossible de rejoindre le canal: $e');
+      return false;
     }
   }
 
@@ -290,28 +371,31 @@ class AgoraVoiceService {
   /// Bascule propre et cadencée vers un autre canal
   Future<void> switchChannel({
     required String newChannelId,
-    required int uid,
+    int? uid,
+    String? userAccount,
     String? token,
     bool initialMute = false,
   }) async {
-    if (currentChannel.value == newChannelId) {
-      await setMute(initialMute);
-      return;
+    if (currentChannel.value == newChannelId && isConnected.value) return;
+    if (_isConnecting && _targetChannelId == newChannelId) return;
+    if (_failedChannelId == newChannelId && _hasFailed && _lastFailureTime != null) {
+      if (DateTime.now().difference(_lastFailureTime!).inSeconds < 8) return;
     }
+
     addLog('🔄 Bascule vers le canal "$newChannelId"...');
     debugPrint(
       '[AgoraVoiceService] Bascule vocale : ${currentChannel.value} -> $newChannelId (initialMute: $initialMute)',
     );
 
-    if (currentChannel.value != null) {
+    if (currentChannel.value != null && isConnected.value) {
       await leaveChannel();
-      // Délai tampon indispensable pour laisser le runtime Agora libérer le socket UDP
       await Future.delayed(const Duration(milliseconds: 150));
     }
 
     await joinChannel(
       channelId: newChannelId,
       uid: uid,
+      userAccount: userAccount,
       token: token,
       initialMute: initialMute,
     );

@@ -106,6 +106,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   final AgoraVoiceService _voiceService = AgoraVoiceService();
   StreamSubscription<DatabaseEvent>? _roomSubscription;
   DatabaseReference? _currentRoomRef;
+  String? _lastAppliedVoiceChannel;
+  GamePhase? _lastAppliedVoicePhase;
 
   GameNotifier()
       : super(
@@ -116,32 +118,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             agoraUid: Random().nextInt(899999) + 100000,
           ),
         ) {
-    _voiceService.speakingUids.addListener(() {
-      if (mounted) {
-        state = state.copyWith(
-          speakingAgoraUids: _voiceService.speakingUids.value,
-        );
-      }
-    });
-    _voiceService.isConnected.addListener(() {
-      if (mounted) {
-        state = state.copyWith(
-          isVoiceConnected: _voiceService.isConnected.value,
-        );
-      }
-    });
-    _voiceService.isMuted.addListener(() {
-      if (mounted) {
-        state = state.copyWith(isMuted: _voiceService.isMuted.value);
-      }
-    });
-    _voiceService.currentChannel.addListener(() {
-      if (mounted) {
-        state = state.copyWith(
-          currentVoiceChannel: _voiceService.currentChannel.value,
-        );
-      }
-    });
+    // Les flux vocaux Agora sont désormais isolés via ValueNotifier/ValueListenableBuilder
+    // et ne déclenchent plus de mutation de state globale pour éliminer tout clignotement.
   }
 
   FirebaseDatabase get _database {
@@ -233,6 +211,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       await _voiceService.joinChannel(
         channelId: 'lupus_$roomCode',
         uid: state.agoraUid,
+        userAccount: state.currentUserId,
       );
 
       state = state.copyWith(room: newRoom, isLoading: false);
@@ -325,6 +304,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         await _voiceService.joinChannel(
           channelId: 'lupus_$roomCode',
           uid: state.agoraUid,
+          userAccount: state.currentUserId,
         );
       } catch (e) {
         _voiceService.addLog('⚠️ Exception vocal test room: $e');
@@ -411,6 +391,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       await _voiceService.joinChannel(
         channelId: 'lupus_$cleanCode',
         uid: state.agoraUid,
+        userAccount: state.currentUserId,
       );
 
       state = state.copyWith(room: room, isLoading: false);
@@ -792,8 +773,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             '🐺 Les Loups-Garous ont choisi leur victime dans l\'ombre : $victimName.',
           );
         }
-        _resetAllVotes(updates);
       }
+
+      // Nettoyage systématique des votes lors de chaque transition
+      _resetAllVotes(updates);
 
       await _syncState(updates);
     }
@@ -1824,6 +1807,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return;
     }
 
+    String targetChannel = mainChannel;
+    bool shouldMute = false;
+
     switch (room.phase) {
       case GamePhase.nightWerewolves:
         final isWolf = me.role.isEvil;
@@ -1832,28 +1818,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             (state.isAdmin && state.isOmniscientVoice);
 
         if (isWolf || canSpy) {
-          await _voiceService.switchChannel(
-            newChannelId: wolfChannel,
-            uid: state.agoraUid,
-            initialMute: !isWolf,
-          );
+          targetChannel = wolfChannel;
+          shouldMute = !isWolf;
         } else {
-          await _voiceService.switchChannel(
-            newChannelId: mainChannel,
-            uid: state.agoraUid,
-            initialMute: true,
-          );
+          targetChannel = mainChannel;
+          shouldMute = true;
         }
         break;
 
       case GamePhase.dayDebate:
       case GamePhase.dayDefense:
+        targetChannel = mainChannel;
         final isCurrentSpeaker = room.currentSpeakerId == state.currentUserId;
-        await _voiceService.switchChannel(
-          newChannelId: mainChannel,
-          uid: state.agoraUid,
-          initialMute: !isCurrentSpeaker,
-        );
+        shouldMute = !isCurrentSpeaker;
         break;
 
       case GamePhase.dayVoting:
@@ -1863,37 +1840,38 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       case GamePhase.morningAnnouncement:
       case GamePhase.lobby:
       case GamePhase.gameOver:
-        await _voiceService.switchChannel(
-          newChannelId: mainChannel,
-          uid: state.agoraUid,
-          initialMute: false,
-        );
+        targetChannel = mainChannel;
+        shouldMute = false;
         break;
 
       case GamePhase.hunterDeathChoice:
-        await _voiceService.switchChannel(
-          newChannelId: mainChannel,
-          uid: state.agoraUid,
-          initialMute: room.pendingHunterId != state.currentUserId,
-        );
+        targetChannel = mainChannel;
+        shouldMute = room.pendingHunterId != state.currentUserId;
         break;
 
       case GamePhase.captainSuccession:
-        await _voiceService.switchChannel(
-          newChannelId: mainChannel,
-          uid: state.agoraUid,
-          initialMute: room.pendingCaptainId != state.currentUserId,
-        );
+        targetChannel = mainChannel;
+        shouldMute = room.pendingCaptainId != state.currentUserId;
         break;
 
       default:
-        await _voiceService.switchChannel(
-          newChannelId: mainChannel,
-          uid: state.agoraUid,
-          initialMute: true,
-        );
+        targetChannel = mainChannel;
+        shouldMute = true;
         break;
     }
+
+    // Bascule uniquement si le canal de destination ou la phase a réellement changé
+    if (_lastAppliedVoiceChannel != targetChannel || _lastAppliedVoicePhase != room.phase) {
+      _lastAppliedVoiceChannel = targetChannel;
+      _lastAppliedVoicePhase = room.phase;
+      await _voiceService.switchChannel(
+        newChannelId: targetChannel,
+        uid: state.agoraUid,
+        userAccount: state.currentUserId,
+      );
+    }
+
+    await _voiceService.setMute(shouldMute);
   }
 
   // ==========================================
@@ -2052,6 +2030,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   Future<void> leaveRoom() async {
     _roomSubscription?.cancel();
     _roomSubscription = null;
+    _lastAppliedVoiceChannel = null;
+    _lastAppliedVoicePhase = null;
     await _voiceService.leaveChannel();
     state = state.copyWith(clearRoom: true);
   }
@@ -2075,14 +2055,18 @@ final gameNotifierProvider =
   return GameNotifier();
 });
 
-final activeSpeakersProvider = Provider<Set<int>>((ref) {
-  return ref.watch(gameNotifierProvider.select((s) => s.speakingAgoraUids));
+/// Provider isolé pour les utilisateurs qui parlent actuellement
+/// Découplé de GameNotifier.state pour supprimer tout re-render de l'écran d'arène
+final activeSpeakersProvider = ChangeNotifierProvider<ValueNotifier<Set<int>>>((ref) {
+  return AgoraVoiceService().speakingUids;
 });
 
-final isMutedProvider = Provider<bool>((ref) {
-  return ref.watch(gameNotifierProvider.select((s) => s.isMuted));
+/// Provider pour le statut du micro local
+final isMutedProvider = ChangeNotifierProvider<ValueNotifier<bool>>((ref) {
+  return AgoraVoiceService().isMuted;
 });
 
-final isVoiceConnectedProvider = Provider<bool>((ref) {
-  return ref.watch(gameNotifierProvider.select((s) => s.isVoiceConnected));
+/// Provider pour la connexion vocale
+final isVoiceConnectedProvider = ChangeNotifierProvider<ValueNotifier<bool>>((ref) {
+  return AgoraVoiceService().isConnected;
 });

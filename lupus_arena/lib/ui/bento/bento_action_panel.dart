@@ -27,9 +27,6 @@ class BentoActionPanel extends StatefulWidget {
   final ValueChanged<String>? onThiefSteal;
   final ValueChanged<String>? onHunterShoot;
   final ValueChanged<String>? onCaptainPass;
-  final ValueChanged<String?>? onWhiteWerewolfDevour;
-  final void Function(String p1, String? p2)? onPiedPiperCharm;
-  final ValueChanged<String?>? onCorbeauCurse;
   final ValueChanged<String>? onPyromaniacDouse;
   final VoidCallback? onPyromaniacIgnite;
   final VoidCallback? onPyromaniacPass;
@@ -56,9 +53,6 @@ class BentoActionPanel extends StatefulWidget {
     this.onThiefSteal,
     this.onHunterShoot,
     this.onCaptainPass,
-    this.onWhiteWerewolfDevour,
-    this.onPiedPiperCharm,
-    this.onCorbeauCurse,
     this.onPyromaniacDouse,
     this.onPyromaniacIgnite,
     this.onPyromaniacPass,
@@ -74,10 +68,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   String? _cupidLover1Id;
   String? _cupidLover2Id;
 
-  // Sélection des cibles du Joueur de Flûte
-  String? _piperTarget1Id;
-  String? _piperTarget2Id;
-
   @override
   void didUpdateWidget(covariant BentoActionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -86,8 +76,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         oldWidget.room.round != widget.room.round) {
       _cupidLover1Id = null;
       _cupidLover2Id = null;
-      _piperTarget1Id = null;
-      _piperTarget2Id = null;
     }
   }
 
@@ -209,16 +197,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 else if (phase == GamePhase.nightWerewolves && (role.isEvil || widget.isAdmin)) ...[
                   _buildWerewolvesSection(me, selectedTarget),
                 ]
-                // 8.B LOUP-GAROU BLANC
-                else if (phase == GamePhase.nightWhiteWerewolf &&
-                    (role == GameRole.whiteWerewolf || widget.isAdmin)) ...[
-                  _buildWhiteWerewolfSection(selectedTarget),
-                ]
-                // 8.C CORBEAU
-                else if (phase == GamePhase.nightRaven &&
-                    (role == GameRole.raven || widget.isAdmin)) ...[
-                  _buildRavenSection(selectedTarget),
-                ]
                 // 9. SORCIÈRE
                 else if (phase == GamePhase.nightWitch && (role == GameRole.witch || widget.isAdmin)) ...[
                   _buildWitchSection(
@@ -229,12 +207,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     selectedTarget,
                   ),
                 ]
-                // 9.B JOUEUR DE FLÛTE
-                else if (phase == GamePhase.nightPiedPiper &&
-                    (role == GameRole.piedPiper || widget.isAdmin)) ...[
-                  _buildPiedPiperSection(selectedTarget),
-                ]
-                // 9.C PYROMANE
+                // 9.B PYROMANE
                 else if (phase == GamePhase.nightPyromaniac &&
                     (role == GameRole.pyromaniac || widget.isAdmin)) ...[
                   _buildPyromaniacSection(selectedTarget),
@@ -948,208 +921,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ),
             onPressed: canBind ? () => widget.onCupidBind?.call(lover1.id, lover2.id) : null,
             child: const Text('Lier', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Module Loup-Garou Blanc
-  Widget _buildWhiteWerewolfSection(PlayerModel? selectedTarget) {
-    final isTargetValidWolf = selectedTarget != null &&
-        selectedTarget.isAlive &&
-        selectedTarget.role.isEvil &&
-        selectedTarget.id != widget.currentUserId;
-
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0284C7),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: isTargetValidWolf
-                  ? () => widget.onWhiteWerewolfDevour?.call(selectedTarget.id)
-                  : null,
-              icon: const Icon(Icons.flash_on_rounded, size: 15),
-              label: Text(
-                selectedTarget != null
-                    ? 'Dévorer loup (${selectedTarget.name}) 🐺'
-                    : 'Dévorer un loup (Sélectionner)',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          height: 40,
-          child: OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: LupusColors.textSecondary,
-              side: const BorderSide(color: LupusColors.border),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => widget.onWhiteWerewolfDevour?.call(null),
-            child: const Text('Passer', style: TextStyle(fontSize: 11)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Module Corbeau
-  Widget _buildRavenSection(PlayerModel? selectedTarget) {
-    final isValidTarget = selectedTarget != null && selectedTarget.isAlive;
-
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: isValidTarget
-                  ? () => widget.onCorbeauCurse?.call(selectedTarget.id)
-                  : null,
-              icon: const Icon(Icons.report_problem_rounded, size: 15),
-              label: Text(
-                selectedTarget != null
-                    ? 'Maudire (${selectedTarget.name}) 🦅'
-                    : 'Maudire (Sélectionner)',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          height: 40,
-          child: OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: LupusColors.textSecondary,
-              side: const BorderSide(color: LupusColors.border),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => widget.onCorbeauCurse?.call(null),
-            child: const Text('Passer', style: TextStyle(fontSize: 11)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Module Joueur de Flûte
-  Widget _buildPiedPiperSection(PlayerModel? selectedTarget) {
-    final t1 = _piperTarget1Id != null ? widget.room.players[_piperTarget1Id] : null;
-    final t2 = _piperTarget2Id != null ? widget.room.players[_piperTarget2Id] : null;
-    final uncharmedAlive = widget.room.alivePlayers.where(
-      (p) => p.id != widget.currentUserId && !p.isCharmed,
-    ).toList();
-    final canCharm = (uncharmedAlive.length <= 1 && t1 != null) ||
-        (t1 != null && t2 != null && t1.id != t2.id);
-
-    return Row(
-      children: [
-        Expanded(
-          child: GestureDetector(
-            onTap: () {
-              if (selectedTarget != null &&
-                  selectedTarget.isAlive &&
-                  selectedTarget.id != widget.currentUserId &&
-                  !selectedTarget.isCharmed &&
-                  selectedTarget.id != _piperTarget2Id) {
-                setState(() => _piperTarget1Id = selectedTarget.id);
-              }
-            },
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              decoration: BoxDecoration(
-                color: t1 != null
-                    ? const Color(0xFF14B8A6).withValues(alpha: 0.15)
-                    : LupusColors.surfaceLight,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: t1 != null ? const Color(0xFF14B8A6) : LupusColors.border,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                t1 != null ? '🎶 ${t1.name}' : '+ Cible 1',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: GestureDetector(
-            onTap: () {
-              if (selectedTarget != null &&
-                  selectedTarget.isAlive &&
-                  selectedTarget.id != widget.currentUserId &&
-                  !selectedTarget.isCharmed &&
-                  selectedTarget.id != _piperTarget1Id) {
-                setState(() => _piperTarget2Id = selectedTarget.id);
-              }
-            },
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              decoration: BoxDecoration(
-                color: t2 != null
-                    ? const Color(0xFF14B8A6).withValues(alpha: 0.15)
-                    : LupusColors.surfaceLight,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: t2 != null ? const Color(0xFF14B8A6) : LupusColors.border,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                t2 != null ? '🎶 ${t2.name}' : '+ Cible 2',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        SizedBox(
-          height: 40,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F766E),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: canCharm
-                ? () {
-                    widget.onPiedPiperCharm?.call(t1!.id, t2?.id);
-                    setState(() {
-                      _piperTarget1Id = null;
-                      _piperTarget2Id = null;
-                    });
-                  }
-                : null,
-            child: const Text('Envoûter', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5)),
           ),
         ),
       ],

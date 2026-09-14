@@ -62,11 +62,17 @@ jobs:
             lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm32.apk
             lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm64.apk
 
+      - name: Determine Version
+        run: |
+          RAW_VER=$(grep '^version:' lupus_arena/pubspec.yaml | awk '{print $2}')
+          echo "APP_VERSION=v$RAW_VER" >> $GITHUB_ENV
+          echo "Building version: v$RAW_VER"
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0+1
-          name: "Release v1.0.0+1"
+          tag_name: ${{ env.APP_VERSION }}
+          name: "Release ${{ env.APP_VERSION }}"
           body: "Builds Android optimisés (32-bit et 64-bit séparés pour réduire la taille de l'APK)."
           draft: false
           prerelease: false

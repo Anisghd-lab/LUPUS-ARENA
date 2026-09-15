@@ -41,6 +41,7 @@ enum GameRole {
   simpleWerewolf,
   bigBadWolf, // Grand Méchant Loup
   whiteWerewolf, // Loup-Garou Blanc
+  blackWolf, // Loup Noir (Réduit un joueur au silence)
   vileFatherOfWolves, // Infect Père des Loups
   wolfCub, // Chiot / Enfant Sauvage (mode loup)
 
@@ -67,12 +68,27 @@ enum GameRole {
   int get nightExecutionPriority => GameRoleExtension(this).nightExecutionPriority;
   Color get accentColor => GameRoleExtension(this).accentColor;
   IconData get icon => GameRoleExtension(this).icon;
+  GameRole get seerPerception => GameRoleExtension(this).seerPerception;
+
+  static GameRole get loupBlanc => GameRole.whiteWerewolf;
+  static GameRole get loupNoir => GameRole.blackWolf;
+  static GameRole get simpleVillageois => GameRole.simpleVillager;
 
   static GameRole fromId(String id) => GameRoleExtension.fromId(id);
   static GameRole fromString(String? role) => GameRoleExtension.fromString(role);
 }
 
+typedef Role = GameRole;
+
 extension GameRoleExtension on GameRole {
+  /// Vision de la Voyante : Le Loup Blanc apparaît comme un Simple Villageois
+  GameRole get seerPerception {
+    if (this == GameRole.whiteWerewolf) {
+      return GameRole.simpleVillager;
+    }
+    return this;
+  }
+
   String get id {
     switch (this) {
       case GameRole.simpleVillager: return 'simple_villager';
@@ -98,6 +114,7 @@ extension GameRoleExtension on GameRole {
       case GameRole.simpleWerewolf: return 'simple_werewolf';
       case GameRole.bigBadWolf: return 'big_bad_wolf';
       case GameRole.whiteWerewolf: return 'white_werewolf';
+      case GameRole.blackWolf: return 'black_wolf';
       case GameRole.vileFatherOfWolves: return 'vile_father_of_wolves';
       case GameRole.wolfCub: return 'wolf_cub';
 
@@ -138,6 +155,7 @@ extension GameRoleExtension on GameRole {
       case GameRole.simpleWerewolf: return 'Loup-Garou';
       case GameRole.bigBadWolf: return 'Grand Méchant Loup';
       case GameRole.whiteWerewolf: return 'Loup-Garou Blanc';
+      case GameRole.blackWolf: return 'Loup Noir';
       case GameRole.vileFatherOfWolves: return 'Infect Père des Loups';
       case GameRole.wolfCub: return 'Chiot Loup';
 
@@ -202,6 +220,8 @@ extension GameRoleExtension on GameRole {
         return 'Dévore une seconde victime chaque nuit tant qu\'aucun loup n\'est mort.';
       case GameRole.whiteWerewolf:
         return 'Se réveille avec les loups, mais se réveille une nuit sur deux pour éliminer un loup.';
+      case GameRole.blackWolf:
+        return 'Chaque nuit, sélectionne un joueur vivant pour le réduire au silence. Au lever du jour, le joueur désigné a son micro coupé et son chat désactivé pour toute la durée de la journée.';
       case GameRole.vileFatherOfWolves:
         return 'Une fois par partie, transforme la victime des loups en loup-garou au lieu de la tuer.';
       case GameRole.wolfCub:
@@ -233,11 +253,13 @@ extension GameRoleExtension on GameRole {
     switch (this) {
       case GameRole.simpleWerewolf:
       case GameRole.bigBadWolf:
+      case GameRole.whiteWerewolf:
+        return Team.solo;
+      case GameRole.blackWolf:
       case GameRole.vileFatherOfWolves:
       case GameRole.wolfCub:
         return Team.werewolves;
 
-      case GameRole.whiteWerewolf:
       case GameRole.piedPiper:
       case GameRole.angel:
       case GameRole.sectLeader:
@@ -267,6 +289,7 @@ extension GameRoleExtension on GameRole {
       case GameRole.simpleWerewolf:
       case GameRole.bigBadWolf:
       case GameRole.whiteWerewolf:
+      case GameRole.blackWolf:
       case GameRole.vileFatherOfWolves:
       case GameRole.witch:
       case GameRole.fox:
@@ -301,6 +324,7 @@ extension GameRoleExtension on GameRole {
       case GameRole.littleGirl:
       case GameRole.vileFatherOfWolves:
       case GameRole.wolfCub: return 90;
+      case GameRole.blackWolf: return 95;
       case GameRole.bigBadWolf: return 100;
       case GameRole.whiteWerewolf: return 110;
       case GameRole.witch: return 120;
@@ -318,6 +342,8 @@ extension GameRoleExtension on GameRole {
       case GameRole.vileFatherOfWolves:
       case GameRole.wolfCub:
         return const Color(0xFFFF2A55); // Neon crimson
+      case GameRole.blackWolf:
+        return const Color(0xFF1E1B4B); // Midnight obsidian
       case GameRole.whiteWerewolf:
         return const Color(0xFFE0AAFF); // Mystic white/silver
       case GameRole.seer:
@@ -384,6 +410,8 @@ extension GameRoleExtension on GameRole {
       case GameRole.vileFatherOfWolves:
       case GameRole.wolfCub:
         return Icons.pets_rounded;
+      case GameRole.blackWolf:
+        return Icons.volume_off_rounded;
       case GameRole.whiteWerewolf:
         return Icons.brightness_7_rounded;
       case GameRole.seer:
@@ -460,6 +488,11 @@ extension GameRoleExtension on GameRole {
       case 'simple_werewolf':
       case 'simplewerewolf':
         return GameRole.simpleWerewolf;
+      case 'black_wolf':
+      case 'blackwolf':
+      case 'loup_noir':
+      case 'loupnoir':
+        return GameRole.blackWolf;
       case 'villager':
       case 'villageois':
       case 'simple_villager':

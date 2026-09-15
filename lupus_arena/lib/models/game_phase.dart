@@ -6,9 +6,10 @@ enum GamePhase {
   // --- PHASES NOCTURNES (ORDRE SÉQUENTIEL STRICT) ---
   nightThief, // Voleur (Nuit 1 uniquement)
   nightCupid, // Cupidon (Nuit 1 uniquement)
-  nightSeer, // Voyante
   nightDefender, // Salvateur / Protecteur
   nightWerewolves, // Loups-Garous & Petite Fille
+  nightBlackWolf, // Loup Noir (Réduit un joueur au silence)
+  nightSeer, // Voyante
   nightWitch, // Sorcière
   nightPyromaniac, // Pyromane (Asperger ou Brûler)
 
@@ -55,6 +56,8 @@ enum GamePhase {
         return 'Nuit - La Voyante sonde une âme';
       case GamePhase.nightWerewolves:
         return 'Nuit - Les Loups-Garous chassent';
+      case GamePhase.nightBlackWolf:
+        return 'Nuit - Le Loup Noir réduit un joueur au silence';
       case GamePhase.nightWitch:
         return 'Nuit - La Sorcière utilise ses potions';
       case GamePhase.nightPyromaniac:
@@ -96,6 +99,8 @@ enum GamePhase {
         return 'La voyante perce à jour la carte d\'un habitant de son choix.';
       case GamePhase.nightWerewolves:
         return 'Les loups votent et débattent en secret. La petite fille écoute passivement.';
+      case GamePhase.nightBlackWolf:
+        return 'Le Loup Noir choisit un joueur vivant pour lui couper la parole (micro et chat) toute la journée suivante.';
       case GamePhase.nightWitch:
         return 'La sorcière découvre la victime des loups et choisit d\'utiliser guérison ou poison.';
       case GamePhase.nightPyromaniac:
@@ -129,6 +134,7 @@ enum GamePhase {
         this == GamePhase.nightDefender ||
         this == GamePhase.nightSeer ||
         this == GamePhase.nightWerewolves ||
+        this == GamePhase.nightBlackWolf ||
         this == GamePhase.nightWitch ||
         this == GamePhase.nightPyromaniac;
   }
@@ -156,6 +162,8 @@ enum GamePhase {
         return Icons.visibility_rounded;
       case GamePhase.nightWerewolves:
         return Icons.nights_stay_rounded;
+      case GamePhase.nightBlackWolf:
+        return Icons.volume_off_rounded;
       case GamePhase.nightWitch:
         return Icons.science_rounded;
       case GamePhase.nightPyromaniac:

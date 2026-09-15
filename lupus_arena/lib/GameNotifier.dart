@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'AgoraVoiceService.dart';
+import 'models/chat_message.dart';
 import 'models/game_phase.dart';
 import 'models/game_room.dart';
 import 'models/player_model.dart';
@@ -66,6 +67,7 @@ class LupusGameState {
   GameRole get myRole => currentPlayer?.role ?? GameRole.simpleVillager;
   bool get isCaptain => currentPlayer?.isCaptain ?? false;
   bool get isLover => currentPlayer?.isLover ?? false;
+  bool get isSilencedByBlackWolf => currentPlayer?.isMuted == true;
   bool get isWolfVoiceChannel =>
       currentVoiceChannel != null && currentVoiceChannel!.endsWith('_wolves');
   bool get isGodMode => isGodModeActive && (room?.isDevRoom == true);
@@ -863,6 +865,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'seerInspectedTargetId': null,
       'seerInspectedRole': null,
       'morningVictims': [],
+      'blackWolfTargetId': null,
       'pendingHunterId': null,
       'pendingCaptainId': null,
       'currentSpeakerId': null,
@@ -938,7 +941,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
-  /// Ordre choisi : Salvateur -> Loups-Garous -> Voyante -> Sorcière
+  /// Ordre choisi : Salvateur -> Loups-Garous -> Loup Noir -> Voyante -> Sorcière
   GamePhase _getNextNightPhase({
     required GamePhase current,
     required int round,
@@ -967,6 +970,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (round == 1 && hasAlive(GameRole.cupid)) return GamePhase.nightCupid;
       if (hasAlive(GameRole.defender)) return GamePhase.nightDefender;
       if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
+      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
@@ -977,6 +981,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (round == 1 && hasAlive(GameRole.cupid)) return GamePhase.nightCupid;
       if (hasAlive(GameRole.defender)) return GamePhase.nightDefender;
       if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
+      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
@@ -986,6 +991,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (current == GamePhase.nightCupid) {
       if (hasAlive(GameRole.defender)) return GamePhase.nightDefender;
       if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
+      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
@@ -995,6 +1001,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     // 1. Salvateur
     if (current == GamePhase.nightDefender) {
       if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
+      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
@@ -1003,6 +1010,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     // 2. Loups
     if (current == GamePhase.nightWerewolves) {
+      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
+      if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
+      if (hasActiveWitch()) return GamePhase.nightWitch;
+      if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
+      return GamePhase.morningAnnouncement;
+    }
+
+    // 2.B Loup Noir (Pouvoir de faire taire un joueur)
+    if (current == GamePhase.nightBlackWolf) {
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
@@ -1118,6 +1134,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       logs.add(
         '🌅 L\'aube se lève dans le deuil. Le village compte ${allDeaths.length} trépassé(s).',
       );
+    }
+
+    // 2c. Loup Noir : Réduire au silence pour toute la durée de la journée
+    if (room.blackWolfTargetId != null) {
+      final silencedId = room.blackWolfTargetId!;
+      final silencedPlayer = room.players[silencedId];
+      if (silencedPlayer != null && !allDeaths.contains(silencedId)) {
+        updates['players/$silencedId/isMuted'] = true;
+        logs.add(
+          '🔇 SORT DU LOUP NOIR : ${silencedPlayer.name} est réduit(e) au silence pour toute la journée ! (Micro et chat désactivés)',
+        );
+        if (state.currentUserId == silencedId) {
+          _voiceService.setMute(true);
+        }
+      }
     }
 
     updates['lastProtectedPlayerId'] = room.currentProtectedPlayerId;
@@ -1736,6 +1767,28 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await processNightTransitions();
   }
 
+  /// Pouvoir du Loup Noir : durant la nuit, sélectionne un joueur vivant pour le réduire au silence
+  Future<bool> blackWolfSilence(String targetPlayerId) async {
+    if ((state.myRole != GameRole.blackWolf && !state.isAdmin) ||
+        _currentRoomRef == null) {
+      return false;
+    }
+    final target = state.room?.players[targetPlayerId];
+    if (target == null || !target.isAlive) {
+      return false;
+    }
+
+    await _syncState({
+      'blackWolfTargetId': targetPlayerId,
+      'logs': [
+        ...?state.room?.logs,
+        '🐺 Une aura ténébreuse s\'empare d\'un villageois... Le Loup Noir a désigné sa cible de silence.',
+      ],
+    });
+    await processNightTransitions();
+    return true;
+  }
+
   Future<bool> defenderProtect(String targetPlayerId) async {
     if ((state.myRole != GameRole.defender && !state.isAdmin) ||
         _currentRoomRef == null) {
@@ -1760,6 +1813,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     return true;
   }
 
+  /// Fonction d'inspection du rôle de la Voyante :
+  /// Si le joueur ciblé possède le rôle Loup Blanc (loupBlanc / whiteWerewolf),
+  /// la fonction retourne Simple Villageois (simpleVillageois / simpleVillager) au lieu de son vrai rôle.
+  static GameRole getSeerPerceivedRole(GameRole actualRole) {
+    if (actualRole == GameRole.whiteWerewolf) {
+      return GameRole.simpleVillager;
+    }
+    return actualRole;
+  }
+
   Future<PlayerModel?> inspectPlayer(String targetId) async {
     if (state.myRole != GameRole.seer && !state.isAdmin) return null;
     final target = state.room?.players[targetId];
@@ -1779,6 +1842,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         debugPrint('[Seer Inspect Error] $e');
       }
     }
+
+    // Règle spéciale Voyante : Le Loup Blanc apparaît comme un Simple Villageois
+    discoveredRole = getSeerPerceivedRole(discoveredRole);
 
     final updatedMap = Map<String, GameRole>.from(state.seerInspectedRoles);
     updatedMap[targetId] = discoveredRole;
@@ -2079,7 +2145,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             (phase == GamePhase.nightThief &&
                 (state.myRole == GameRole.thief || state.isAdmin)) ||
             (phase == GamePhase.nightPyromaniac &&
-                (state.myRole == GameRole.pyromaniac || state.isAdmin)));
+                (state.myRole == GameRole.pyromaniac || state.isAdmin)) ||
+            (phase == GamePhase.nightBlackWolf &&
+                (state.myRole == GameRole.blackWolf || state.isAdmin)));
 
     if (!state.isHost && !state.isAdmin && !canAdvanceNight) return;
 
@@ -2124,12 +2192,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         'witchPoisonVictimId': null,
         'seerInspectedTargetId': null,
         'seerInspectedRole': null,
+        'blackWolfTargetId': null,
         'timerSeconds': 45,
         'logs': [
           ...?state.room?.logs,
           '🌑 La nuit $nextRound recouvre le village. Les habitants s\'endorment.',
         ],
       };
+      // Rétablir la parole pour les joueurs réduits au silence par le Loup Noir
+      for (final p in state.room!.players.values) {
+        if (p.isMuted) {
+          updates['players/${p.id}/isMuted'] = false;
+        }
+      }
       _resetAllVotes(updates);
       await _syncState(updates);
     }
@@ -2331,6 +2406,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       );
     }
 
+    // Si le joueur est réduit au silence par le Loup Noir (isMuted), son micro est forcé en sourdine
+    if (me.isMuted) {
+      shouldMute = true;
+    }
+
     await _voiceService.setMute(shouldMute);
   }
 
@@ -2485,6 +2565,54 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (state.room != null) {
         _applyVoiceRulesForPhase(state.room!);
       }
+    }
+  }
+
+  /// Envoi d'un message dans le chat du jeu
+  /// Si le joueur est réduit au silence par le Loup Noir (isMuted = true),
+  /// l'envoi est strictement interdit et le chat est bloqué pour toute la journée.
+  Future<bool> sendChatMessage(String content) async {
+    final clean = content.trim();
+    if (clean.isEmpty || state.room == null) return false;
+    final room = state.room!;
+
+    final me = state.currentPlayer;
+    if (me?.isMuted == true) {
+      state = state.copyWith(
+        errorMessage:
+            '🔇 Vous êtes réduit au silence par le Loup Noir (micro coupé et chat désactivé pour toute la journée).',
+      );
+      return false;
+    }
+
+    if (!state.isAlive && !state.isAdmin) {
+      state = state.copyWith(
+        errorMessage: 'Les défunts ne peuvent pas s\'exprimer dans le village.',
+      );
+      return false;
+    }
+
+    final messageId =
+        'msg_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9999)}';
+    final chatMsg = ChatMessage(
+      id: messageId,
+      senderId: state.currentUserId,
+      senderName: state.currentUserName,
+      senderAvatar: state.currentUserAvatar,
+      content: clean,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      isWolfChat: false,
+      senderRole: state.myRole.displayName,
+    );
+
+    try {
+      await _database
+          .ref('rooms/${room.roomCode}/chat/$messageId')
+          .set(chatMsg.toMap());
+      return true;
+    } catch (e) {
+      debugPrint('[Firebase Chat Error] $e');
+      return false;
     }
   }
 

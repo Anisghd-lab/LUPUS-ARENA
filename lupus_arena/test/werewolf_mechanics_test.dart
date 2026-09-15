@@ -98,4 +98,68 @@ void main() {
     // Le loup ne prend pas le villageois pour un loup
     expect(isMeEvil && villager.role.isEvil, isFalse);
   });
+
+  test('La Voyante inspecte le Loup Blanc comme un Simple Villageois', () {
+    // 1. Test via la fonction statique d'inspection
+    expect(GameNotifier.getSeerPerceivedRole(GameRole.whiteWerewolf), equals(GameRole.simpleVillager));
+    expect(GameNotifier.getSeerPerceivedRole(Role.loupBlanc), equals(Role.simpleVillageois));
+
+    // 2. Les autres rôles conservent leur identité
+    expect(GameNotifier.getSeerPerceivedRole(GameRole.simpleWerewolf), equals(GameRole.simpleWerewolf));
+    expect(GameNotifier.getSeerPerceivedRole(GameRole.witch), equals(GameRole.witch));
+    expect(GameNotifier.getSeerPerceivedRole(GameRole.simpleVillager), equals(GameRole.simpleVillager));
+
+    // 3. Test via le getter de perception de rôle
+    expect(GameRole.whiteWerewolf.seerPerception, equals(GameRole.simpleVillager));
+    expect(Role.loupBlanc.seerPerception, equals(Role.simpleVillageois));
+    expect(GameRole.seer.seerPerception, equals(GameRole.seer));
+  });
+
+  test('Le Loup Noir (loupNoir / blackWolf) est un rôle maléfique avec phase nocturne dédiée', () {
+    expect(GameRole.blackWolf.isEvil, isTrue);
+    expect(Role.loupNoir, equals(GameRole.blackWolf));
+    expect(GameRole.blackWolf.id, equals('black_wolf'));
+    expect(GameRole.blackWolf.displayName, equals('Loup Noir'));
+    expect(GamePhase.nightBlackWolf.isNight, isTrue);
+  });
+
+  test('La synchronisation du ciblage du Loup Noir dans GameRoom (blackWolfTargetId)', () {
+    final room = GameRoom(
+      roomCode: 'TEST_BLACK_WOLF',
+      hostId: 'host1',
+      blackWolfTargetId: 'target_player_1',
+    );
+
+    expect(room.blackWolfTargetId, equals('target_player_1'));
+
+    final map = room.toMap();
+    expect(map['blackWolfTargetId'], equals('target_player_1'));
+
+    final restoredRoom = GameRoom.fromMap(map, 'TEST_BLACK_WOLF');
+    expect(restoredRoom.blackWolfTargetId, equals('target_player_1'));
+
+    final clearedRoom = restoredRoom.copyWith(clearBlackWolfTargetId: true);
+    expect(clearedRoom.blackWolfTargetId, isNull);
+  });
+
+  test('La coupure de parole (isMuted = true) persiste sur le joueur ciblé', () {
+    final player = PlayerModel(
+      id: 'victim_1',
+      name: 'SilencedVillager',
+      role: GameRole.simpleVillager,
+      isMuted: false,
+    );
+
+    expect(player.isMuted, isFalse);
+
+    final silencedPlayer = player.copyWith(isMuted: true);
+    expect(silencedPlayer.isMuted, isTrue);
+
+    final playerMap = silencedPlayer.toMap();
+    expect(playerMap['isMuted'], isTrue);
+
+    final deserializedPlayer = PlayerModel.fromMap(playerMap, 'victim_1');
+    expect(deserializedPlayer.isMuted, isTrue);
+  });
 }
+

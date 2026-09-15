@@ -12,6 +12,7 @@ class BentoVoiceControls extends StatelessWidget {
   final bool isCurrentSpeaker;
   final String? currentSpeakerName;
   final GamePhase? phase;
+  final bool isMutedByBlackWolf;
 
   BentoVoiceControls({
     super.key,
@@ -19,6 +20,7 @@ class BentoVoiceControls extends StatelessWidget {
     this.isCurrentSpeaker = false,
     this.currentSpeakerName,
     this.phase,
+    this.isMutedByBlackWolf = false,
   });
 
   @override
@@ -54,6 +56,12 @@ class BentoVoiceControls extends StatelessWidget {
                           borderColor = LupusColors.border;
                           statusText = 'SILENCE DES OMBRES';
                           subtitleText = 'Vous êtes éliminé(e) • Micro verrouillé';
+                        } else if (isMutedByBlackWolf) {
+                          statusColor = LupusColors.bloodRed;
+                          borderColor = LupusColors.bloodRed.withValues(alpha: 0.8);
+                          statusText = 'SILENCE FORCÉ (LOUP NOIR)';
+                          subtitleText =
+                              'Réduit au silence par le Loup Noir • Micro et chat verrouillés';
                         } else if (lastError != null && !connected) {
                           statusColor = LupusColors.bloodRed;
                           borderColor = LupusColors.bloodRed.withValues(alpha: 0.6);
@@ -113,7 +121,7 @@ class BentoVoiceControls extends StatelessWidget {
                         }
 
                         final bool canToggleMic =
-                            isAlive && (!isDebateOrDefense || isCurrentSpeaker);
+                            isAlive && !isMutedByBlackWolf && (!isDebateOrDefense || isCurrentSpeaker);
 
                         return BentoCard(
                           padding: const EdgeInsets.symmetric(

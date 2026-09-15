@@ -508,7 +508,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
 
           // OVERLAY DE FIN DE PARTIE
           if (room.phase == GamePhase.gameOver)
-            _buildGameOverOverlay(context, room.winner),
+            _buildGameOverOverlay(context, room, gameState),
         ],
       ),
     );
@@ -1825,7 +1825,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   }
 
   /// Overlay de victoire finale
-  Widget _buildGameOverOverlay(BuildContext context, String? winner) {
+  Widget _buildGameOverOverlay(
+    BuildContext context,
+    GameRoom room,
+    LupusGameState gameState,
+  ) {
+    final winner = room.winner;
     final w = winner?.toLowerCase().trim() ?? '';
     final isWolvesWin =
         w == 'werewolves' || w == 'wolves' || w == 'whitewerewolf';
@@ -2022,25 +2027,119 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                   },
                 ),
                 const SizedBox(height: 20),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: () {
-                    ref.read(gameNotifierProvider.notifier).leaveRoom();
+
+                // BOUTON INTERACTIF 'REJOUER' AVEC COMPTEUR DYNAMIQUE (prêts/total)
+                Builder(
+                  builder: (context) {
+                    final totalCount = room.totalPlayersCount;
+                    final readyCount = room.replayReadyCount;
+                    final isMeReady =
+                        room.isPlayerReadyReplay(gameState.currentUserId);
+
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isMeReady
+                                  ? const Color(0xFF00FF88)
+                                  : LupusColors.arcanePurple,
+                              foregroundColor:
+                                  isMeReady ? Colors.black : Colors.white,
+                              elevation: isMeReady ? 8 : 3,
+                              shadowColor: isMeReady
+                                  ? const Color(0xFF00FF88)
+                                      .withValues(alpha: 0.6)
+                                  : LupusColors.arcanePurple
+                                      .withValues(alpha: 0.4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                side: BorderSide(
+                                  color: isMeReady
+                                      ? Colors.white.withValues(alpha: 0.8)
+                                      : Colors.white.withValues(alpha: 0.2),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                            icon: Icon(
+                              isMeReady
+                                  ? Icons.check_circle_rounded
+                                  : Icons.replay_rounded,
+                              size: 22,
+                              color: isMeReady ? Colors.black : Colors.white,
+                            ),
+                            label: Text(
+                              isMeReady
+                                  ? 'Prêt ($readyCount/$totalCount)'
+                                  : 'Rejouer ($readyCount/$totalCount)',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            onPressed: () {
+                              if (isMeReady) {
+                                ref
+                                    .read(gameNotifierProvider.notifier)
+                                    .playerCancelReplay(
+                                      userId: gameState.currentUserId,
+                                      roomId: room.roomCode,
+                                    );
+                              } else {
+                                ref
+                                    .read(gameNotifierProvider.notifier)
+                                    .playerReadyReplay(
+                                      userId: gameState.currentUserId,
+                                      roomId: room.roomCode,
+                                    );
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: LupusColors.textSecondary,
+                              side: BorderSide(
+                                color:
+                                    LupusColors.border.withValues(alpha: 0.8),
+                                width: 1.0,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () {
+                              ref
+                                  .read(gameNotifierProvider.notifier)
+                                  .leaveRoom();
+                            },
+                            child: const Text(
+                              'REVENIR AU SALON',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
                   },
-                  child: const Text(
-                    'REVENIR AU SALON',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
                 ),
               ],
             ),

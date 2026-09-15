@@ -77,11 +77,12 @@ jobs:
           name: "Release ${{ env.APP_VERSION }}"
           body: |
             ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
-            - **🎙️ Minute Vocale Collective à la Victoire (60s)** : Dès l'annonce de la victoire (`gameOver`), ouverture automatique d'un canal vocal général à TOUS les joueurs (morts et vivants). Compte à rebours visuel dynamique avec barre de progression, et coupure automatique des micros à l'expiration de la minute.
-            - **🔒 Entrée Unique & Anti-Doublon** : Remplacement transparent du socket (`socketId`) et du flux vocal lors des reconnexions sans créer d'entrée dupliquée dans le salon, avec préservation stricte des rôles et statuts.
-            - **🐺 Pouvoir du Loup Noir** : Sélection nocturne d'une cible pour la réduire au silence (micro coupé et champ de saisie de chat désactivé) pour l'intégralité du jour suivant.
-            - **🔮 Voyante & Loup Blanc** : Perception mystique conforme aux règles officielles : inspection du Loup Blanc renvoyant Simple Villageois.
-            - **📱 Interface de Salon Responsive** : Arrière-plan étendu en plein écran avec `StackFit.expand` et intégration bord à bord sans bande noire.
+            - **🔄 Bouton Interactif 'Rejouer' & Compteur Dynamique `(prêts/total)`** : Vote interactif de fin de partie avec bascule d'état visuel ("Rejouer" <-> "Prêt"), émission de `player_ready_replay` / `player_cancel_replay`, et synchro temps réel via `replay_status_updated`.
+            - **🎲 Mélange Fisher-Yates & Redistribution Impérative des Rôles** : Dès quorum atteint, le serveur génère un deck adapté (Loup Blanc, Loup Noir, Voyante, Sorcière, Chasseur, Villageois...), le brasse via l'algorithme de Fisher-Yates, et attribue à chaque joueur un rôle distinct et différent avant d'émettre `game_reset_to_lobby`.
+            - **❤️ Réinitialisation Canonique des Joueurs** : Restauration complète des statistiques (`PV = 100`, `isAlive = true`, `isMuted = false`), réinitialisation des cibles nocturnes et retour synchronisé au salon.
+            - **🎙️ Minute Vocale Collective à la Victoire (60s)** : Canal vocal général ouvert à tous (morts et vivants), compte à rebours visuel et coupure générale à 0s.
+            - **🔒 Entrée Unique & Anti-Doublon** : Reconnexion transparente avec mise à jour du `socketId` sans doublon de joueur.
+            - **🐺 Pouvoir du Loup Noir & Voyante / Loup Blanc** : Rôles nocturnes conformes aux règles officielles.
             
             📲 **Installation recommandée** : Téléchargez et installez simplement **`LupusArena.apk`** (compatible avec tous les téléphones Android récents).
           draft: false

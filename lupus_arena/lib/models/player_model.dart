@@ -24,6 +24,8 @@ class PlayerModel {
   final String? encryptedRole;
   final int seatIndex;
   final String? socketId;
+  final int pv;
+  final bool isReadyReplay;
 
   const PlayerModel({
     required this.id,
@@ -47,6 +49,8 @@ class PlayerModel {
     this.encryptedRole,
     this.seatIndex = -1,
     this.socketId,
+    this.pv = 100,
+    this.isReadyReplay = false,
   });
 
   PlayerModel copyWith({
@@ -71,6 +75,8 @@ class PlayerModel {
     String? encryptedRole,
     int? seatIndex,
     String? socketId,
+    int? pv,
+    bool? isReadyReplay,
   }) {
     return PlayerModel(
       id: id ?? this.id,
@@ -94,6 +100,8 @@ class PlayerModel {
       encryptedRole: encryptedRole ?? this.encryptedRole,
       seatIndex: seatIndex ?? this.seatIndex,
       socketId: socketId ?? this.socketId,
+      pv: pv ?? this.pv,
+      isReadyReplay: isReadyReplay ?? this.isReadyReplay,
     );
   }
 
@@ -133,6 +141,8 @@ class PlayerModel {
       if (encryptedRole != null) 'encryptedRole': encryptedRole,
       if (seatIndex >= 0) 'seatIndex': seatIndex,
       if (socketId != null) 'socketId': socketId,
+      'pv': pv,
+      'isReadyReplay': isReadyReplay,
     };
   }
 
@@ -193,6 +203,10 @@ class PlayerModel {
           ? map['seatIndex'] as int
           : int.tryParse(map['seatIndex']?.toString() ?? '-1') ?? -1,
       socketId: map['socketId']?.toString(),
+      pv: (map['pv'] is int)
+          ? map['pv'] as int
+          : int.tryParse(map['pv']?.toString() ?? '100') ?? 100,
+      isReadyReplay: map['isReadyReplay'] == true,
     );
   }
 }

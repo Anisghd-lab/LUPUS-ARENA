@@ -135,6 +135,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   StreamSubscription<DatabaseEvent>? _roomSubscription;
   StreamSubscription<DatabaseEvent>? _secretRoleSubscription;
   StreamSubscription<DatabaseEvent>? _wolfPackSubscription;
+  StreamSubscription<DatabaseEvent>? _replayStatusSubscription;
+  StreamSubscription<DatabaseEvent>? _gameResetSubscription;
   DatabaseReference? _currentRoomRef;
   String? _lastAppliedVoiceChannel;
   GamePhase? _lastAppliedVoicePhase;
@@ -2372,6 +2374,37 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         }
       }
     });
+
+    // Synchro temps réel : Écouter replay_status_updated pour actualiser le compteur (prêts/total) chez tous les clients
+    _replayStatusSubscription?.cancel();
+    _replayStatusSubscription = _database
+        .ref('rooms/$roomCode/replay_status_updated')
+        .onValue
+        .listen((event) {
+      if (event.snapshot.value != null && event.snapshot.value is Map) {
+        final val = event.snapshot.value as Map;
+        final readyUserIds = (val['readyUserIds'] as List?)
+            ?.map((e) => e.toString())
+            .toList();
+        if (readyUserIds != null && state.room != null) {
+          final updatedRoom = state.room!.copyWith(
+            replayReadyUserIds: readyUserIds,
+          );
+          state = state.copyWith(room: updatedRoom);
+        }
+      }
+    });
+
+    // Écouter game_reset_to_lobby pour synchroniser le reset de partie vers le salon
+    _gameResetSubscription?.cancel();
+    _gameResetSubscription = _database
+        .ref('rooms/$roomCode/game_reset_to_lobby')
+        .onValue
+        .listen((event) {
+      if (event.snapshot.value != null && state.room != null) {
+        state = state.copyWith(isVictoryVoiceExpired: false);
+      }
+    });
   }
 
   Future<void> _syncWolfRoster(String roomCode) async {
@@ -2710,6 +2743,317 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
+  // ==========================================
+  // --- REPLAY & RÉINITIALISATION DE PARTIE ---
+  // ==========================================
+
+  /// Algorithme de mélange de Fisher-Yates (Knuth) garanti O(N) et mathématiquement uniforme
+  static void fisherYatesShuffle<T>(List<T> list, [Random? random]) {
+    final rng = random ?? Random.secure();
+    for (int i = list.length - 1; i > 0; i--) {
+      final j = rng.nextInt(i + 1);
+      final temp = list[i];
+      list[i] = list[j];
+      list[j] = temp;
+    }
+  }
+
+  /// Prépare un deck de cartes rôles adapté au nombre de joueurs connectés
+  /// (ex: Loup Blanc, Loup Noir, Voyante, Sorcière, Chasseur, Villageois...)
+  static List<GameRole> prepareReplayRoleDeck(int count) {
+    if (count <= 0) return [];
+
+    final deck = <GameRole>[];
+
+    // Rôles canoniques prioritaires demandés explicitement :
+    // Loup Blanc, Loup Noir, Voyante, Sorcière, Chasseur, Villageois...
+    final priorityRoles = <GameRole>[
+      GameRole.whiteWerewolf, // Loup Blanc
+      GameRole.blackWolf, // Loup Noir
+      GameRole.seer, // Voyante
+      GameRole.witch, // Sorcière
+      GameRole.hunter, // Chasseur
+      GameRole.simpleVillager, // Simple Villageois
+      GameRole.cupid, // Cupidon
+      GameRole.littleGirl, // Petite Fille
+      GameRole.defender, // Salvateur / Défenseur
+      GameRole.simpleWerewolf, // Simple Loup-Garou
+      GameRole.thief, // Voleur
+      GameRole.bigBadWolf, // Grand Méchant Loup
+      GameRole.vileFatherOfWolves, // Infect Père des Loups
+      GameRole.angel, // Ange
+      GameRole.piedPiper, // Joueur de Flûte
+      GameRole.pyromaniac, // Pyromane
+    ];
+
+    for (final role in priorityRoles) {
+      if (deck.length < count) {
+        deck.add(role);
+      } else {
+        break;
+      }
+    }
+
+    // Si la salle compte plus de 16 joueurs, compléter par alternance
+    while (deck.length < count) {
+      if (deck.length % 4 == 0) {
+        deck.add(GameRole.simpleWerewolf);
+      } else {
+        deck.add(GameRole.simpleVillager);
+      }
+    }
+
+    return deck.sublist(0, count);
+  }
+
+  /// Gestion du vote client : Au premier clic, émettre player_ready_replay avec userId et roomId
+  Future<void> playerReadyReplay({String? userId, String? roomId}) async {
+    final effectiveUserId = userId ?? state.currentUserId;
+    final effectiveRoomId = roomId ?? state.room?.roomCode;
+    if (effectiveRoomId == null || effectiveRoomId.isEmpty) return;
+
+    try {
+      final roomRef = _database.ref('rooms/$effectiveRoomId');
+
+      // 1. Ajouter userId à la liste des joueurs prêts pour le replay
+      final snapshot = await roomRef.child('replayReadyUserIds').get();
+      List<String> readyList = [];
+      if (snapshot.value is List) {
+        readyList = (snapshot.value as List).map((e) => e.toString()).toList();
+      }
+      if (!readyList.contains(effectiveUserId)) {
+        readyList.add(effectiveUserId);
+      }
+
+      final totalCount = state.room?.playerList.length ?? 0;
+      final readyCount = readyList.length;
+
+      // 2. Mettre à jour Firebase et émettre replay_status_updated
+      await roomRef.update({
+        'replayReadyUserIds': readyList,
+        'players/$effectiveUserId/isReadyReplay': true,
+      });
+
+      await roomRef.child('replay_status_updated').set({
+        'event': 'replay_status_updated',
+        'userId': effectiveUserId,
+        'readyCount': readyCount,
+        'totalCount': totalCount,
+        'readyUserIds': readyList,
+        'timestamp': ServerValue.timestamp,
+      });
+
+      // Synchronisation optimiste locale
+      if (state.room != null) {
+        final updatedPlayers =
+            Map<String, PlayerModel>.from(state.room!.players);
+        if (updatedPlayers.containsKey(effectiveUserId)) {
+          updatedPlayers[effectiveUserId] =
+              updatedPlayers[effectiveUserId]!.copyWith(isReadyReplay: true);
+        }
+        state = state.copyWith(
+          room: state.room!.copyWith(
+            replayReadyUserIds: readyList,
+            players: updatedPlayers,
+          ),
+        );
+      }
+
+      // 3. Vérification du quorum : dès que tous les joueurs (ou le quorum) sont prêts,
+      // le serveur réinitialise la partie et redistribue les rôles
+      if (totalCount > 0 && readyCount >= totalCount) {
+        await resetGameAndRedistributeRoles(effectiveRoomId);
+      }
+    } catch (e) {
+      debugPrint('[Replay Error] playerReadyReplay: $e');
+    }
+  }
+
+  /// Gestion du vote client : Un second clic annule le vote via player_cancel_replay
+  Future<void> playerCancelReplay({String? userId, String? roomId}) async {
+    final effectiveUserId = userId ?? state.currentUserId;
+    final effectiveRoomId = roomId ?? state.room?.roomCode;
+    if (effectiveRoomId == null || effectiveRoomId.isEmpty) return;
+
+    try {
+      final roomRef = _database.ref('rooms/$effectiveRoomId');
+
+      final snapshot = await roomRef.child('replayReadyUserIds').get();
+      List<String> readyList = [];
+      if (snapshot.value is List) {
+        readyList = (snapshot.value as List).map((e) => e.toString()).toList();
+      }
+      readyList.remove(effectiveUserId);
+
+      final totalCount = state.room?.playerList.length ?? 0;
+      final readyCount = readyList.length;
+
+      await roomRef.update({
+        'replayReadyUserIds': readyList,
+        'players/$effectiveUserId/isReadyReplay': false,
+      });
+
+      await roomRef.child('replay_status_updated').set({
+        'event': 'replay_status_updated',
+        'userId': effectiveUserId,
+        'readyCount': readyCount,
+        'totalCount': totalCount,
+        'readyUserIds': readyList,
+        'timestamp': ServerValue.timestamp,
+      });
+
+      // Synchronisation optimiste locale
+      if (state.room != null) {
+        final updatedPlayers =
+            Map<String, PlayerModel>.from(state.room!.players);
+        if (updatedPlayers.containsKey(effectiveUserId)) {
+          updatedPlayers[effectiveUserId] =
+              updatedPlayers[effectiveUserId]!.copyWith(isReadyReplay: false);
+        }
+        state = state.copyWith(
+          room: state.room!.copyWith(
+            replayReadyUserIds: readyList,
+            players: updatedPlayers,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[Replay Error] playerCancelReplay: $e');
+    }
+  }
+
+  /// Réinitialisation et redistribution impérative des rôles :
+  /// - PV = 100, isAlive = true, isMuted = false
+  /// - Deck adapté mélangé via Fisher-Yates
+  /// - Rôle distinct et différent attribué à chaque joueur
+  /// - Émission de game_reset_to_lobby
+  Future<void> resetGameAndRedistributeRoles(String roomCode) async {
+    final roomRef = _database.ref('rooms/$roomCode');
+    final roomSnap = await roomRef.get();
+    if (!roomSnap.exists || roomSnap.value == null) return;
+
+    final roomData = roomSnap.value as Map<dynamic, dynamic>;
+    final currentRoom =
+        GameRoom.fromMap(roomData, roomCode, state.currentUserId);
+    final playersList = currentRoom.playerList;
+    final count = playersList.length;
+    if (count == 0) return;
+
+    // 1. Préparation du deck adapté au nombre de joueurs
+    final roleDeck = prepareReplayRoleDeck(count);
+
+    // 2. Mélange obligatoire via l'algorithme de Fisher-Yates
+    fisherYatesShuffle(roleDeck);
+
+    // 3. Attribution d'un rôle distinct et différent à chaque joueur
+    final Map<String, dynamic> updatedPlayers = {};
+    final Map<String, dynamic> secretRoles = {};
+    final List<String> wolfPlayerIds = [];
+
+    for (int i = 0; i < count; i++) {
+      final p = playersList[i];
+      final assignedRole = roleDeck[i];
+
+      if (assignedRole.isEvil) {
+        wolfPlayerIds.add(p.id);
+      }
+
+      secretRoles[p.id] = {
+        'roleId': assignedRole.id,
+        'roleName': assignedRole.displayName,
+        'assignedAt': ServerValue.timestamp,
+      };
+
+      final encryptedToken = RoleSecurityService.encryptRole(
+        assignedRole.id,
+        p.id,
+        roomCode,
+      );
+
+      // Réinitialisation canonique : PV = 100, isAlive = true, isMuted = false
+      final updatedP = p.copyWith(
+        role: currentRoom.isDevRoom ? assignedRole : GameRole.simpleVillager,
+        isAlive: true,
+        isMuted: false,
+        pv: 100,
+        isReady: false,
+        isReadyReplay: false,
+        targetVoteId: null,
+        isCaptain: false,
+        isLover: false,
+        loverId: null,
+        isCharmed: false,
+        isDoused: false,
+        hasUsedHealPotion: false,
+        hasUsedPoisonPotion: false,
+        encryptedRole: encryptedToken,
+      );
+
+      final pMap = updatedP.toMap();
+      if (!currentRoom.isDevRoom) {
+        pMap['role'] = 'masked';
+      }
+      updatedPlayers[p.id] = pMap;
+    }
+
+    try {
+      // 4. Mettre à jour les rôles secrets et la meute
+      await _database.ref('rooms/$roomCode/secret_roles').set(secretRoles);
+      final encryptedWolves =
+          RoleSecurityService.encryptWolfRoster(wolfPlayerIds, roomCode);
+      await _database
+          .ref('rooms/$roomCode/wolf_pack')
+          .set({'data': encryptedWolves});
+
+      // 5. Réinitialiser la salle au lobby
+      final Map<String, dynamic> roomResetUpdates = {
+        'phase': GamePhase.lobby.name,
+        'round': 1,
+        'winner': null,
+        'timerSeconds': 60,
+        'players': updatedPlayers,
+        'replayReadyUserIds': <String>[],
+        'captainId': null,
+        'lastProtectedPlayerId': null,
+        'currentProtectedPlayerId': null,
+        'nightVictimId': null,
+        'witchHealed': false,
+        'witchPoisonVictimId': null,
+        'pyromaniacIgnited': false,
+        'seerInspectedTargetId': null,
+        'seerInspectedRole': null,
+        'blackWolfTargetId': null,
+        'morningVictims': <String>[],
+        'pendingHunterId': null,
+        'pendingCaptainId': null,
+        'currentSpeakerId': null,
+        'debateQueue': <String>[],
+        'tiedPlayerIds': <String>[],
+        'isTieBreakActive': false,
+      };
+
+      await roomRef.update(roomResetUpdates);
+
+      // 6. Émettre l'événement game_reset_to_lobby
+      await roomRef.child('game_reset_to_lobby').set({
+        'event': 'game_reset_to_lobby',
+        'roomCode': roomCode,
+        'playerCount': count,
+        'timestamp': ServerValue.timestamp,
+      });
+
+      await roomRef.child('events/last_event').set({
+        'type': 'game_reset_to_lobby',
+        'roomCode': roomCode,
+        'timestamp': ServerValue.timestamp,
+      });
+
+      state = state.copyWith(isVictoryVoiceExpired: false);
+    } catch (e) {
+      debugPrint('[Replay Reset Error] $e');
+    }
+  }
+
   Future<void> leaveRoom() async {
     _roomSubscription?.cancel();
     _roomSubscription = null;
@@ -2717,6 +3061,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     _secretRoleSubscription = null;
     _wolfPackSubscription?.cancel();
     _wolfPackSubscription = null;
+    _replayStatusSubscription?.cancel();
+    _replayStatusSubscription = null;
+    _gameResetSubscription?.cancel();
+    _gameResetSubscription = null;
     _lastAppliedVoiceChannel = null;
     _lastAppliedVoicePhase = null;
     await _voiceService.leaveChannel();
@@ -2734,6 +3082,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     _roomSubscription?.cancel();
     _secretRoleSubscription?.cancel();
     _wolfPackSubscription?.cancel();
+    _replayStatusSubscription?.cancel();
+    _gameResetSubscription?.cancel();
     _voiceService.dispose();
     super.dispose();
   }

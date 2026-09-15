@@ -40,6 +40,7 @@ class GameRoom {
   final Map<String, int> rolePool;
   final bool isDevRoom;
   final List<String> seatingOrder;
+  final List<String> replayReadyUserIds;
 
   const GameRoom({
     required this.roomCode,
@@ -70,6 +71,7 @@ class GameRoom {
     this.rolePool = const {},
     this.isDevRoom = false,
     this.seatingOrder = const [],
+    this.replayReadyUserIds = const [],
   });
 
   List<PlayerModel> get playerList {
@@ -113,6 +115,13 @@ class GameRoom {
     }
     return false;
   }
+
+  int get replayReadyCount => replayReadyUserIds.length;
+  int get totalPlayersCount => playerList.length;
+  bool isPlayerReadyReplay(String userId) =>
+      replayReadyUserIds.contains(userId) ||
+      players[userId]?.isReadyReplay == true;
+
   List<PlayerModel> get alivePlayers =>
       playerList.where((p) => p.isAlive).toList();
   List<PlayerModel> get deadPlayers =>
@@ -179,6 +188,7 @@ class GameRoom {
     Map<String, int>? rolePool,
     bool? isDevRoom,
     List<String>? seatingOrder,
+    List<String>? replayReadyUserIds,
   }) {
     return GameRoom(
       roomCode: roomCode ?? this.roomCode,
@@ -212,6 +222,7 @@ class GameRoom {
       rolePool: rolePool ?? this.rolePool,
       isDevRoom: isDevRoom ?? this.isDevRoom,
       seatingOrder: seatingOrder ?? this.seatingOrder,
+      replayReadyUserIds: replayReadyUserIds ?? this.replayReadyUserIds,
     );
   }
 
@@ -245,6 +256,7 @@ class GameRoom {
       'rolePool': rolePool,
       'isDevRoom': isDevRoom,
       'seatingOrder': seatingOrder,
+      'replayReadyUserIds': replayReadyUserIds,
       'config': {
         'rolePool': rolePool,
       },
@@ -353,6 +365,14 @@ class GameRoom {
       }
     }
 
+    final rawReplayReady = map['replayReadyUserIds'];
+    final List<String> parsedReplayReady = [];
+    if (rawReplayReady is List) {
+      for (final item in rawReplayReady) {
+        if (item != null) parsedReplayReady.add(item.toString());
+      }
+    }
+
     return GameRoom(
       roomCode: (map['roomCode'] ?? code).toString(),
       hostId: (map['hostId'] ?? '').toString(),
@@ -386,6 +406,7 @@ class GameRoom {
       rolePool: parsedRolePool,
       isDevRoom: isDevRoom,
       seatingOrder: parsedSeatingOrder,
+      replayReadyUserIds: parsedReplayReady,
     );
   }
 }

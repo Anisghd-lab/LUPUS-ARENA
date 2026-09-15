@@ -296,6 +296,114 @@ void main() {
     );
     expect(normalNightDeadMute, isTrue, reason: 'En jeu normal, un mort a son micro coupé');
   });
+
+  test('Préparation du deck de cartes rôles adapté au nombre de joueurs et mélange Fisher-Yates', () {
+    // 1. Pour 6 joueurs : Loup Blanc, Loup Noir, Voyante, Sorcière, Chasseur, Villageois
+    final deck6 = GameNotifier.prepareReplayRoleDeck(6);
+    expect(deck6.length, equals(6));
+    expect(deck6, contains(GameRole.whiteWerewolf));
+    expect(deck6, contains(GameRole.blackWolf));
+    expect(deck6, contains(GameRole.seer));
+    expect(deck6, contains(GameRole.witch));
+    expect(deck6, contains(GameRole.hunter));
+    expect(deck6, contains(GameRole.simpleVillager));
+    // Tous les rôles sont distincts et différents
+    expect(deck6.toSet().length, equals(6));
+
+    // 2. Pour différentes tailles de salon (4, 8, 12, 16 joueurs), tous les rôles du deck sont distincts
+    for (final count in [4, 8, 12, 16]) {
+      final deck = GameNotifier.prepareReplayRoleDeck(count);
+      expect(deck.length, equals(count));
+      expect(deck.toSet().length, equals(count), reason: 'Rôles distincts pour $count joueurs');
+    }
+
+    // 3. Mélange Fisher-Yates : conserve l'ensemble des éléments et produit une permutation valide
+    final originalDeck = List<GameRole>.from(deck6);
+    final shuffledDeck = List<GameRole>.from(deck6);
+    GameNotifier.fisherYatesShuffle(shuffledDeck);
+    expect(shuffledDeck.length, equals(originalDeck.length));
+    expect(shuffledDeck.toSet(), equals(originalDeck.toSet()));
+
+    // 4. Attribution à chaque joueur d'un rôle distinct et différent
+    final players = List.generate(
+      6,
+      (i) => PlayerModel(id: 'player_$i', name: 'Guerrier_$i'),
+    );
+    final assignedRoles = <String, GameRole>{};
+    for (int i = 0; i < players.length; i++) {
+      assignedRoles[players[i].id] = shuffledDeck[i];
+    }
+    expect(assignedRoles.values.toSet().length, equals(6), reason: 'Chaque joueur a reçu un rôle distinct');
+  });
+
+  test('Réinitialisation complète du joueur pour le Replay (PV = 100, isAlive = true, isMuted = false)', () {
+    final deadSilencedPlayer = PlayerModel(
+      id: 'victim_dead',
+      name: 'AncienMort',
+      isAlive: false,
+      isMuted: true,
+      pv: 0,
+      isReadyReplay: true,
+      targetVoteId: 'someone',
+      isCaptain: true,
+    );
+
+    expect(deadSilencedPlayer.isAlive, isFalse);
+    expect(deadSilencedPlayer.isMuted, isTrue);
+    expect(deadSilencedPlayer.pv, equals(0));
+    expect(deadSilencedPlayer.isReadyReplay, isTrue);
+
+    // Réinitialisation canonique demandée par le prompt
+    final resetPlayer = deadSilencedPlayer.copyWith(
+      isAlive: true,
+      isMuted: false,
+      pv: 100,
+      isReadyReplay: false,
+      targetVoteId: null,
+      isCaptain: false,
+    );
+
+    expect(resetPlayer.pv, equals(100), reason: 'PV réinitialisés à 100');
+    expect(resetPlayer.isAlive, isTrue, reason: 'Joueur ressuscité pour la nouvelle partie');
+    expect(resetPlayer.isMuted, isFalse, reason: 'Micro démuté');
+    expect(resetPlayer.isReadyReplay, isFalse);
+    expect(resetPlayer.targetVoteId, isNull);
+    expect(resetPlayer.isCaptain, isFalse);
+  });
+
+  test('Synchronisation du statut de vote Replay et comptage des joueurs prêts', () {
+    final room = GameRoom(
+      roomCode: 'TEST_REPLAY',
+      hostId: 'host_1',
+      players: {
+        'p1': const PlayerModel(id: 'p1', name: 'Alpha'),
+        'p2': const PlayerModel(id: 'p2', name: 'Beta'),
+        'p3': const PlayerModel(id: 'p3', name: 'Gamma'),
+      },
+      replayReadyUserIds: ['p1', 'p2'],
+    );
+
+    expect(room.totalPlayersCount, equals(3));
+    expect(room.replayReadyCount, equals(2));
+    expect(room.isPlayerReadyReplay('p1'), isTrue);
+    expect(room.isPlayerReadyReplay('p2'), isTrue);
+    expect(room.isPlayerReadyReplay('p3'), isFalse);
+
+    // Annulation du vote par p2
+    final updatedRoom = room.copyWith(
+      replayReadyUserIds: ['p1'],
+    );
+    expect(updatedRoom.replayReadyCount, equals(1));
+    expect(updatedRoom.isPlayerReadyReplay('p2'), isFalse);
+
+    // Sérialisation et désérialisation
+    final map = room.toMap();
+    expect(map['replayReadyUserIds'], equals(['p1', 'p2']));
+    final restoredRoom = GameRoom.fromMap(map, 'TEST_REPLAY');
+    expect(restoredRoom.replayReadyCount, equals(2));
+    expect(restoredRoom.isPlayerReadyReplay('p1'), isTrue);
+  });
 }
+
 
 

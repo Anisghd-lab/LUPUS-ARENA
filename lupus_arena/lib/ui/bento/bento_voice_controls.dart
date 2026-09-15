@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../AgoraVoiceService.dart';
 import '../../models/game_phase.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 
@@ -58,32 +59,30 @@ class BentoVoiceControls extends StatelessWidget {
                           if (isVictoryVoiceExpired || muted) {
                             statusColor = LupusColors.bloodRed;
                             borderColor = LupusColors.border;
-                            statusText = 'FIN DE LA MINUTE COLLECTIVE';
-                            subtitleText = 'Micro coupé • Fin de partie';
+                            statusText = context.tr('minute_collective_end');
+                            subtitleText = context.tr('mic_cut_game_over');
                           } else {
                             statusColor = const Color(0xFF00FF88);
                             borderColor =
                                 const Color(0xFF00FF88).withValues(alpha: 0.6);
-                            statusText = 'MINUTE VOCALE COLLECTIVE';
-                            subtitleText =
-                                'Canal ouvert à tous (morts et vivants)';
+                            statusText = context.tr('minute_collective');
+                            subtitleText = context.tr('minute_collective_desc');
                           }
                         } else if (!isAlive) {
                           statusColor = LupusColors.bloodRed;
                           borderColor = LupusColors.border;
-                          statusText = 'SILENCE DES OMBRES';
-                          subtitleText = 'Vous êtes éliminé(e) • Micro verrouillé';
+                          statusText = context.tr('shadow_silence');
+                          subtitleText = context.tr('shadow_silence_desc');
                         } else if (isMutedByBlackWolf) {
                           statusColor = LupusColors.bloodRed;
                           borderColor = LupusColors.bloodRed.withValues(alpha: 0.8);
-                          statusText = 'SILENCE FORCÉ (LOUP NOIR)';
-                          subtitleText =
-                              'Réduit au silence par le Loup Noir • Micro et chat verrouillés';
+                          statusText = context.tr('silence_forced_black_wolf');
+                          subtitleText = context.tr('silence_forced_desc');
                         } else if (lastError != null && !connected) {
                           statusColor = LupusColors.bloodRed;
                           borderColor = LupusColors.bloodRed.withValues(alpha: 0.6);
-                          statusText = 'ERREUR AUDIO AGORA';
-                          subtitleText = '$lastError • Touchez pour réessayer';
+                          statusText = context.tr('error_audio_agora');
+                          subtitleText = '$lastError • ${context.tr("retry")}';
                         } else if (isWolfChannel) {
                           statusColor = muted
                               ? const Color(0xFFFF2A4B)
@@ -91,11 +90,10 @@ class BentoVoiceControls extends StatelessWidget {
                           borderColor = const Color(0xFFFF2A4B);
                           statusText = connected
                               ? (muted
-                                  ? 'CANAL MEUTE (MICRO COUPÉ)'
-                                  : 'CANAL PRIVÉ DE LA MEUTE')
-                              : 'CONNEXION MEUTE...';
-                          subtitleText =
-                              'Salon secret des loups • Insonorisé pour le village';
+                                  ? context.tr('pack_channel_muted')
+                                  : context.tr('pack_channel'))
+                              : context.tr('pack_channel_connecting');
+                          subtitleText = context.tr('pack_channel_desc');
                         } else if (isDebateOrDefense) {
                           if (isCurrentSpeaker) {
                             statusColor = muted
@@ -105,18 +103,17 @@ class BentoVoiceControls extends StatelessWidget {
                                 ? LupusColors.sunAmber
                                 : LupusColors.voiceActive;
                             statusText = muted
-                                ? 'VOUS AVEZ LA PAROLE (MICRO COUPÉ)'
-                                : 'VOUS AVEZ LA PAROLE (EN DIRECT)';
+                                ? context.tr('you_have_speaking_turn_muted')
+                                : context.tr('you_have_speaking_turn_live');
                             subtitleText = muted
-                                ? 'Appuyez sur le micro pour parler au village'
-                                : 'Micro ouvert • Tout le village vous écoute';
+                                ? context.tr('press_mic_to_speak')
+                                : context.tr('mic_live_listening');
                           } else {
                             statusColor = LupusColors.textMuted;
                             borderColor = LupusColors.border;
-                            final name = currentSpeakerName ?? 'L\'orateur';
-                            statusText = 'DÉBAT : ${name.toUpperCase()} S\'EXPRIME';
-                            subtitleText =
-                                'Écoutez attentivement • Votre micro est temporisé';
+                            final name = currentSpeakerName ?? context.tr('speaker');
+                            statusText = context.tr('debate_speaker', {'name': name.toUpperCase()});
+                            subtitleText = context.tr('listen_attentively');
                           }
                         } else {
                           // Phases normales (Lobby, Votes, etc.)
@@ -127,13 +124,13 @@ class BentoVoiceControls extends StatelessWidget {
                             borderColor = muted
                                 ? LupusColors.border
                                 : LupusColors.voiceActive.withValues(alpha: 0.4);
-                            statusText = muted ? 'MICRO COUPÉ' : 'MICRO EN DIRECT';
-                            subtitleText = 'Salon du village : ${channel ?? "Arène"}';
+                            statusText = muted ? context.tr('mic_muted') : context.tr('mic_live');
+                            subtitleText = '${context.tr("village_channel")} : ${channel ?? context.tr("arena")}';
                           } else {
                             statusColor = LupusColors.sunAmber;
                             borderColor = LupusColors.border;
-                            statusText = 'VOCAL EN ATTENTE';
-                            subtitleText = 'Connexion automatique au salon...';
+                            statusText = context.tr('voice_waiting');
+                            subtitleText = context.tr('voice_connecting');
                           }
                         }
 
@@ -224,7 +221,7 @@ class BentoVoiceControls extends StatelessWidget {
                                     ),
                                   ),
                                   onPressed: () => voiceService.retryJoin(),
-                                  tooltip: 'Réessayer la connexion audio',
+                                  tooltip: context.tr('retry_audio_connection'),
                                   icon: const Icon(
                                     Icons.refresh_rounded,
                                     color: LupusColors.sunAmber,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 
@@ -20,13 +21,13 @@ class BentoEventLog extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.history_edu_rounded, size: 18, color: LupusColors.textSecondary),
-              SizedBox(width: 8),
+              const Icon(Icons.history_edu_rounded, size: 18, color: LupusColors.textSecondary),
+              const SizedBox(width: 8),
               Text(
-                'CHRONIQUES DU VILLAGE',
-                style: TextStyle(
+                context.tr('chronicles_title'),
+                style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.1,
@@ -39,10 +40,10 @@ class BentoEventLog extends StatelessWidget {
           Container(
             constraints: const BoxConstraints(maxHeight: 120),
             child: reversedLogs.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'Aucun événement pour l\'instant.',
-                      style: TextStyle(color: LupusColors.textMuted, fontSize: 12),
+                      context.tr('no_events'),
+                      style: const TextStyle(color: LupusColors.textMuted, fontSize: 12),
                     ),
                   )
                 : ListView.separated(

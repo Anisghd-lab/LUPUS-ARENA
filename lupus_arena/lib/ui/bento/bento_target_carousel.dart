@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/player_model.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 
 /// Carrousel horizontal de sélection de cibles inspiré du composant Stitch
@@ -41,6 +42,9 @@ class BentoTargetCarousel extends StatelessWidget {
   Widget build(BuildContext context) {
     if (players.isEmpty) return const SizedBox.shrink();
 
+    final effectiveTitle = (title == 'Choisissez votre cible') ? context.tr('choose_your_target') : title;
+    final effectiveSubtitle = (subtitle == 'Action requise') ? context.tr('action_required') : subtitle;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -62,7 +66,7 @@ class BentoTargetCarousel extends StatelessWidget {
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          title.toUpperCase(),
+                          effectiveTitle.toUpperCase(),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                           style: const TextStyle(
@@ -76,12 +80,12 @@ class BentoTargetCarousel extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (subtitle != null) ...[
+                if (effectiveSubtitle != null) ...[
                   const SizedBox(width: 6),
                   Flexible(
                     flex: 2,
                     child: Text(
-                      subtitle!,
+                      effectiveSubtitle,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                       textAlign: TextAlign.end,
@@ -263,7 +267,7 @@ class BentoTargetCarousel extends StatelessWidget {
                           ],
                           Flexible(
                             child: Text(
-                              isMe ? '${player.name} (Moi)' : player.name,
+                              isMe ? '${player.name} (${context.tr('me_badge')})' : player.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
@@ -288,7 +292,7 @@ class BentoTargetCarousel extends StatelessWidget {
                           Text(voteIcon, style: const TextStyle(fontSize: 9)),
                           const SizedBox(width: 3),
                           Text(
-                            '$votes vote${votes > 1 ? 's' : ''}',
+                            '$votes ${votes > 1 ? context.tr('votes_suffix') : context.tr('vote_suffix')}',
                             style: TextStyle(
                               fontSize: 9.5,
                               fontFamily: 'monospace',
@@ -309,9 +313,9 @@ class BentoTargetCarousel extends StatelessWidget {
                       ),
                       if (player.id == captainTargetVoteId) ...[
                         const SizedBox(height: 1),
-                        const Text(
-                          'VOIX DU MAIRE (+2)',
-                          style: TextStyle(
+                        Text(
+                          context.tr('mayor_vote_bonus'),
+                          style: const TextStyle(
                             fontSize: 7.5,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.4,

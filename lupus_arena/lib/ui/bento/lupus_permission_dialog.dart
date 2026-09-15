@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../services/app_translations.dart';
 import '../../services/lupus_permission_service.dart';
 import '../theme/lupus_assets.dart';
 import '../theme/lupus_theme.dart';
@@ -155,10 +156,10 @@ class _LupusPermissionDialogState extends State<LupusPermissionDialog> {
               const SizedBox(height: 14),
 
               // Titre gothique
-              const Text(
-                'BIENVENUE DANS L\'ARÈNE',
+              Text(
+                context.tr('perm_welcome_title'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'serif',
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -168,7 +169,7 @@ class _LupusPermissionDialogState extends State<LupusPermissionDialog> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Pour participer aux débats et entendre la meute de nuit, veuillez accorder les accès suivants :',
+                context.tr('perm_welcome_subtitle'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
@@ -182,9 +183,8 @@ class _LupusPermissionDialogState extends State<LupusPermissionDialog> {
               _buildPermissionTile(
                 icon: Icons.mic_rounded,
                 iconColor: LupusColors.voiceActive,
-                title: 'Microphone (Agora RTC)',
-                description:
-                    'Indispensable pour débattre en journée et comploter la nuit.',
+                title: context.tr('perm_mic_title'),
+                description: context.tr('perm_mic_desc'),
                 isGranted: _micGranted,
                 isRequired: true,
               ),
@@ -195,9 +195,8 @@ class _LupusPermissionDialogState extends State<LupusPermissionDialog> {
                 _buildPermissionTile(
                   icon: Icons.headset_rounded,
                   iconColor: LupusColors.arcaneCyan,
-                  title: 'Casque & Bluetooth Audio',
-                  description:
-                      'Permet de connecter vos écouteurs sans fil pour une immersion sonore.',
+                  title: context.tr('perm_bt_title'),
+                  description: context.tr('perm_bt_desc'),
                   isGranted: _bluetoothGranted,
                   isRequired: false,
                 ),
@@ -208,9 +207,8 @@ class _LupusPermissionDialogState extends State<LupusPermissionDialog> {
               _buildPermissionTile(
                 icon: Icons.notifications_active_rounded,
                 iconColor: LupusColors.arcaneGold,
-                title: 'Notifications du Conseil',
-                description:
-                    'Vous prévient dès que la nuit tombe ou quand c\'est à votre tour de voter.',
+                title: context.tr('perm_notif_title'),
+                description: context.tr('perm_notif_desc'),
                 isGranted: _notifGranted,
                 isRequired: false,
               ),
@@ -244,10 +242,10 @@ class _LupusPermissionDialogState extends State<LupusPermissionDialog> {
                       : Icon(allGranted ? Icons.check_circle : Icons.security),
                   label: Text(
                     _isRequesting
-                        ? 'AUTORISATION EN COURS...'
+                        ? context.tr('perm_requesting')
                         : (allGranted
-                            ? 'ACCÈS CONFIRMÉS ! ENTRER'
-                            : 'ACCORDER LES AUTORISATIONS'),
+                            ? context.tr('perm_confirmed')
+                            : context.tr('perm_grant_all')),
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 13,
@@ -264,7 +262,7 @@ class _LupusPermissionDialogState extends State<LupusPermissionDialog> {
                 child: TextButton(
                   onPressed: _skip,
                   child: Text(
-                    allGranted ? 'Fermer' : 'Configurer plus tard',
+                    allGranted ? context.tr('perm_close') : context.tr('perm_later'),
                     style: TextStyle(
                       fontSize: 11.5,
                       color: Colors.white.withValues(alpha: 0.5),
@@ -337,9 +335,9 @@ class _LupusPermissionDialogState extends State<LupusPermissionDialog> {
                           color: LupusColors.bloodRed.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
-                          'REQUIS',
-                          style: TextStyle(
+                        child: Text(
+                          context.tr('perm_required'),
+                          style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                             color: LupusColors.bloodRed,

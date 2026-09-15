@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/game_phase.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 
@@ -58,7 +59,10 @@ class BentoPhaseCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'CYCLE $round • ${isNight ? "NUIT" : "JOUR"}',
+                      context.tr('cycle_round', {
+                        'round': '$round',
+                        'phase': isNight ? context.tr('night') : context.tr('day'),
+                      }),
                       style: TextStyle(
                         color: accentColor,
                         fontSize: 11,

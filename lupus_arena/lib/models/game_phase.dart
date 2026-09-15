@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/app_translations.dart';
 
 enum GamePhase {
   lobby,
@@ -40,9 +41,17 @@ enum GamePhase {
     return GamePhase.lobby;
   }
 
-  String get displayName => titleFr;
+  String get displayName => AppTranslations.getPhaseTitle(name);
 
-  String get titleFr {
+  String getTitle([BuildContext? context]) =>
+      AppTranslations.getPhaseTitle(name, context);
+
+  String getDescription([BuildContext? context]) =>
+      AppTranslations.getPhaseDesc(name, context);
+
+  String get titleFr => AppTranslations.getPhaseTitle(name);
+
+  String get titleFrFallback {
     switch (this) {
       case GamePhase.lobby:
         return 'Salon d\'attente';
@@ -85,7 +94,9 @@ enum GamePhase {
     }
   }
 
-  String get descriptionFr {
+  String get descriptionFr => AppTranslations.getPhaseDesc(name);
+
+  String get descriptionFrFallback {
     switch (this) {
       case GamePhase.lobby:
         return 'Rassemblement des guerriers... Préparez vos micros pour l\'arène !';

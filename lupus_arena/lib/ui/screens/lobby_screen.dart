@@ -18,10 +18,15 @@ import '../bento/app_update_dialog.dart';
 import '../../services/update_service.dart';
 import '../theme/lupus_assets.dart';
 import '../theme/lupus_theme.dart';
+import '../../services/locale_provider.dart';
+import '../../services/app_translations.dart';
+import '../bento/language_dialog.dart';
 import 'arena_game_screen.dart';
 
 class LobbyScreen extends ConsumerStatefulWidget {
-  const LobbyScreen({super.key});
+  final LocaleProvider? localeProvider;
+
+  const LobbyScreen({super.key, this.localeProvider});
 
   @override
   ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
@@ -51,8 +56,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       }
     });
 
-    // Déclenche le dialogue d'autorisations si c'est la toute première utilisation du jeu
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Dialogue de langue obligatoire au tout premier lancement, puis autorisations
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await LanguageDialog.showFirstLaunchIfNeeded(
+        context,
+        widget.localeProvider ?? LocaleProvider.instance,
+      );
       if (!mounted) return;
       LupusPermissionDialog.showIfNeeded(context);
     });
@@ -179,11 +189,59 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ),
           ),
 
-          // 3. Indicateur / Badge Admin si le God Mode est activé
+          // 3. Bouton sélecteur de langue dans le bandeau supérieur (position fixe calquée sur le modèle français)
+          Positioned(
+            left: 18,
+            top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
+            child: GestureDetector(
+              onTap: () => LanguageDialog.show(
+                context,
+                widget.localeProvider ?? LocaleProvider.instance,
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10162A).withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: LupusColors.arcaneGold.withValues(alpha: 0.6),
+                    width: 1.2,
+                  ),
+                  boxShadow: LupusTheme.glowGold(opacity: 0.25),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.language_rounded,
+                      color: LupusColors.arcaneGold,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      LocaleProvider.instance.languageCode == 'ar'
+                          ? 'العربية 🇩🇿'
+                          : (LocaleProvider.instance.languageCode == 'en'
+                              ? 'EN 🇬🇧'
+                              : 'FR 🇫🇷'),
+                      style: const TextStyle(
+                        color: LupusColors.arcaneGold,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 4. Indicateur / Badge Admin si le God Mode est activé (position fixe droite)
           if (gameState.isAdmin)
             Positioned(
-              top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
               right: 18,
+              top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
               child: GestureDetector(
                 onTap: () => AdminControlSheet.show(context),
                 child: Container(
@@ -459,9 +517,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           children: [
             Row(
               children: [
-                const Text(
-                  'Nom de joueur',
-                  style: TextStyle(
+                Text(
+                  context.tr('player_name'),
+                  style: const TextStyle(
                     color: Color(0xFF94A3B8),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -470,7 +528,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                 ),
                 const Spacer(),
                 Text(
-                  'Toucher l\'avatar pour changer',
+                  context.tr('language') == 'العربية'
+                      ? 'المس لتغيير الصورة'
+                      : (context.tr('language') == 'English'
+                          ? 'Tap avatar to change'
+                          : 'Toucher l\'avatar pour changer'),
                   style: TextStyle(
                     color: const Color(0xFFA855F7).withValues(alpha: 0.75),
                     fontSize: 9.5,
@@ -525,9 +587,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       letterSpacing: 0.5,
                     ),
                     cursorColor: const Color(0xFFA855F7),
-                    decoration: const InputDecoration(
-                      hintText: 'Guerrier...',
-                      hintStyle: TextStyle(
+                    decoration: InputDecoration(
+                      hintText: context.tr('name_hint'),
+                      hintStyle: const TextStyle(
                         color: Color(0x66FFFFFF),
                         fontSize: 18,
                       ),
@@ -664,10 +726,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             ),
                           )
                         else ...[
-                          const Text(
-                            'CRÉER UN SALON',
+                          Text(
+                            context.tr('create_room').toUpperCase(),
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13.5,
                               fontWeight: FontWeight.w900,
@@ -675,9 +737,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             ),
                           ),
                           const SizedBox(height: 3),
-                          const Text(
-                            'Devenez l\'hôte',
-                            style: TextStyle(
+                          Text(
+                            context.tr('become_host'),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
                               color: Color(0xFFC084FC),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -737,18 +800,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             fontWeight: FontWeight.w900,
                             letterSpacing: 3.5,
                           ),
-                          decoration: const InputDecoration(
-                            hintText: 'CODE',
-                            hintStyle: TextStyle(
+                          decoration: InputDecoration(
+                            hintText: context.tr('enter_room_code').toUpperCase(),
+                            hintStyle: const TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 16,
+                              fontSize: 12,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: 3.5,
+                              letterSpacing: 1.5,
                             ),
                             counterText: '',
                             border: InputBorder.none,
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                           ),
                           onSubmitted: (_) => _handleJoinOrAdmin(),
                         ),
@@ -792,9 +855,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             ],
                           ),
                           child: Center(
-                            child: const Text(
-                              'REJOINDRE',
-                              style: TextStyle(
+                            child: Text(
+                              context.tr('join_room').toUpperCase(),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w900,
@@ -858,6 +921,72 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // Barre supérieure du Salon d'attente : Sélecteur de langue & Quitter
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              GestureDetector(
+                                onTap: () => LanguageDialog.show(
+                                  context,
+                                  widget.localeProvider ?? LocaleProvider.instance,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10162A).withValues(alpha: 0.85),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: LupusColors.arcaneGold.withValues(alpha: 0.6),
+                                      width: 1.2,
+                                    ),
+                                    boxShadow: LupusTheme.glowGold(opacity: 0.25),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.language_rounded,
+                                        color: LupusColors.arcaneGold,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        LocaleProvider.instance.languageCode == 'ar'
+                                            ? 'العربية 🇩🇿'
+                                            : (LocaleProvider.instance.languageCode == 'en'
+                                                ? 'EN 🇬🇧'
+                                                : 'FR 🇫🇷'),
+                                        style: const TextStyle(
+                                          color: LupusColors.arcaneGold,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 11,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white70,
+                                  backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
+                                onPressed: () => ref.read(gameNotifierProvider.notifier).leaveRoom(),
+                                icon: const Icon(Icons.logout_rounded, size: 16, color: LupusColors.bloodRed),
+                                label: Text(
+                                  context.tr('leave_room'),
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
                 // Sceau / Médaillon du Loup Stitch
                 Center(
                   child: GestureDetector(
@@ -905,7 +1034,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'L\'ARÈNE MYSTIQUE DES LOUPS-GAROUS',
+                            context.tr('app_subtitle'),
                             style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 9.5,
@@ -936,7 +1065,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            gameState.errorMessage!,
+                            context.tr(gameState.errorMessage!),
                             style: const TextStyle(color: LupusColors.bloodRed, fontSize: 13),
                           ),
                         ),
@@ -1011,9 +1140,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'CODE DU SALON',
-                            style: TextStyle(
+                          Text(
+                            context.tr('enter_room_code').toUpperCase(),
+                            style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
@@ -1036,7 +1165,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: room.roomCode));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Code du salon copié !')),
+                            SnackBar(content: Text(context.tr('copy_code'))),
                           );
                         },
                         icon: const Icon(Icons.copy_rounded, size: 20),
@@ -1265,8 +1394,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               ),
                               label: Text(
                                 canLaunch
-                                    ? 'LANCER L\'ARÈNE'
-                                    : 'LANCER L\'ARÈNE ($totalRoles / $totalPlayers)',
+                                    ? context.tr('start_game').toUpperCase()
+                                    : '${context.tr('start_game').toUpperCase()} ($totalRoles / $totalPlayers)',
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w900,
@@ -1287,10 +1416,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: LupusColors.border),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SizedBox(
+                        const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
@@ -1298,10 +1427,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             color: LupusColors.moonIndigo,
                           ),
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Text(
-                          'En attente du lancement par l\'hôte...',
-                          style: TextStyle(
+                          context.tr('waiting_players'),
+                          style: const TextStyle(
                             color: LupusColors.textSecondary,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -1321,7 +1450,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   onPressed: () =>
                       ref.read(gameNotifierProvider.notifier).leaveRoom(),
                   icon: const Icon(Icons.exit_to_app_rounded, size: 18),
-                  label: const Text('Quitter ce salon'),
+                  label: Text(context.tr('leave_room')),
                 ),
               ],
                     ),

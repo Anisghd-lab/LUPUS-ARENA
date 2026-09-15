@@ -77,6 +77,9 @@ jobs:
           name: "Release ${{ env.APP_VERSION }}"
           body: |
             ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
+            - **🌍 Traduction 100% Dynamique (FR / AR / EN)** : Support intégral et instantané de 3 langues (Français, Arabe, Anglais) avec 396 clés de traduction couvrant l'ensemble des 32 rôles, 19 phases, menus, overlays de victoire, vocaux Agora et modales.
+            - **✨ Modèle LTR Préservé & Ergonomie Homogène** : L'affichage en Arabe conserve strictement la disposition et les boutons du modèle français sans inversion de layout (clean & responsive).
+            - **🚩 Sélection Obligatoire au 1er Lancement** : Boîte de dialogue Dark Fantasy interactive au premier démarrage de l'app avec drapeaux (🇫🇷, 🇩🇿, 🇬🇧) et persistance SharedPreferences.
             - **🚀 Système Autonome d'Auto-Mise à Jour In-App** : Détection 100% automatique des nouvelles versions via l'API GitHub Releases (`/releases/latest`), comparaison sémantique de versions (SemVer + build number), bandeau de mise à jour dynamique dans le Lobby, dialogue modal avec affichage du changelog GitHub, barre de progression interactive en temps réel (`LinearProgressIndicator` avec Dio), et déclenchement immédiat de l'installation Android native via `open_filex` et `FileProvider`.
             - **🔄 Bouton Interactif 'Rejouer' & Compteur Dynamique `(prêts/total)`** : Vote interactif de fin de partie avec bascule d'état visuel ("Rejouer" <-> "Prêt"), émission de `player_ready_replay` / `player_cancel_replay`, et synchro temps réel via `replay_status_updated`.
             - **🎲 Mélange Fisher-Yates & Redistribution Impérative des Rôles** : Dès quorum atteint, le serveur génère un deck adapté (Loup Blanc, Loup Noir, Voyante, Sorcière, Chasseur, Villageois...), le brasse via l'algorithme de Fisher-Yates, et attribue à chaque joueur un rôle distinct et différent avant d'émettre `game_reset_to_lobby`.

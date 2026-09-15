@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/app_translations.dart';
 
 enum Team {
   village,
@@ -58,10 +59,14 @@ enum GameRole {
   mayor; // Capitaine / Maire
 
   String get id => GameRoleExtension(this).id;
-  String get displayName => GameRoleExtension(this).displayName;
+  String get displayName => AppTranslations.getRoleName(id);
   String get displayNameFr => GameRoleExtension(this).displayNameFr;
-  String get description => GameRoleExtension(this).description;
+  String get description => AppTranslations.getRoleDesc(id);
   String get descriptionFr => GameRoleExtension(this).descriptionFr;
+  String getDisplayName([BuildContext? context]) =>
+      AppTranslations.getRoleName(id, context);
+  String getDescription([BuildContext? context]) =>
+      AppTranslations.getRoleDesc(id, context);
   Team get defaultTeam => GameRoleExtension(this).defaultTeam;
   bool get isEvil => GameRoleExtension(this).isEvil;
   WakePhase get wakePhase => GameRoleExtension(this).wakePhase;

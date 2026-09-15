@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/app_translations.dart';
 import '../../services/update_service.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
@@ -55,7 +56,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
         if (!mounted) return;
         setState(() {
           _isDownloading = false;
-          _errorMessage = 'Échec du téléchargement : $err';
+          _errorMessage = context.tr('update_failed', [err.toString()]);
         });
       },
     );
@@ -111,9 +112,9 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'MISE À JOUR DISPONIBLE',
-                          style: TextStyle(
+                        Text(
+                          context.tr('update_version_title'),
+                          style: const TextStyle(
                             fontFamily: 'serif',
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
@@ -123,7 +124,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Version v${info.version} (actuelle : ${info.currentVersion})',
+                          context.tr('update_version_sub', [info.version, info.currentVersion]),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -150,17 +151,17 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.article_rounded,
                           size: 16,
                           color: LupusColors.arcaneGold,
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Text(
-                          'Notes de version & Correctifs :',
-                          style: TextStyle(
+                          context.tr('update_notes_title'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: LupusColors.arcaneGold,
@@ -176,7 +177,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                         child: Text(
                           info.releaseNotes.trim().isNotEmpty
                               ? info.releaseNotes.trim()
-                              : 'Amélioration des performances, corrections de bugs et nouvelles fonctionnalités de jeu.',
+                              : context.tr('update_default_notes'),
                           style: const TextStyle(
                             fontSize: 12,
                             height: 1.45,
@@ -209,8 +210,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                         children: [
                           Text(
                             _progress >= 1.0
-                                ? 'Lancement de l\'installation...'
-                                : 'Téléchargement de l\'APK...',
+                                ? context.tr('update_installing')
+                                : context.tr('update_downloading'),
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -309,9 +310,9 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                           ),
                         ),
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text(
-                          'PLUS TARD',
-                          style: TextStyle(
+                        child: Text(
+                          context.tr('update_later'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
                           ),
@@ -351,8 +352,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                             ),
                       label: Text(
                         _isDownloading
-                            ? 'Téléchargement...'
-                            : 'METTRE À JOUR',
+                            ? context.tr('update_downloading')
+                            : context.tr('update_download').toUpperCase(),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,

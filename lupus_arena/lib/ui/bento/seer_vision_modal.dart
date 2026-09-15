@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/player_model.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'role_card_image.dart';
 
@@ -128,9 +129,9 @@ class _SeerVisionModalState extends State<SeerVisionModal>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'VISION SECRÈTE DE L\'ÂME',
-                      style: TextStyle(
+                    Text(
+                      context.tr('seer_vision_title'),
+                      style: const TextStyle(
                         fontFamily: 'serif',
                         fontSize: 14,
                         fontWeight: FontWeight.w900,
@@ -139,7 +140,7 @@ class _SeerVisionModalState extends State<SeerVisionModal>
                       ),
                     ),
                     Text(
-                      'Révélé à la Voyante uniquement',
+                      context.tr('seer_vision_sub'),
                       style: TextStyle(
                         fontSize: 10.5,
                         fontFamily: 'monospace',
@@ -163,7 +164,7 @@ class _SeerVisionModalState extends State<SeerVisionModal>
                 border: Border.all(color: LupusColors.border),
               ),
               child: Text(
-                'Cible sondée : ${widget.target.name}',
+                context.tr('seer_target_inspected', {'name': widget.target.name}),
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
@@ -206,10 +207,10 @@ class _SeerVisionModalState extends State<SeerVisionModal>
               ),
               child: Text(
                 role.isEvil
-                    ? 'CAMP DES LOUPS-GAROUS 🐺'
+                    ? context.tr('camp_werewolves_badge')
                     : (role.defaultTeam == Team.village
-                        ? 'CAMP DU VILLAGE 👥'
-                        : 'SOLITAIRE / NEUTRE ✨'),
+                        ? context.tr('camp_village_badge')
+                        : context.tr('camp_solo_badge')),
                 style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
@@ -269,7 +270,7 @@ class _SeerVisionModalState extends State<SeerVisionModal>
                 onPressed: _closeAndConfirm,
                 icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
                 label: Text(
-                  'J\'AI VU • CONTINUER ($_secondsRemaining s)',
+                  context.tr('seer_confirm', {'seconds': '$_secondsRemaining'}),
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.8,

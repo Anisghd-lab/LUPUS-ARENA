@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/game_role.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 import 'role_card_image.dart';
@@ -59,7 +60,7 @@ class _BentoRoleCardState extends State<BentoRoleCard> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'VOTRE RÔLE SECRET',
+                    context.tr('your_secret_role'),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -131,7 +132,7 @@ class _BentoRoleCardState extends State<BentoRoleCard> {
                           ),
                         ),
                         child: Text(
-                          role.isEvil ? 'CAMP DES LOUPS' : 'CAMP DU VILLAGE',
+                          role.isEvil ? context.tr('camp_werewolves') : context.tr('camp_village'),
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
@@ -165,14 +166,14 @@ class _BentoRoleCardState extends State<BentoRoleCard> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.5)),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.military_tech_rounded, size: 14, color: Color(0xFFFFD700)),
-                    SizedBox(width: 5),
+                    const Icon(Icons.military_tech_rounded, size: 14, color: Color(0xFFFFD700)),
+                    const SizedBox(width: 5),
                     Text(
-                      'CAPITAINE DU VILLAGE (VOTE DOUBLE)',
-                      style: TextStyle(
+                      context.tr('captain_title'),
+                      style: const TextStyle(
                         color: Color(0xFFFFD700),
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -198,8 +199,8 @@ class _BentoRoleCardState extends State<BentoRoleCard> {
                     const SizedBox(width: 5),
                     Text(
                       widget.loverName != null
-                          ? 'LIÉ PAR AMOUR À ${widget.loverName!.toUpperCase()}'
-                          : 'LIÉ PAR AMOUR',
+                          ? context.tr('linked_love_to', {'name': widget.loverName!.toUpperCase()})
+                          : context.tr('linked_love'),
                       style: const TextStyle(
                         color: LupusColors.bloodRed,
                         fontSize: 10,
@@ -224,14 +225,14 @@ class _BentoRoleCardState extends State<BentoRoleCard> {
                     style: BorderStyle.solid,
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.touch_app_rounded, size: 18, color: LupusColors.textMuted),
-                    SizedBox(width: 8),
+                    const Icon(Icons.touch_app_rounded, size: 18, color: LupusColors.textMuted),
+                    const SizedBox(width: 8),
                     Text(
-                      'Toucher pour révéler discrètement',
-                      style: TextStyle(
+                      context.tr('tap_to_reveal'),
+                      style: const TextStyle(
                         fontSize: 13,
                         color: LupusColors.textMuted,
                         fontWeight: FontWeight.w600,
@@ -277,7 +278,7 @@ class _BentoRoleCardState extends State<BentoRoleCard> {
               ),
               onPressed: () => Navigator.of(ctx).pop(),
               icon: const Icon(Icons.close_rounded, size: 18),
-              label: const Text('Fermer', style: TextStyle(fontWeight: FontWeight.w700)),
+              label: Text(context.tr('close'), style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
           ],
         ),

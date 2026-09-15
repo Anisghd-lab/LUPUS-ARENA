@@ -3,6 +3,7 @@ import '../../models/game_phase.dart';
 import '../../models/game_role.dart';
 import '../../models/game_room.dart';
 import '../../models/player_model.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 
@@ -105,7 +106,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'ACTIONS STRATÉGIQUES',
+                context.tr('strategic_actions'),
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
@@ -131,7 +132,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                           size: 11, color: LupusColors.arcaneGold),
                       const SizedBox(width: 4),
                       Text(
-                        'Cible : ${selectedTarget.name}',
+                        '${context.tr("target")} : ${selectedTarget.name}',
                         style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
@@ -172,10 +173,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       border: Border.all(color: LupusColors.textMuted.withValues(alpha: 0.2)),
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
-                      '💀 Vous êtes tombé au combat. Vous observez en silence.',
+                    child: Text(
+                      context.tr('eliminated_spectator_msg'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: LupusColors.textMuted, fontSize: 11),
+                      style: const TextStyle(color: LupusColors.textMuted, fontSize: 11),
                     ),
                   ),
                 ]
@@ -237,8 +238,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text(
                       phase.isNight
-                          ? '🌑 Nuit en cours... Le village est endormi.'
-                          : '☀️ Silence requis. Les votes sont clos.',
+                          ? context.tr('night_in_progress_msg')
+                          : context.tr('silence_votes_closed_msg'),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 11,
@@ -272,24 +273,24 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final String saveLabel;
     if (isHealed) {
-      saveLabel = 'Sauvé(e) ✨';
+      saveLabel = context.tr('healed_badge');
     } else if (!hasHeal) {
-      saveLabel = 'Soin épuisé';
+      saveLabel = context.tr('heal_exhausted');
     } else if (wolfVictim != null) {
-      saveLabel = 'Sauver (${wolfVictim.name})';
+      saveLabel = context.tr('save_target', {'name': wolfVictim.name});
     } else {
-      saveLabel = 'Sauver (Victime)';
+      saveLabel = context.tr('save_victim_btn');
     }
 
     final String poisonLabel;
     if (poisonVictim != null) {
-      poisonLabel = 'Empoisonné (${poisonVictim.name})';
+      poisonLabel = context.tr('poisoned_target', {'name': poisonVictim.name});
     } else if (!hasPoison) {
-      poisonLabel = 'Poison épuisé';
+      poisonLabel = context.tr('poison_exhausted');
     } else if (selectedTarget != null) {
-      poisonLabel = 'Empoisonner (${selectedTarget.name})';
+      poisonLabel = context.tr('poison_target', {'name': selectedTarget.name});
     } else {
-      poisonLabel = 'Empoisonner (Cible)';
+      poisonLabel = context.tr('poison_target_btn');
     }
 
     return Column(
@@ -361,9 +362,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ),
             onPressed: widget.onWitchPass,
             icon: const Icon(Icons.check_circle_outline_rounded, size: 15),
-            label: const Text(
-              'Valider',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+            label: Text(
+              context.tr('validate'),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
             ),
           ),
         ),
@@ -380,11 +381,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final String devourLabel;
     if (selectedTarget != null) {
-      devourLabel = 'Dévorer (${selectedTarget.name}) 🩸';
+      devourLabel = context.tr('devour_target', {'name': selectedTarget.name});
     } else if (currentVoteTarget != null) {
-      devourLabel = 'Proie : ${currentVoteTarget.name}';
+      devourLabel = context.tr('prey_target', {'name': currentVoteTarget.name});
     } else {
-      devourLabel = 'Dévorer (Sélectionner)';
+      devourLabel = context.tr('devour_select');
     }
 
     return Row(
@@ -428,9 +429,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ),
             onPressed: widget.onNextPhase,
             icon: const Icon(Icons.check_rounded, size: 15),
-            label: const Text(
-              'Valider',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+            label: Text(
+              context.tr('validate'),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
             ),
           ),
         ),
@@ -459,7 +460,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '${selectedTarget?.name ?? "Cible"} : ${role.displayNameFr}',
+                      '${selectedTarget?.name ?? context.tr("target")} : ${role.displayName}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white),
@@ -480,7 +481,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
               onPressed: widget.onCompleteSeerTurn,
               icon: const Icon(Icons.check_rounded, size: 15),
-              label: const Text('Valider', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+              label: Text(context.tr('validate'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
             ),
           ),
         ],
@@ -489,9 +490,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final String inspectLabel;
     if (selectedTarget != null) {
-      inspectLabel = 'Sonder (${selectedTarget.name}) 🔮';
+      inspectLabel = context.tr('inspect_target', {'name': selectedTarget.name});
     } else {
-      inspectLabel = 'Sonder (Sélectionner une cible)';
+      inspectLabel = context.tr('inspect_select');
     }
 
     return Row(
@@ -534,7 +535,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ),
             onPressed: widget.onCompleteSeerTurn,
             icon: const Icon(Icons.check_rounded, size: 15),
-            label: const Text('Valider', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+            label: Text(context.tr('validate'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
           ),
         ),
       ],
@@ -555,11 +556,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final String buttonText;
     if (selectedTarget == null) {
-      buttonText = 'Protéger (Sélectionner une cible)';
+      buttonText = context.tr('protect_select');
     } else if (isSameAsLast) {
-      buttonText = 'Interdit (${selectedTarget.name} protégé au tour précédent)';
+      buttonText = context.tr('protect_forbidden', {'name': selectedTarget.name});
     } else {
-      buttonText = 'Protéger ${selectedTarget.name} 🛡️';
+      buttonText = context.tr('protect_target', {'name': selectedTarget.name});
     }
 
     return Column(
@@ -601,7 +602,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 onPressed: widget.onNextPhase,
-                child: const Text('Passer', style: TextStyle(fontSize: 11)),
+                child: Text(context.tr('pass'), style: const TextStyle(fontSize: 11)),
               ),
             ),
           ],
@@ -610,7 +611,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              'Dernier protégé : ${lastProtected.name} (interdit cette nuit)',
+              context.tr('last_protected_info', {'name': lastProtected.name}),
               textAlign: TextAlign.center,
               style: const TextStyle(color: LupusColors.textMuted, fontSize: 10),
             ),
@@ -628,11 +629,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final String buttonText;
     if (currentTarget != null) {
-      buttonText = 'Cible : ${currentTarget.name} 🔇';
+      buttonText = '${context.tr("target_with_name", {"name": currentTarget.name})} 🔇';
     } else if (selectedTarget == null) {
-      buttonText = 'Faire taire (Sélectionner une cible)';
+      buttonText = context.tr('silence_select');
     } else {
-      buttonText = 'Faire taire ${selectedTarget.name} 🔇';
+      buttonText = context.tr('silence_target', {'name': selectedTarget.name});
     }
 
     final bool canSilence = selectedTarget != null &&
@@ -679,7 +680,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 onPressed: widget.onNextPhase,
-                child: const Text('Passer', style: TextStyle(fontSize: 11)),
+                child: Text(context.tr('pass'), style: const TextStyle(fontSize: 11)),
               ),
             ),
           ],
@@ -707,8 +708,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         icon: const Icon(Icons.crisis_alert_rounded, size: 15),
         label: Text(
           selectedTarget != null
-              ? 'Tirer sur ${selectedTarget.name} 🏹'
-              : 'Tirer (Sélectionner une cible)',
+              ? context.tr('shoot_target', {'name': selectedTarget.name})
+              : context.tr('shoot_select'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
@@ -725,9 +726,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final String voteText;
     if (selectedTarget != null) {
-      voteText = 'Voter contre ${selectedTarget.name} 🔥${me.isCaptain ? " (x2)" : ""}';
+      voteText = '${context.tr("vote_against_target", {"name": selectedTarget.name})}${me.isCaptain ? " (x2)" : ""}';
     } else {
-      voteText = isTieBreak ? 'Voter (Accusé ex æquo)' : 'Voter (Sélectionner un suspect) 🔥';
+      voteText = isTieBreak ? context.tr('vote_tie_break') : context.tr('vote_select');
     }
 
     return Row(
@@ -769,7 +770,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () => widget.onVote(null),
-              child: const Text('Annuler', style: TextStyle(fontSize: 11)),
+              child: Text(context.tr('cancel'), style: const TextStyle(fontSize: 11)),
             ),
           ),
         ],
@@ -796,8 +797,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         icon: const Icon(Icons.military_tech_rounded, size: 15),
         label: Text(
           selectedTarget != null
-              ? 'Nommer ${selectedTarget.name} Capitaine 🎖️'
-              : 'Nommer le Capitaine (Sélectionner)',
+              ? context.tr('name_captain_target', {'name': selectedTarget.name})
+              : context.tr('name_captain_select'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
@@ -823,8 +824,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         icon: const Icon(Icons.military_tech_rounded, size: 15),
         label: Text(
           selectedTarget != null
-              ? 'Élire ${selectedTarget.name} Capitaine 🎖️'
-              : 'Voter pour le Capitaine (Sélectionner)',
+              ? context.tr('elect_captain_target', {'name': selectedTarget.name})
+              : context.tr('elect_captain_select'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
@@ -848,9 +849,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           ),
           onPressed: widget.onPassDebate,
           icon: const Text('🎙️', style: TextStyle(fontSize: 16)),
-          label: const Text(
-            'Je passe la parole',
-            style: TextStyle(
+          label: Text(
+            context.tr('pass_speaking_turn'),
+            style: const TextStyle(
               fontWeight: FontWeight.w900,
               color: Colors.black,
               fontSize: 13,
@@ -877,7 +878,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '🎙️ Écoutez : ${speaker?.name ?? "un citoyen"} s\'exprime',
+              context.tr('listen_speaker', {'name': speaker?.name ?? context.tr('speaker')}),
               style: const TextStyle(
                 color: Color(0xFF00FFCC),
                 fontWeight: FontWeight.w700,
@@ -912,8 +913,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               icon: const Icon(Icons.swap_horiz_rounded, size: 15),
               label: Text(
                 selectedTarget != null
-                    ? 'Voler le rôle de ${selectedTarget.name}'
-                    : 'Voler (Sélectionner)',
+                    ? context.tr('steal_target', {'name': selectedTarget.name})
+                    : context.tr('steal_select'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
@@ -931,7 +932,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: widget.onNextPhase,
-            child: const Text('Passer', style: TextStyle(fontSize: 11)),
+            child: Text(context.tr('pass'), style: const TextStyle(fontSize: 11)),
           ),
         ),
       ],
@@ -969,7 +970,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
               alignment: Alignment.center,
               child: Text(
-                lover1 != null ? '❤️ ${lover1.name}' : '+ Amant 1',
+                lover1 != null ? '❤️ ${lover1.name}' : context.tr('add_lover_1'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
@@ -1001,7 +1002,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
               alignment: Alignment.center,
               child: Text(
-                lover2 != null ? '❤️ ${lover2.name}' : '+ Amant 2',
+                lover2 != null ? '❤️ ${lover2.name}' : context.tr('add_lover_2'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
@@ -1020,7 +1021,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: canBind ? () => widget.onCupidBind?.call(lover1.id, lover2.id) : null,
-            child: const Text('Lier', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5)),
+            child: Text(context.tr('bind_lovers_btn'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5)),
           ),
         ),
       ],
@@ -1050,8 +1051,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               icon: const Icon(Icons.water_drop_rounded, size: 14),
               label: Text(
                 selectedTarget != null
-                    ? (isTargetDoused ? '${selectedTarget.name} imbibé' : 'Asperger ${selectedTarget.name}')
-                    : 'Asperger d\'essence',
+                    ? (isTargetDoused ? context.tr('doused_target', {'name': selectedTarget.name}) : context.tr('douse_target', {'name': selectedTarget.name}))
+                    : context.tr('douse_select'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
@@ -1072,7 +1073,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             onPressed: dousedPlayers.isNotEmpty ? widget.onPyromaniacIgnite : null,
             icon: const Icon(Icons.local_fire_department_rounded, size: 15),
             label: Text(
-              'Brûler (${dousedPlayers.length})',
+              context.tr('ignite_count', {'count': '${dousedPlayers.length}'}),
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
             ),
           ),
@@ -1086,7 +1087,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: widget.onPyromaniacPass,
-            child: const Text('Passer', style: TextStyle(fontSize: 11)),
+            child: Text(context.tr('pass'), style: const TextStyle(fontSize: 11)),
           ),
         ),
       ],

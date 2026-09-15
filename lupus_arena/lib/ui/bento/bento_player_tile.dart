@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/player_model.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 
@@ -67,7 +68,7 @@ class BentoPlayerTile extends StatelessWidget {
 
     String roleLabel;
     if (isMe) {
-      roleLabel = 'Mon Rôle : ${player.role.displayName}';
+      roleLabel = context.tr('my_role_label', {'role': player.role.displayName});
     } else if (isDead) {
       roleLabel = player.role.displayName;
     } else if (seerDiscoveredRole != null) {
@@ -77,7 +78,7 @@ class BentoPlayerTile extends StatelessWidget {
     } else if (isGodMode) {
       roleLabel = player.role.displayName;
     } else {
-      roleLabel = 'VIVANT';
+      roleLabel = context.tr('alive');
     }
 
     Color borderColor;
@@ -292,7 +293,7 @@ class BentoPlayerTile extends StatelessWidget {
             ),
           ] else ...[
             Text(
-              isDead ? 'ÉLIMINÉ' : 'VIVANT',
+              isDead ? context.tr('eliminated') : context.tr('alive'),
               style: TextStyle(
                 fontSize: 8.5,
                 fontWeight: FontWeight.w700,
@@ -312,7 +313,7 @@ class BentoPlayerTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '$votesCount ${votesCount > 1 ? "votes" : "vote"}',
+                '$votesCount ${votesCount > 1 ? context.tr("votes_suffix") : context.tr("vote_suffix")}',
                 style: const TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w900,

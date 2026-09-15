@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../GameNotifier.dart';
+import '../../services/app_translations.dart';
 import '../bento/bento_card.dart';
 import '../theme/lupus_theme.dart';
 
@@ -29,7 +30,7 @@ class VillageChroniclesScreen extends ConsumerStatefulWidget {
 }
 
 class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScreen> {
-  String _selectedFilter = 'Tous'; // 'Tous', 'Morts', 'Nuit', 'Débat', 'Pouvoirs'
+  String _selectedFilter = 'all'; // 'all', 'deaths', 'night', 'debate', 'powers'
 
   List<String> get _currentLogs {
     final liveRoom = ref.watch(gameNotifierProvider).room;
@@ -38,20 +39,20 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
 
   List<String> get _filteredLogs {
     final reversed = _currentLogs.reversed.toList();
-    if (_selectedFilter == 'Tous') return reversed;
+    if (_selectedFilter == 'all') return reversed;
 
     return reversed.where((log) {
       final l = log.toLowerCase();
-      if (_selectedFilter == 'Morts') {
+      if (_selectedFilter == 'deaths') {
         return l.contains('💀') || l.contains('mort') || l.contains('succombé') || l.contains('bûcher') || l.contains('chagrin') || l.contains('flammes') || l.contains('abattu');
       }
-      if (_selectedFilter == 'Nuit') {
+      if (_selectedFilter == 'night') {
         return l.contains('🐺') || l.contains('nuit') || l.contains('sombre') || l.contains('meute') || l.contains('victime');
       }
-      if (_selectedFilter == 'Débat') {
+      if (_selectedFilter == 'debate') {
         return l.contains('🎙️') || l.contains('débat') || l.contains('parole') || l.contains('vote') || l.contains('scrutin') || l.contains('capitaine');
       }
-      if (_selectedFilter == 'Pouvoirs') {
+      if (_selectedFilter == 'powers') {
         return l.contains('🛡️') || l.contains('voyante') || l.contains('sorcière') || l.contains('potion') || l.contains('salvateur') || l.contains('chasseur') || l.contains('cupidon') || l.contains('pyromane');
       }
       return true;
@@ -104,9 +105,9 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
                               const Text('📜', style: TextStyle(fontSize: 40)),
                               const SizedBox(height: 12),
                               Text(
-                                _selectedFilter == 'Tous'
-                                    ? 'Les Chroniques sont encore vierges.'
-                                    : 'Aucun événement dans cette catégorie.',
+                                _selectedFilter == 'all'
+                                    ? context.tr('chronicles_empty')
+                                    : context.tr('chronicles_category_empty'),
                                 style: const TextStyle(
                                   color: LupusColors.textMuted,
                                   fontSize: 13,
@@ -170,13 +171,13 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
           // Titre central
           Column(
             children: [
-              const Row(
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('📜 ', style: TextStyle(fontSize: 16)),
+                  const Text('📜 ', style: TextStyle(fontSize: 16)),
                   Text(
-                    'CHRONIQUES DU VILLAGE',
-                    style: TextStyle(
+                    context.tr('chronicles_title'),
+                    style: const TextStyle(
                       fontFamily: 'serif',
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
@@ -188,7 +189,7 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
               ),
               const SizedBox(height: 2),
               Text(
-                'Salon #${widget.roomCode} • ${widget.logs.length} faits consignés',
+                context.tr('chronicles_room_info', [widget.roomCode, widget.logs.length]),
                 style: const TextStyle(
                   fontSize: 11,
                   color: LupusColors.arcaneGold,
@@ -222,7 +223,13 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
   }
 
   Widget _buildFilters() {
-    final filters = ['Tous', 'Morts', 'Nuit', 'Débat', 'Pouvoirs'];
+    final filters = [
+      {'key': 'all', 'label': context.tr('filter_all')},
+      {'key': 'deaths', 'label': context.tr('filter_deaths')},
+      {'key': 'night', 'label': context.tr('filter_night')},
+      {'key': 'debate', 'label': context.tr('filter_debate')},
+      {'key': 'powers', 'label': context.tr('filter_powers')},
+    ];
 
     return SizedBox(
       height: 38,
@@ -232,11 +239,13 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
         itemCount: filters.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final f = filters[index];
-          final isSelected = _selectedFilter == f;
+          final item = filters[index];
+          final key = item['key']!;
+          final label = item['label']!;
+          final isSelected = _selectedFilter == key;
 
           return GestureDetector(
-            onTap: () => setState(() => _selectedFilter = f),
+            onTap: () => setState(() => _selectedFilter = key),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               alignment: Alignment.center,
@@ -258,7 +267,7 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
               ),
               child: Center(
                 child: Text(
-                  f,
+                  label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11.5,
@@ -334,7 +343,7 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'DERNIER ÉVÉNEMENT',
+                        context.tr('latest_event'),
                         style: TextStyle(
                           fontSize: 8.5,
                           fontWeight: FontWeight.w900,

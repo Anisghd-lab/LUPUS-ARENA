@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/game_room.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 
@@ -107,12 +108,12 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                     child: const Text('🧙‍♀️', style: TextStyle(fontSize: 18)),
                   ),
                   const SizedBox(width: 10),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'L\'ANTRE DE LA SORCIÈRE',
-                        style: TextStyle(
+                        context.tr('witch_lair'),
+                        style: const TextStyle(
                           fontFamily: 'serif',
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
@@ -121,8 +122,8 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                         ),
                       ),
                       Text(
-                        'Deux fioles secrètes à votre disposition',
-                        style: TextStyle(fontSize: 10.5, color: LupusColors.textMuted),
+                        context.tr('witch_sub'),
+                        style: const TextStyle(fontSize: 10.5, color: LupusColors.textMuted),
                       ),
                     ],
                   ),
@@ -186,7 +187,7 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              'POTION DE VIE',
+                              context.tr('life_potion'),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w900,
@@ -206,10 +207,10 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                             color: LupusColors.poisonGreen.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
-                            '✨ Victime sauvée cette nuit !',
+                          child: Text(
+                            context.tr('victim_saved_tonight'),
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                               color: LupusColors.poisonGreen,
@@ -218,7 +219,7 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                         ),
                       ] else if (wolfVictim != null) ...[
                         Text(
-                          'Attaque des loups :',
+                          context.tr('wolf_attack'),
                           style: TextStyle(
                             fontSize: 10,
                             color: LupusColors.textMuted.withValues(alpha: 0.8),
@@ -242,18 +243,18 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                           ),
                           onPressed: hasHeal ? widget.onSaveVictim : null,
                           child: Text(
-                            hasHeal ? 'SAUVER' : 'ÉPUISÉE',
+                            hasHeal ? context.tr('save_victim') : context.tr('used_potion'),
                             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
                           ),
                         ),
                       ] else ...[
-                        const Text(
-                          'Aucune victime à sauver cette nuit.',
-                          style: TextStyle(fontSize: 10.5, color: LupusColors.textSecondary),
+                        Text(
+                          context.tr('no_victim_to_save'),
+                          style: const TextStyle(fontSize: 10.5, color: LupusColors.textSecondary),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          hasHeal ? 'Fiole disponible' : 'Fiole épuisée',
+                          hasHeal ? context.tr('potion_available') : context.tr('potion_depleted'),
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -291,7 +292,7 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              'POTION DE MORT',
+                              context.tr('death_potion'),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w900,
@@ -311,7 +312,7 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '☠️ ${poisonVictim.name} empoisonné(e) !',
+                            context.tr('victim_poisoned_tonight', {'name': poisonVictim.name}),
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 11,
@@ -323,7 +324,7 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                       ] else if (hasPoison) ...[
                         if (selectedTarget != null && selectedTarget.isAlive) ...[
                           Text(
-                            'Cible choisie : ${selectedTarget.name}',
+                            context.tr('chosen_target', {'name': selectedTarget.name}),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -341,21 +342,21 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             onPressed: () => widget.onPoisonVictim(selectedTarget.id),
-                            child: const Text(
-                              'EMPOISONNER',
-                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                            child: Text(
+                              context.tr('poison_victim'),
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
                             ),
                           ),
                         ] else ...[
-                          const Text(
-                            'Touchez un joueur dans le village pour cibler.',
-                            style: TextStyle(fontSize: 10.5, color: LupusColors.textSecondary),
+                          Text(
+                            context.tr('tap_player_to_target'),
+                            style: const TextStyle(fontSize: 10.5, color: LupusColors.textSecondary),
                           ),
                         ],
                       ] else ...[
-                        const Text(
-                          'Fiole de poison déjà consommée.',
-                          style: TextStyle(fontSize: 10.5, color: LupusColors.textMuted),
+                        Text(
+                          context.tr('poison_used'),
+                          style: const TextStyle(fontSize: 10.5, color: LupusColors.textMuted),
                         ),
                       ],
                     ],
@@ -384,8 +385,8 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
               ),
               label: Text(
                 hasActed
-                    ? 'CONFIRMER MES CHOIX ET TERMINER LA NUIT'
-                    : 'NE RIEN FAIRE • CONSERVER MES POTIONS',
+                    ? context.tr('confirm_witch_choices')
+                    : context.tr('witch_pass'),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w900,

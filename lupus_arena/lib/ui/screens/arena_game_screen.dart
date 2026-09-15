@@ -19,6 +19,9 @@ import '../bento/mystic_radial_table.dart';
 import '../bento/role_card_image.dart';
 import '../theme/lupus_assets.dart';
 import '../theme/lupus_theme.dart';
+import '../../services/app_translations.dart';
+import '../../services/locale_provider.dart';
+import '../bento/language_dialog.dart';
 import 'lobby_screen.dart';
 import 'village_chronicles_screen.dart';
 
@@ -719,17 +722,36 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      isNight ? 'NUIT' : 'JOUR',
+                      isNight ? context.tr('night') : context.tr('day'),
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.0,
                         color: isNight
-                            ? const Color(0xFFFECDD3)
-                            : const Color(0xFFFEF08A),
+                            ? const Color(0xFFFCA5A5)
+                            : const Color(0xFFFDE68A),
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Bouton changement de langue en jeu
+              GestureDetector(
+                onTap: () => LanguageDialog.show(context, LocaleProvider.instance),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xC012182E),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: LupusColors.arcaneGold.withValues(alpha: 0.4)),
+                  ),
+                  child: const Icon(
+                    Icons.language_rounded,
+                    size: 16,
+                    color: LupusColors.arcaneGold,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1849,38 +1871,38 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     if (isWolvesWin) {
       accent = LupusColors.arcaneCrimson;
       icon = Icons.pets_rounded;
-      title = 'VICTOIRE DES LOUPS-GAROUS !';
-      subtitle = 'Les ombres ont dévoré la totalité des âmes de l\'arène.';
+      title = context.tr('victory_werewolves');
+      subtitle = context.tr('victory_werewolves_desc');
     } else if (isLoversWin) {
       accent = const Color(0xFFF43F5E);
       icon = Icons.favorite_rounded;
-      title = 'VICTOIRE DES AMOUREUX !';
-      subtitle = 'Leur passion triomphe par-delà toutes les factions.';
+      title = context.tr('victory_lovers');
+      subtitle = context.tr('victory_lovers_desc');
     } else if (isAngelWin) {
       accent = LupusColors.arcaneGold;
       icon = Icons.auto_awesome_rounded;
-      title = 'VICTOIRE DE L\'ANGE !';
-      subtitle = 'Son martyre dès le premier jour l\'élève au rang divin.';
+      title = context.tr('victory_angel');
+      subtitle = context.tr('victory_angel_desc');
     } else if (isPiperWin) {
       accent = LupusColors.arcanePurple;
       icon = Icons.music_note_rounded;
-      title = 'VICTOIRE DU JOUEUR DE FLÛTE !';
-      subtitle = 'Tous les survivants sont charmés sous sa douce mélodie.';
+      title = context.tr('victory_piper');
+      subtitle = context.tr('victory_piper_desc');
     } else if (isPyroWin) {
       accent = const Color(0xFFF97316);
       icon = Icons.local_fire_department_rounded;
-      title = 'VICTOIRE DU PYROMANE !';
-      subtitle = 'Le village entier n\'est plus qu\'un tas de cendres incandescentes.';
+      title = context.tr('victory_solo');
+      subtitle = context.tr('victory_werewolves_desc');
     } else if (isVillageWin) {
       accent = LupusColors.arcaneCyan;
       icon = Icons.shield_rounded;
-      title = 'VICTOIRE DU VILLAGE !';
-      subtitle = 'La lumière triomphe ! Tous les loups-garous ont été démasqués.';
+      title = context.tr('victory_village');
+      subtitle = context.tr('victory_village_desc');
     } else {
       accent = LupusColors.textSecondary;
       icon = Icons.hourglass_empty_rounded;
-      title = 'FIN DE PARTIE';
-      subtitle = 'Aucun survivant ne subsiste dans les décombres de l\'arène.';
+      title = context.tr('phase_game_over_title');
+      subtitle = context.tr('phase_game_over_desc');
     }
 
     return Container(
@@ -1969,8 +1991,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                               Flexible(
                                 child: Text(
                                   isExpired
-                                      ? 'MINUTE COLLECTIVE TERMINÉE'
-                                      : 'MINUTE VOCALE COLLECTIVE',
+                                      ? context.tr('minute_collective_end')
+                                      : context.tr('minute_collective'),
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w900,
@@ -2011,8 +2033,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           const SizedBox(height: 10),
                           Text(
                             isExpired
-                                ? 'Temps écoulé : les micros de tous les joueurs sont désormais coupés.'
-                                : 'Canal vocal ouvert à tous les joueurs (morts et vivants) pendant 60 secondes.',
+                                ? context.tr('mic_cut_game_over')
+                                : context.tr('minute_collective_desc'),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 11,
@@ -2078,8 +2100,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                             ),
                             label: Text(
                               isMeReady
-                                  ? 'Prêt ($readyCount/$totalCount)'
-                                  : 'Rejouer ($readyCount/$totalCount)',
+                                  ? '${context.tr('ready')} ($readyCount/$totalCount)'
+                                  : '${context.tr('replay')} ($readyCount/$totalCount)',
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w900,
@@ -2129,9 +2151,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                   .read(gameNotifierProvider.notifier)
                                   .leaveRoom();
                             },
-                            child: const Text(
-                              'REVENIR AU SALON',
-                              style: TextStyle(
+                            child: Text(
+                              context.tr('return_to_lobby'),
+                              style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.5,
                               ),
@@ -2155,18 +2177,18 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: LupusColors.surface,
-        title: const Text(
-          'Quitter la partie ?',
-          style: TextStyle(color: LupusColors.textPrimary),
+        title: Text(
+          context.tr('confirm_leave_title'),
+          style: const TextStyle(color: LupusColors.textPrimary),
         ),
-        content: const Text(
-          'Voulez-vous vraiment quitter l\'arène et le vocal en cours ?',
-          style: TextStyle(color: LupusColors.textSecondary),
+        content: Text(
+          context.tr('confirm_leave_desc'),
+          style: const TextStyle(color: LupusColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Annuler'),
+            child: Text(context.tr('cancel')),
           ),
           TextButton(
             style: TextButton.styleFrom(
@@ -2176,7 +2198,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
               Navigator.of(ctx).pop();
               ref.read(gameNotifierProvider.notifier).leaveRoom();
             },
-            child: const Text('Quitter'),
+            child: Text(context.tr('quit')),
           ),
         ],
       ),
@@ -2242,10 +2264,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                 contentPadding: const EdgeInsets.symmetric(vertical: 8),
                 border: InputBorder.none,
                 hintText: isSilenced
-                    ? '🔇 Réduit au silence par le Loup Noir (chat désactivé)...'
+                    ? context.tr('chat_silenced_hint')
                     : (!isAlive
-                        ? '💀 Les défunts ne peuvent pas chatter...'
-                        : '💬 Saisir un message pour le village...'),
+                        ? context.tr('chat_dead_hint')
+                        : context.tr('chat_normal_hint')),
                 hintStyle: TextStyle(
                   fontSize: 11,
                   fontStyle: isSilenced ? FontStyle.italic : FontStyle.normal,

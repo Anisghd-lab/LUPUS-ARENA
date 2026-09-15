@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../GameNotifier.dart';
 import '../../models/game_role.dart';
 import '../../models/game_room.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 import 'role_card_image.dart';
@@ -72,9 +73,9 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'COMPOSITION DU DECK',
-                        style: TextStyle(
+                      Text(
+                        context.tr('deck_composition'),
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.1,
@@ -83,8 +84,8 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
                       ),
                       Text(
                         isHost
-                            ? 'Ajustez les cartes pour la partie'
-                            : 'Composition choisie par l\'Hôte',
+                            ? context.tr('deck_host_hint')
+                            : context.tr('deck_guest_hint'),
                         style: const TextStyle(
                           fontSize: 10,
                           color: LupusColors.textMuted,
@@ -108,7 +109,7 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
                   ),
                 ),
                 child: Text(
-                  isHost ? '👑 HÔTE' : '👁️ LECTURE',
+                  isHost ? context.tr('host_badge') : context.tr('guest_badge'),
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.w900,
@@ -161,7 +162,7 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Cartes : $totalRoles / $playersCount joueurs',
+                      context.tr('cards_player_count', [totalRoles, playersCount]),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
@@ -183,10 +184,10 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
                   ),
                   child: Text(
                     isBalanced
-                        ? 'PRÊT POUR L\'ARÈNE'
+                        ? context.tr('ready_for_arena')
                         : (totalRoles < playersCount
-                            ? 'MANQUE ${playersCount - totalRoles}'
-                            : 'SURPLUS +${totalRoles - playersCount}'),
+                            ? context.tr('missing_cards', [playersCount - totalRoles])
+                            : context.tr('surplus_cards', [totalRoles - playersCount])),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
@@ -209,13 +210,13 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFilterChip(0, 'Tous (${GameRole.values.length})'),
+                _buildFilterChip(0, '${context.tr('filter_all_roles')} (${GameRole.values.length})'),
                 const SizedBox(width: 6),
-                _buildFilterChip(1, '🐺 Loups'),
+                _buildFilterChip(1, context.tr('filter_wolves')),
                 const SizedBox(width: 6),
-                _buildFilterChip(2, '👥 Village'),
+                _buildFilterChip(2, context.tr('filter_village')),
                 const SizedBox(width: 6),
-                _buildFilterChip(3, '✨ Solitaires'),
+                _buildFilterChip(3, context.tr('filter_solo')),
               ],
             ),
           ),
@@ -292,8 +293,10 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
             : LupusColors.arcaneViolet);
 
     final teamLabel = role.isEvil
-        ? 'Loup'
-        : (role.defaultTeam == Team.village ? 'Village' : 'Solitaire');
+        ? context.tr('role_team_wolf')
+        : (role.defaultTeam == Team.village
+            ? context.tr('role_team_village')
+            : context.tr('role_team_solo'));
 
     final isSelected = quantity > 0;
 
@@ -361,8 +364,8 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
                 const SizedBox(height: 2),
                 Text(
                   isMultiple
-                      ? 'Rôle multiple (quantité illimitée)'
-                      : 'Rôle unique (1 max)',
+                      ? context.tr('role_multiple_desc')
+                      : context.tr('role_unique_desc'),
                   style: TextStyle(
                     fontSize: 9.5,
                     color: LupusColors.textMuted.withValues(alpha: 0.8),

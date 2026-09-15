@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/player_model.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_player_tile.dart';
 
@@ -43,9 +44,9 @@ class BentoPlayerGrid extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(24),
         alignment: Alignment.center,
-        child: const Text(
-          'En attente des villageois...',
-          style: TextStyle(
+        child: Text(
+          context.tr('waiting_villagers'),
+          style: const TextStyle(
             fontSize: 12,
             color: LupusColors.textMuted,
             fontWeight: FontWeight.w600,

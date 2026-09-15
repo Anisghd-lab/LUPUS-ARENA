@@ -161,5 +161,63 @@ void main() {
     final deserializedPlayer = PlayerModel.fromMap(playerMap, 'victim_1');
     expect(deserializedPlayer.isMuted, isTrue);
   });
+
+  test('Anti-doublon et remplacement de socket lors de la reconnexion d\'un joueur', () {
+    // 1. Joueur initialement connecté avec un premier socket
+    final initialPlayer = PlayerModel(
+      id: 'user_unique_123',
+      name: 'Lancelot',
+      role: GameRole.defender,
+      isAlive: true,
+      agoraUid: 1001,
+      socketId: 'sock_init_abc',
+    );
+
+    expect(initialPlayer.id, equals('user_unique_123'));
+    expect(initialPlayer.socketId, equals('sock_init_abc'));
+
+    final initialMap = initialPlayer.toMap();
+    expect(initialMap['socketId'], equals('sock_init_abc'));
+
+    // 2. Vérification de présence (hasPlayer) dans le salon
+    final room = GameRoom(
+      roomCode: 'TEST_ROOM',
+      hostId: 'host_1',
+      players: {'user_unique_123': initialPlayer},
+      seatingOrder: ['user_unique_123', 'user_unique_123'], // Tentative de doublon de siège
+    );
+
+    expect(room.hasPlayer('user_unique_123'), isTrue);
+    expect(room.hasPlayer('user_unknown_999'), isFalse);
+
+    // playerList élimine strictement les doublons
+    expect(room.playerList.length, equals(1));
+    expect(room.playerList.first.id, equals('user_unique_123'));
+
+    // 3. Reconnexion : remplacement du socket au lieu de dupliquer l'entrée
+    const newSocketId = 'sock_reconnected_xyz';
+    const newAgoraUid = 1002;
+
+    final reconnectedPlayer = initialPlayer.copyWith(
+      socketId: newSocketId,
+      agoraUid: newAgoraUid,
+    );
+
+    final updatedRoom = room.copyWith(
+      players: {
+        ...room.players,
+        reconnectedPlayer.id: reconnectedPlayer,
+      },
+    );
+
+    // Le nombre de joueurs n'a pas augmenté (aucune duplication)
+    expect(updatedRoom.players.length, equals(1));
+    expect(updatedRoom.playerList.length, equals(1));
+    expect(updatedRoom.players['user_unique_123']?.socketId, equals(newSocketId));
+    expect(updatedRoom.players['user_unique_123']?.agoraUid, equals(newAgoraUid));
+    // Le rôle et l'état de vie sont strictement conservés
+    expect(updatedRoom.players['user_unique_123']?.role, equals(GameRole.defender));
+    expect(updatedRoom.players['user_unique_123']?.isAlive, isTrue);
+  });
 }
 

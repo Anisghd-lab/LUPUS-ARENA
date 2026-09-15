@@ -23,6 +23,7 @@ class PlayerModel {
   final int agoraUid;
   final String? encryptedRole;
   final int seatIndex;
+  final String? socketId;
 
   const PlayerModel({
     required this.id,
@@ -45,6 +46,7 @@ class PlayerModel {
     this.agoraUid = 0,
     this.encryptedRole,
     this.seatIndex = -1,
+    this.socketId,
   });
 
   PlayerModel copyWith({
@@ -68,6 +70,7 @@ class PlayerModel {
     int? agoraUid,
     String? encryptedRole,
     int? seatIndex,
+    String? socketId,
   }) {
     return PlayerModel(
       id: id ?? this.id,
@@ -90,6 +93,7 @@ class PlayerModel {
       agoraUid: agoraUid ?? this.agoraUid,
       encryptedRole: encryptedRole ?? this.encryptedRole,
       seatIndex: seatIndex ?? this.seatIndex,
+      socketId: socketId ?? this.socketId,
     );
   }
 
@@ -128,6 +132,7 @@ class PlayerModel {
       'agoraUid': agoraUid,
       if (encryptedRole != null) 'encryptedRole': encryptedRole,
       if (seatIndex >= 0) 'seatIndex': seatIndex,
+      if (socketId != null) 'socketId': socketId,
     };
   }
 
@@ -187,6 +192,7 @@ class PlayerModel {
       seatIndex: (map['seatIndex'] is int)
           ? map['seatIndex'] as int
           : int.tryParse(map['seatIndex']?.toString() ?? '-1') ?? -1,
+      socketId: map['socketId']?.toString(),
     );
   }
 }

@@ -85,16 +85,33 @@ class GameRoom {
       for (final entry in players.entries) {
         if (!seen.contains(entry.key)) {
           list.add(entry.value);
+          seen.add(entry.key);
         }
       }
       return list;
     }
-    final all = players.values.toList();
+    final all = <PlayerModel>[];
+    final seen = <String>{};
+    for (final p in players.values) {
+      if (!seen.contains(p.id)) {
+        all.add(p);
+        seen.add(p.id);
+      }
+    }
     if (all.any((p) => p.seatIndex >= 0)) {
       all.sort((a, b) => a.seatIndex.compareTo(b.seatIndex));
       return all;
     }
     return all;
+  }
+
+  /// Vérifie si un joueur avec cet identifiant unique est déjà présent dans le salon (Anti-doublon)
+  bool hasPlayer(String userId) {
+    if (players.containsKey(userId)) return true;
+    for (final p in players.values) {
+      if (p.id == userId) return true;
+    }
+    return false;
   }
   List<PlayerModel> get alivePlayers =>
       playerList.where((p) => p.isAlive).toList();
@@ -324,8 +341,15 @@ class GameRoom {
     final rawSeatingOrder = map['seatingOrder'];
     final List<String> parsedSeatingOrder = [];
     if (rawSeatingOrder is List) {
+      final seenSeats = <String>{};
       for (final item in rawSeatingOrder) {
-        if (item != null) parsedSeatingOrder.add(item.toString());
+        if (item != null) {
+          final idStr = item.toString();
+          if (!seenSeats.contains(idStr)) {
+            parsedSeatingOrder.add(idStr);
+            seenSeats.add(idStr);
+          }
+        }
       }
     }
 

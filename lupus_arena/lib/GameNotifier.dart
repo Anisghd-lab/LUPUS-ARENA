@@ -255,6 +255,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         isReady: true,
         isAlive: true,
         agoraUid: state.agoraUid,
+        socketId:
+            'sock_${state.currentUserId}_${DateTime.now().millisecondsSinceEpoch}',
       );
 
       final initialRolePool = generateDefaultRolePool(4);
@@ -470,8 +472,64 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
 
       final data = snapshot.value as Map<dynamic, dynamic>;
-      final room = GameRoom.fromMap(data, cleanCode);
+      final room = GameRoom.fromMap(data, cleanCode, state.currentUserId);
 
+      // --- 4. ENTRÉE UNIQUE PAR JOUEUR DANS LE SALON (ANTI-DOUBLON & RECONNEXION) ---
+      // Vérification de l'identifiant unique (userId) avant d'ajouter le joueur.
+      // S'il existe déjà dans le salon, remplace son socket (reconnexion) au lieu de créer une entrée dupliquée.
+      final existingPlayer = room.players[state.currentUserId] ??
+          room.playerList.cast<PlayerModel?>().firstWhere(
+                (p) => p != null && p.id == state.currentUserId,
+                orElse: () => null,
+              );
+
+      final String currentSocketId =
+          'sock_${state.currentUserId}_${DateTime.now().millisecondsSinceEpoch}';
+
+      if (existingPlayer != null) {
+        // JOUEUR DÉJÀ EXISTANT : RECONNEXION & REMPLACEMENT DU SOCKET
+        // Conserve le rôle, le statut de vie et les privilèges du joueur sans dupliquer son entrée
+        final updatedPlayer = existingPlayer.copyWith(
+          agoraUid: state.agoraUid,
+          socketId: currentSocketId,
+          name: state.currentUserName,
+          avatarIndex: state.currentUserAvatar,
+        );
+
+        final playerUpdates = <String, dynamic>{
+          'agoraUid': state.agoraUid,
+          'socketId': currentSocketId,
+          'name': state.currentUserName,
+          'avatarIndex': state.currentUserAvatar,
+          'lastReconnectedAt': ServerValue.timestamp,
+        };
+
+        await ref.child('players/${existingPlayer.id}').update(playerUpdates);
+        await ref.child('logs').set([
+          ...room.logs,
+          '🔄 ${state.currentUserName} s\'est reconnecté(e) au salon.',
+        ]);
+
+        _currentRoomRef = ref;
+        _subscribeToRoom(cleanCode);
+
+        await _voiceService.initialize();
+        await _voiceService.joinChannel(
+          channelId: 'lupus_$cleanCode',
+          uid: state.agoraUid,
+          userAccount: state.currentUserId,
+        );
+
+        final updatedPlayers = Map<String, PlayerModel>.from(room.players)
+          ..[existingPlayer.id] = updatedPlayer;
+        final updatedRoom = room.copyWith(players: updatedPlayers);
+
+        state = state.copyWith(room: updatedRoom, isLoading: false);
+        await _applyVoiceRulesForPhase(updatedRoom);
+        return true;
+      }
+
+      // NOUVEAU JOUEUR TENTANT D'ENTRER DANS LE SALON
       if (room.phase != GamePhase.lobby) {
         state = state.copyWith(
           isLoading: false,
@@ -497,6 +555,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         isReady: false,
         isAlive: true,
         agoraUid: state.agoraUid,
+        socketId: currentSocketId,
       );
 
       await ref.child('players/${state.currentUserId}').set(player.toMap());

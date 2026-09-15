@@ -849,11 +849,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final room = state.room!;
     final current = room.phase;
     final round = room.round;
+    final realRoles = await _resolveRealRoles(room);
 
     final next = _getNextNightPhase(
       current: current,
       round: round,
       players: room.players,
+      realRoles: realRoles,
     );
 
     if (next == GamePhase.morningAnnouncement) {
@@ -874,7 +876,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
         if (wolfVictimId == null) {
           final innocentLiving = room.alivePlayers
-              .where((p) => !p.role.isEvil)
+              .where((p) => !(realRoles[p.id] ?? p.role).isEvil)
               .toList();
           if (innocentLiving.isNotEmpty) {
             final randomVictim =
@@ -905,16 +907,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     required GamePhase current,
     required int round,
     required Map<String, PlayerModel> players,
+    Map<String, GameRole>? realRoles,
   }) {
+    GameRole getRole(PlayerModel p) => realRoles?[p.id] ?? p.role;
+
     bool hasAlive(GameRole role) =>
-        players.values.any((p) => p.isAlive && p.role == role);
+        players.values.any((p) => p.isAlive && getRole(p) == role);
 
     bool hasAliveWerewolves() =>
-        players.values.any((p) => p.isAlive && p.role.isEvil);
+        players.values.any((p) => p.isAlive && getRole(p).isEvil);
 
     bool hasActiveWitch() {
       final witch = players.values.cast<PlayerModel?>().firstWhere(
-            (p) => p != null && p.isAlive && p.role == GameRole.witch,
+            (p) => p != null && p.isAlive && getRole(p) == GameRole.witch,
             orElse: () => null,
           );
       return witch != null &&
@@ -1091,9 +1096,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     String? pendingHunter;
     String? pendingCaptain;
 
+    final realRoles = await _resolveRealRoles(room);
+
     for (final id in allDeaths) {
       final p = room.players[id];
-      if (p?.role == GameRole.hunter) {
+      final r = realRoles[id] ?? p?.role;
+      if (r == GameRole.hunter) {
         pendingHunter = id;
       }
       if (p?.isCaptain == true || room.captainId == id) {
@@ -1107,7 +1115,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             MapEntry(k, allDeaths.contains(k) ? v.copyWith(isAlive: false) : v),
       ),
     );
-    final win = checkWinConditions(simulatedRoom);
+    final win = checkWinConditions(simulatedRoom, realRoles);
 
     if (win != null) {
       updates['phase'] = GamePhase.gameOver.name;
@@ -1115,15 +1123,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       logs.add(_formatVictoryMessage(win));
       // Révélation publique de tous les rôles restants à la fin de partie
       for (final p in room.playerList) {
-        GameRole revealedRole = p.role;
-        try {
-          final sSnap = await _database
-              .ref('rooms/${room.roomCode}/secret_roles/${p.id}/roleId')
-              .get();
-          if (sSnap.exists && sSnap.value != null) {
-            revealedRole = GameRole.fromId(sSnap.value.toString());
-          }
-        } catch (_) {}
+        final revealedRole = realRoles[p.id] ?? p.role;
         updates['players/${p.id}/role'] = revealedRole.id;
       }
     } else if (pendingHunter != null) {
@@ -1392,9 +1392,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     String? pendingHunter;
     String? pendingCaptain;
 
+    final realRoles = await _resolveRealRoles(room);
+
     for (final id in allDeaths) {
       final p = room.players[id];
-      if (p?.role == GameRole.hunter) pendingHunter = id;
+      final r = realRoles[id] ?? p?.role;
+      if (r == GameRole.hunter) pendingHunter = id;
       if (p?.isCaptain == true || room.captainId == id) pendingCaptain = id;
     }
 
@@ -1404,22 +1407,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             MapEntry(k, allDeaths.contains(k) ? v.copyWith(isAlive: false) : v),
       ),
     );
-    final win = checkWinConditions(simulatedRoom);
+    final win = checkWinConditions(simulatedRoom, realRoles);
 
     if (win != null) {
       updates['phase'] = GamePhase.gameOver.name;
       updates['winner'] = win;
       logs.add(_formatVictoryMessage(win));
       for (final p in room.playerList) {
-        GameRole pRole = p.role;
-        try {
-          final sSnap = await _database
-              .ref('rooms/${room.roomCode}/secret_roles/${p.id}/roleId')
-              .get();
-          if (sSnap.exists && sSnap.value != null) {
-            pRole = GameRole.fromId(sSnap.value.toString());
-          }
-        } catch (_) {}
+        final pRole = realRoles[p.id] ?? p.role;
         updates['players/${p.id}/role'] = pRole.id;
       }
     } else if (pendingHunter != null) {
@@ -1460,9 +1455,73 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   // 2. CONDITIONS D'ARRÊT ET DÉCLARATION DE VICTOIRE
   // ===========================================================================
 
-  String? checkWinConditions(GameRoom room) {
+  /// Résout les rôles réels (authentiques) de tous les joueurs de la salle,
+  /// que la salle soit en production (chiffrée/masquée) ou en mode test.
+  Future<Map<String, GameRole>> _resolveRealRoles(GameRoom room) async {
+    final roles = <String, GameRole>{};
+
+    for (final p in room.playerList) {
+      if (p.encryptedRole != null && p.encryptedRole!.isNotEmpty) {
+        final dec = RoleSecurityService.decryptRole(
+          p.encryptedRole,
+          p.id,
+          room.roomCode,
+        );
+        if (dec != null) {
+          roles[p.id] = dec;
+          continue;
+        }
+      }
+      if (p.role != GameRole.simpleVillager || room.isDevRoom) {
+        roles[p.id] = p.role;
+      }
+    }
+
+    final missing = room.playerList
+        .where((p) =>
+            !roles.containsKey(p.id) || roles[p.id] == GameRole.simpleVillager)
+        .toList();
+    if (missing.isNotEmpty) {
+      try {
+        final snap = await _database
+            .ref('rooms/${room.roomCode}/secret_roles')
+            .get();
+        if (snap.exists && snap.value is Map) {
+          final map = snap.value as Map;
+          for (final entry in map.entries) {
+            final pId = entry.key.toString();
+            if (entry.value is Map) {
+              final roleId = (entry.value as Map)['roleId']?.toString();
+              if (roleId != null) {
+                roles[pId] = GameRole.fromId(roleId);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[resolveRealRoles Firebase Error] $e');
+      }
+    }
+
+    for (final p in room.playerList) {
+      roles.putIfAbsent(p.id, () => p.role);
+    }
+    return roles;
+  }
+
+  String? checkWinConditions(
+    GameRoom room, [
+    Map<String, GameRole>? resolvedRealRoles,
+  ]) {
     final alive = room.alivePlayers;
     if (alive.isEmpty) return 'draw';
+
+    GameRole getRole(PlayerModel p) {
+      if (resolvedRealRoles != null && resolvedRealRoles.containsKey(p.id)) {
+        return resolvedRealRoles[p.id]!;
+      }
+      return p.resolveRealRole(room.roomCode);
+    }
 
     // 1. Victoire Absolue des Amoureux : les deux derniers survivants sont en couple
     if (alive.length == 2) {
@@ -1475,7 +1534,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     // 2. Victoire Solitaire : Joueur de Flûte (tous les autres vivants sont charmés)
     final piper = alive.cast<PlayerModel?>().firstWhere(
-          (p) => p != null && p.role == GameRole.piedPiper,
+          (p) => p != null && getRole(p) == GameRole.piedPiper,
           orElse: () => null,
         );
     if (piper != null) {
@@ -1488,37 +1547,61 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     // 3. Victoires Solitaires au Dernier Survivant (Loup Blanc ou Pyromane)
     if (alive.length == 1) {
       final survivor = alive.first;
-      if (survivor.role == GameRole.whiteWerewolf) return 'whiteWerewolf';
-      if (survivor.role == GameRole.pyromaniac) return 'pyromaniac';
+      final role = getRole(survivor);
+      if (role == GameRole.whiteWerewolf) return 'whiteWerewolf';
+      if (role == GameRole.pyromaniac) return 'pyromaniac';
+      if (role.isEvil) return 'werewolves';
+      return 'village';
     }
 
-    // 4. Décompte des camps
-    final wolves = alive.where((p) => p.role.isEvil).length;
-    final nonWolves = alive.where((p) => !p.role.isEvil).length;
+    // 4. Décompte des camps avec les vrais rôles
+    final aliveWolves = alive.where((p) => getRole(p).isEvil).length;
+    final aliveVillagers = alive.where((p) => !getRole(p).isEvil).length;
+    final totalPlayersAtStart = room.players.length;
 
-    // A. Tous les loups sont éliminés
-    if (wolves == 0) {
-      // S'il ne reste qu'un rôle solo non-villageois vivant (ex: Pyromane encore avec des villageois),
-      // le village ne gagne que si tous les neutres hostiles sont aussi morts
-      final hasHostileSolo = alive.any((p) => p.role == GameRole.pyromaniac);
+    // Condition de victoire des Loups :
+    // - 0 loup en vie = impossible qu'ils gagnent
+    // - Pour une partie lancée à 4 joueurs :
+    //   Le loup gagne uniquement s'il reste 1 loup face à 1 villageois (ou 0 villageois)
+    // - Règle générale (5 joueurs et plus) :
+    //   1 loup vivant contre 2 villageois (ou moins) suffit pour gagner
+    final bool wolvesWon;
+    if (aliveWolves == 0) {
+      wolvesWon = false;
+    } else if (totalPlayersAtStart <= 4) {
+      wolvesWon = (aliveWolves >= 1 && aliveVillagers <= 1);
+    } else {
+      wolvesWon = (aliveWolves >= 1 && aliveVillagers <= 2);
+    }
+
+    // Application du résultat
+    if (wolvesWon) {
+      return 'werewolves';
+    }
+
+    if (aliveWolves == 0) {
+      final hasHostileSolo = alive.any((p) {
+        final r = getRole(p);
+        return r == GameRole.pyromaniac || r == GameRole.whiteWerewolf;
+      });
       if (!hasHostileSolo) {
         return 'village';
       }
     }
 
-    // B. La meute prend le contrôle numérique du village
-    if (wolves >= nonWolves) {
-      return 'werewolves';
-    }
-
+    // La partie continue (nuit ou jour suivant)
     return null;
   }
 
   String _formatVictoryMessage(String winner) {
     switch (winner) {
       case 'village':
+      case 'VILLAGERS':
+      case 'villagers':
         return '🏆 Victoire triomphale du Village ! Tous les loups-garous et traîtres ont été exterminés.';
       case 'werewolves':
+      case 'WOLVES':
+      case 'wolves':
         return '🩸 Victoire sanguinaire de la Meute ! Les loups-garous ont dévoré la totalité du village.';
       case 'lovers':
         return '💖 Victoire absolue des Amoureux ! Leur passion triomphe sur toutes les allégeances.';
@@ -1821,6 +1904,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     }
 
+    final realRoles = await _resolveRealRoles(room);
+
     final simulated = room.copyWith(
       players: room.players.map(
         (k, v) => MapEntry(
@@ -1831,21 +1916,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         ),
       ),
     );
-    final win = checkWinConditions(simulated);
+    final win = checkWinConditions(simulated, realRoles);
     if (win != null) {
       updates['phase'] = GamePhase.gameOver.name;
       updates['winner'] = win;
       logs.add(_formatVictoryMessage(win));
       for (final p in room.playerList) {
-        GameRole pRole = p.role;
-        try {
-          final sSnap = await _database
-              .ref('rooms/${room.roomCode}/secret_roles/${p.id}/roleId')
-              .get();
-          if (sSnap.exists && sSnap.value != null) {
-            pRole = GameRole.fromId(sSnap.value.toString());
-          }
-        } catch (_) {}
+        final pRole = realRoles[p.id] ?? p.role;
         updates['players/${p.id}/role'] = pRole.id;
       }
     } else {
@@ -2293,7 +2370,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         playerId: target.copyWith(isAlive: newAlive),
       },
     );
-    final win = checkWinConditions(simulated);
+    final realRoles = await _resolveRealRoles(state.room!);
+    final win = checkWinConditions(simulated, realRoles);
     if (win != null) {
       await _syncState({'winner': win, 'phase': GamePhase.gameOver.name});
     }

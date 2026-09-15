@@ -1756,10 +1756,56 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
 
   /// Overlay de victoire finale
   Widget _buildGameOverOverlay(BuildContext context, String? winner) {
-    final isWolvesWin = winner == 'werewolves';
-    final accent = isWolvesWin
-        ? LupusColors.arcaneCrimson
-        : LupusColors.arcaneCyan;
+    final w = winner?.toLowerCase().trim() ?? '';
+    final isWolvesWin =
+        w == 'werewolves' || w == 'wolves' || w == 'whitewerewolf';
+    final isVillageWin = w == 'village' || w == 'villagers';
+    final isLoversWin = w == 'lovers';
+    final isAngelWin = w == 'angel';
+    final isPiperWin = w == 'piedpiper';
+    final isPyroWin = w == 'pyromaniac';
+
+    final Color accent;
+    final IconData icon;
+    final String title;
+    final String subtitle;
+
+    if (isWolvesWin) {
+      accent = LupusColors.arcaneCrimson;
+      icon = Icons.pets_rounded;
+      title = 'VICTOIRE DES LOUPS-GAROUS !';
+      subtitle = 'Les ombres ont dévoré la totalité des âmes de l\'arène.';
+    } else if (isLoversWin) {
+      accent = const Color(0xFFF43F5E);
+      icon = Icons.favorite_rounded;
+      title = 'VICTOIRE DES AMOUREUX !';
+      subtitle = 'Leur passion triomphe par-delà toutes les factions.';
+    } else if (isAngelWin) {
+      accent = LupusColors.arcaneGold;
+      icon = Icons.auto_awesome_rounded;
+      title = 'VICTOIRE DE L\'ANGE !';
+      subtitle = 'Son martyre dès le premier jour l\'élève au rang divin.';
+    } else if (isPiperWin) {
+      accent = LupusColors.arcanePurple;
+      icon = Icons.music_note_rounded;
+      title = 'VICTOIRE DU JOUEUR DE FLÛTE !';
+      subtitle = 'Tous les survivants sont charmés sous sa douce mélodie.';
+    } else if (isPyroWin) {
+      accent = const Color(0xFFF97316);
+      icon = Icons.local_fire_department_rounded;
+      title = 'VICTOIRE DU PYROMANE !';
+      subtitle = 'Le village entier n\'est plus qu\'un tas de cendres incandescentes.';
+    } else if (isVillageWin) {
+      accent = LupusColors.arcaneCyan;
+      icon = Icons.shield_rounded;
+      title = 'VICTOIRE DU VILLAGE !';
+      subtitle = 'La lumière triomphe ! Tous les loups-garous ont été démasqués.';
+    } else {
+      accent = LupusColors.textSecondary;
+      icon = Icons.hourglass_empty_rounded;
+      title = 'FIN DE PARTIE';
+      subtitle = 'Aucun survivant ne subsiste dans les décombres de l\'arène.';
+    }
 
     return Container(
       color: Colors.black.withValues(alpha: 0.88),
@@ -1773,15 +1819,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              isWolvesWin ? Icons.pets_rounded : Icons.shield_rounded,
+              icon,
               color: accent,
               size: 56,
             ),
             const SizedBox(height: 16),
             Text(
-              isWolvesWin
-                  ? 'VICTOIRE DES LOUPS-GAROUS !'
-                  : 'VICTOIRE DU VILLAGE !',
+              title,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'serif',
@@ -1793,9 +1837,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              isWolvesWin
-                  ? 'Les ombres ont dévoré la totalité des âmes de l\'arène.'
-                  : 'La lumière triomphe ! Tous les loups-garous ont été démasqués.',
+              subtitle,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,

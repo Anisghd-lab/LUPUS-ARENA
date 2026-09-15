@@ -219,5 +219,83 @@ void main() {
     expect(updatedRoom.players['user_unique_123']?.role, equals(GameRole.defender));
     expect(updatedRoom.players['user_unique_123']?.isAlive, isTrue);
   });
+
+  test('Minute vocale collective à la victoire (60 secondes) : tous les joueurs parlent, puis micros coupés', () {
+    // 1. À la victoire (GamePhase.gameOver), tant que les 60s ne sont pas écoulées (isVictoryVoiceExpired = false) :
+    // Tous les joueurs (morts et vivants, innocents et loups, même réduits au silence) peuvent parler (shouldMute = false)
+    final aliveVillagerMute = GameNotifier.calculateShouldMuteForPhase(
+      phase: GamePhase.gameOver,
+      isAlive: true,
+      isSilencedByBlackWolf: false,
+      isCurrentSpeaker: false,
+      isEvil: false,
+      isVictoryVoiceExpired: false,
+    );
+    expect(aliveVillagerMute, isFalse, reason: 'Villageois vivant démuté pour la minute collective');
+
+    final deadPlayerMute = GameNotifier.calculateShouldMuteForPhase(
+      phase: GamePhase.gameOver,
+      isAlive: false,
+      isSilencedByBlackWolf: false,
+      isCurrentSpeaker: false,
+      isEvil: false,
+      isVictoryVoiceExpired: false,
+    );
+    expect(deadPlayerMute, isFalse, reason: 'Joueur mort démuté pour la minute collective de victoire');
+
+    final silencedPlayerMute = GameNotifier.calculateShouldMuteForPhase(
+      phase: GamePhase.gameOver,
+      isAlive: true,
+      isSilencedByBlackWolf: true,
+      isCurrentSpeaker: false,
+      isEvil: false,
+      isVictoryVoiceExpired: false,
+    );
+    expect(silencedPlayerMute, isFalse, reason: 'Joueur réduit au silence démuté pour la célébration');
+
+    final evilDeadWolfMute = GameNotifier.calculateShouldMuteForPhase(
+      phase: GamePhase.gameOver,
+      isAlive: false,
+      isSilencedByBlackWolf: false,
+      isCurrentSpeaker: false,
+      isEvil: true,
+      isVictoryVoiceExpired: false,
+    );
+    expect(evilDeadWolfMute, isFalse, reason: 'Loup mort également démuté pour débriefer');
+
+    // 2. À la fin de la minute (isVictoryVoiceExpired = true) :
+    // Le micro de TOUS les joueurs est coupé (shouldMute = true)
+    final expiredAliveMute = GameNotifier.calculateShouldMuteForPhase(
+      phase: GamePhase.gameOver,
+      isAlive: true,
+      isSilencedByBlackWolf: false,
+      isCurrentSpeaker: false,
+      isEvil: false,
+      isVictoryVoiceExpired: true,
+    );
+    expect(expiredAliveMute, isTrue, reason: 'Micro coupé à la fin de la minute pour le vivant');
+
+    final expiredDeadMute = GameNotifier.calculateShouldMuteForPhase(
+      phase: GamePhase.gameOver,
+      isAlive: false,
+      isSilencedByBlackWolf: false,
+      isCurrentSpeaker: false,
+      isEvil: false,
+      isVictoryVoiceExpired: true,
+    );
+    expect(expiredDeadMute, isTrue, reason: 'Micro coupé à la fin de la minute pour le mort');
+
+    // 3. Comparaison avec les phases normales du jeu où les morts restent coupés
+    final normalNightDeadMute = GameNotifier.calculateShouldMuteForPhase(
+      phase: GamePhase.nightWerewolves,
+      isAlive: false,
+      isSilencedByBlackWolf: false,
+      isCurrentSpeaker: false,
+      isEvil: false,
+      isVictoryVoiceExpired: false,
+    );
+    expect(normalNightDeadMute, isTrue, reason: 'En jeu normal, un mort a son micro coupé');
+  });
 }
+
 

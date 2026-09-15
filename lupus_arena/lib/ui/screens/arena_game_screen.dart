@@ -113,6 +113,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   int? _lastTrackedRound;
   String? _lastTrackedSpeaker;
 
+  // Minute vocale collective à la victoire (60 secondes)
+  Timer? _victoryVoiceTimer;
+  final ValueNotifier<int> _victoryVoiceCountdownNotifier =
+      ValueNotifier<int>(60);
+  bool _victoryVoiceStarted = false;
+
   // Contrôleur de saisie du chat
   final TextEditingController _chatController = TextEditingController();
 
@@ -120,6 +126,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   void dispose() {
     _phaseCountdownTimer?.cancel();
     _countdownNotifier.dispose();
+    _victoryVoiceTimer?.cancel();
+    _victoryVoiceCountdownNotifier.dispose();
     _chatController.dispose();
     super.dispose();
   }
@@ -155,6 +163,29 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     });
   }
 
+  /// Déclenche un canal vocal ouvert à tous les joueurs (morts et vivants) pendant 60 secondes
+  void _startVictoryVoiceCountdown() {
+    _victoryVoiceTimer?.cancel();
+    _victoryVoiceCountdownNotifier.value = 60;
+    ref.read(gameNotifierProvider.notifier).setVictoryVoiceExpired(false);
+    AgoraVoiceService().setMute(false);
+
+    _victoryVoiceTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_victoryVoiceCountdownNotifier.value > 0) {
+        _victoryVoiceCountdownNotifier.value--;
+      } else {
+        timer.cancel();
+        // Clôture de la minute vocale collective : coupe le micro de tous les joueurs
+        AgoraVoiceService().setMute(true);
+        ref.read(gameNotifierProvider.notifier).setVictoryVoiceExpired(true);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final gameState = ref.watch(gameNotifierProvider);
@@ -162,6 +193,21 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
 
     // Synchronisation réactive du décompte de phase lors des transitions
     if (room != null) {
+      if (room.phase == GamePhase.gameOver) {
+        if (!_victoryVoiceStarted) {
+          _victoryVoiceStarted = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _startVictoryVoiceCountdown();
+          });
+        }
+      } else {
+        if (_victoryVoiceStarted) {
+          _victoryVoiceStarted = false;
+          _victoryVoiceTimer?.cancel();
+          _victoryVoiceCountdownNotifier.value = 60;
+        }
+      }
+
       if (_lastTrackedPhase != room.phase ||
           _lastTrackedRound != room.round ||
           _lastTrackedSpeaker != room.currentSpeakerId) {
@@ -172,7 +218,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         _lastTrackedPhase = room.phase;
         _lastTrackedRound = room.round;
         _lastTrackedSpeaker = room.currentSpeakerId;
-        _countdownNotifier.value = room.timerSeconds > 0 ? room.timerSeconds : 40;
+        _countdownNotifier.value =
+            room.timerSeconds > 0 ? room.timerSeconds : 40;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _startCountdown();
         });
@@ -448,6 +495,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                               : null,
                           phase: room.phase,
                           isMutedByBlackWolf: gameState.isSilencedByBlackWolf,
+                          isVictoryVoiceExpired:
+                              gameState.isVictoryVoiceExpired,
                         ),
                       ],
                     ),
@@ -1337,6 +1386,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         return 'L\'Œil de la Voyante';
       case GamePhase.nightWerewolves:
         return 'La Nuit Tombe';
+      case GamePhase.nightBlackWolf:
+        return 'Le Silence du Loup Noir';
       case GamePhase.nightWitch:
         return 'Les Chaudrons de la Sorcière';
       case GamePhase.nightPyromaniac:
@@ -1830,61 +1881,170 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       color: Colors.black.withValues(alpha: 0.88),
       alignment: Alignment.center,
       padding: const EdgeInsets.all(24),
-      child: BentoCard(
-        borderColor: accent,
-        glowing: true,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: accent,
-              size: 56,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'serif',
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.0,
-                color: accent,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: LupusColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: accent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: SingleChildScrollView(
+          child: BentoCard(
+            borderColor: accent,
+            glowing: true,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: accent,
+                  size: 56,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'serif',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    color: accent,
+                  ),
                 ),
-              ),
-              onPressed: () {
-                ref.read(gameNotifierProvider.notifier).leaveRoom();
-              },
-              child: const Text(
-                'REVENIR AU SALON',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
+                const SizedBox(height: 10),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: LupusColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // COMPTE À REBOURS VISUEL : MINUTE VOCALE COLLECTIVE (60 SECONDES)
+                ValueListenableBuilder<int>(
+                  valueListenable: _victoryVoiceCountdownNotifier,
+                  builder: (context, secondsRemaining, _) {
+                    final isExpired = secondsRemaining <= 0;
+                    final progress = secondsRemaining / 60.0;
+                    final boxColor = isExpired
+                        ? LupusColors.bloodRed
+                        : const Color(0xFF00FF88);
+
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: boxColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: boxColor.withValues(alpha: 0.6),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: boxColor.withValues(alpha: 0.15),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                isExpired
+                                    ? Icons.mic_off_rounded
+                                    : Icons.mic_rounded,
+                                color: boxColor,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  isExpired
+                                      ? 'MINUTE COLLECTIVE TERMINÉE'
+                                      : 'MINUTE VOCALE COLLECTIVE',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.8,
+                                    color: boxColor,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            isExpired
+                                ? '00:00'
+                                : '00:${secondsRemaining.toString().padLeft(2, '0')}',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              fontFamily: 'monospace',
+                              letterSpacing: 2.0,
+                              color: boxColor,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value:
+                                  isExpired ? 0.0 : progress.clamp(0.0, 1.0),
+                              minHeight: 6,
+                              backgroundColor:
+                                  Colors.white.withValues(alpha: 0.08),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(boxColor),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            isExpired
+                                ? 'Temps écoulé : les micros de tous les joueurs sont désormais coupés.'
+                                : 'Canal vocal ouvert à tous les joueurs (morts et vivants) pendant 60 secondes.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isExpired
+                                  ? LupusColors.textMuted
+                                  : LupusColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () {
+                    ref.read(gameNotifierProvider.notifier).leaveRoom();
+                  },
+                  child: const Text(
+                    'REVENIR AU SALON',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

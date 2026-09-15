@@ -50,6 +50,8 @@ class RoleAssetMap {
         return 'LOUP GAROU ENHANCED/Grand-Méchant-Loup.jpg';
       case GameRole.whiteWerewolf:
         return 'LOUP GAROU ENHANCED/Loup Blanc.jpg';
+      case GameRole.blackWolf:
+        return 'LOUP GAROU ENHANCED/Grand-Méchant-Loup.jpg';
       case GameRole.vileFatherOfWolves:
         return 'LOUP GAROU ENHANCED/Infect Père des Loups.jpg';
       case GameRole.wolfCub:

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'firebase_options.dart';
-import 'services/unity_ads_service.dart';
 import 'ui/screens/lobby_screen.dart';
 import 'ui/theme/lupus_theme.dart';
 

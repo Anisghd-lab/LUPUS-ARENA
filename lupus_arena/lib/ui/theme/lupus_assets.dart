@@ -18,7 +18,7 @@ class LupusAssets {
   static const String villageNightBgAssetFallback =
       'village_background.png';
   static const String wolfSealAsset = 'assets/images/lupus_seal.png';
-  static const String lobbyMainMenuAsset = 'assets/images/lobby_bg_clean.png';
+  static const String lobbyCleanBgAsset = 'assets/images/lobby_clean_bg.png';
   static const String tableNuitMockupAsset =
       'assets/images/table_nuit_mockup.png';
 

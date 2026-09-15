@@ -77,9 +77,10 @@ jobs:
           name: "Release ${{ env.APP_VERSION }}"
           body: |
             ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
-            - **Menu Principal Sombre & Mystique** : Interface refondue à l'identique de la maquette de référence (`IMG_20260915_170230.PNG`) avec le médaillon de loup néon violet, runes lumineuses, illustration centrale du loup-garou dans la brume, champ de pseudo interactif et panneau d'action inférieur biseauté.
-            - **Suppression intégrale d'Unity Ads** : Toutes les dépendances, règles ProGuard, services et affichages de publicités ont été éliminés.
-            - **Correction Multitâche Android (Double Application)** : Suppression de `taskAffinity=""` pour garantir une instance unique de l'application et éviter toute duplication de tâche.
+            - **Interface de Salon 100% Réactive & Immersive** : Arrière-plan étendu en plein écran avec `StackFit.expand` et `SizedBox.expand` supprimant définitivement toute bande noire inférieure sur tous les ratios d'écran (16:9, 19.5:9, 20:9, 21:9, tablettes).
+            - **Calcul dynamique du placement** : Positionnement automatique sous le cadre du loup-garou garantissant la visibilité intégrale de l'illustration et des cartes interactives.
+            - **Barres système Android transparentes** : Intégration bord à bord (`edge-to-edge`) avec navigation et barre de statut translucides.
+            - **Composants Flutter 100% natifs & interactifs** : Carte de profil avec sélection d'avatar et pseudo persistant sur l'appareil (`SharedPreferences`), bouton de création avec croix runique lumineuse, champ de code et bouton rejoindre.
             
             📲 **Installation recommandée** : Téléchargez et installez simplement **`LupusArena.apk`** (compatible avec tous les téléphones Android récents).
           draft: false

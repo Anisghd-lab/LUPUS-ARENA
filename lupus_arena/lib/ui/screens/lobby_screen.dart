@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,158 +82,197 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       _isNavigatingToArena = false;
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF04060E),
-      resizeToAvoidBottomInset: true,
-      body: room == null
-          ? _buildMainMenu(context, gameState)
-          : _buildWaitingLobby(context, gameState, room),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF04060E),
+        resizeToAvoidBottomInset: true,
+        body: SizedBox.expand(
+          child: room == null
+              ? _buildMainMenu(context, gameState)
+              : _buildWaitingLobby(context, gameState, room),
+        ),
+      ),
     );
   }
 
   /// Écran d'accueil principal (Menu) : Arrière-plan net + Composants natifs Flutter à 100%
   Widget _buildMainMenu(BuildContext context, LupusGameState gameState) {
-    return Stack(
-      children: [
-        // 1. Image d'arrière-plan en plein écran avec BoxFit.cover
-        Positioned.fill(
-          child: Image.asset(
-            LupusAssets.lobbyCleanBgAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            errorBuilder: (_, __, ___) => Image.asset(
-              LupusAssets.villageNightBgAssetFallback,
+    final media = MediaQuery.of(context);
+    final screenSize = media.size;
+    final isLandscape = screenSize.width > screenSize.height;
+
+    // Calcul réactif et précis de l'échelle d'affichage de l'image de fond (704 x 1470)
+    // L'image de fond est rendue en plein écran avec BoxFit.cover et Alignment.topCenter.
+    final scale = math.max(screenSize.width / 704.0, screenSize.height / 1470.0);
+    // Le bas du cadre de pierre du loup-garou se termine à y = 774 dans l'image 704x1470.
+    final wolfFrameBottom = 774.0 * scale;
+
+    // Espace au-dessus des cartes :
+    // - En mode portrait : démarre harmonieusement juste sous le cadre du loup (+ marge esthétique de 10dp).
+    // - En mode paysage ou écrans courts : s'adapte automatiquement pour que tout reste visible et accessible.
+    final topSpacing = isLandscape
+        ? 16.0
+        : (wolfFrameBottom + 10.0).clamp(80.0, screenSize.height * 0.65);
+
+    return SizedBox.expand(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Image d'arrière-plan en plein écran avec BoxFit.cover (garantit 0 vide noir)
+          Positioned.fill(
+            child: Image.asset(
+              LupusAssets.lobbyCleanBgAsset,
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
+              errorBuilder: (_, __, ___) => Image.asset(
+                LupusAssets.villageNightBgAssetFallback,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+              ),
             ),
           ),
-        ),
 
-        // 2. Déclencheur secret Admin sur le Sceau en haut (Double tap ou Appui long)
-        Positioned(
-          top: 30,
-          left: 0,
-          right: 0,
-          height: 150,
-          child: Center(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onDoubleTap: () => _openAdminTrigger(context),
-              onLongPress: () => _openAdminTrigger(context),
-              child: const SizedBox(width: 170, height: 150),
-            ),
-          ),
-        ),
-
-        // 3. Indicateur / Badge Admin si le God Mode est activé
-        if (gameState.isAdmin)
+          // 2. Déclencheur secret Admin sur le Sceau en haut (Double tap ou Appui long)
           Positioned(
-            top: 36,
-            right: 18,
-            child: GestureDetector(
-              onTap: () => AdminControlSheet.show(context),
+            top: media.padding.top > 0 ? media.padding.top : 24,
+            left: 0,
+            right: 0,
+            height: 140,
+            child: Center(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: () => _openAdminTrigger(context),
+                onLongPress: () => _openAdminTrigger(context),
+                child: const SizedBox(width: 170, height: 140),
+              ),
+            ),
+          ),
+
+          // 3. Indicateur / Badge Admin si le God Mode est activé
+          if (gameState.isAdmin)
+            Positioned(
+              top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
+              right: 18,
+              child: GestureDetector(
+                onTap: () => AdminControlSheet.show(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1405),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: LupusColors.arcaneGold, width: 1.5),
+                    boxShadow: LupusTheme.glowGold(opacity: 0.45),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('👑', style: TextStyle(fontSize: 14)),
+                      SizedBox(width: 6),
+                      Text(
+                        'GOD MODE',
+                        style: TextStyle(
+                          color: LupusColors.arcaneGold,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 10,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // 4. Message d'erreur éventuel
+          if (gameState.errorMessage != null)
+            Positioned(
+              left: 18,
+              right: 18,
+              top: (media.padding.top > 0 ? media.padding.top : 24) + 160,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1405),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: LupusColors.arcaneGold, width: 1.5),
-                  boxShadow: LupusTheme.glowGold(opacity: 0.45),
+                  color: LupusColors.bloodRed.withValues(alpha: 0.90),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white30),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black87,
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
                   children: [
-                    Text('👑', style: TextStyle(fontSize: 14)),
-                    SizedBox(width: 6),
-                    Text(
-                      'GOD MODE',
-                      style: TextStyle(
-                        color: LupusColors.arcaneGold,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 10,
-                        letterSpacing: 0.8,
+                    const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        gameState.errorMessage!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
+                    ),
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                      onPressed: () => ref.read(gameNotifierProvider.notifier).clearError(),
                     ),
                   ],
                 ),
               ),
             ),
-          ),
 
-        // 4. Message d'erreur éventuel
-        if (gameState.errorMessage != null)
-          Positioned(
-            left: 18,
-            right: 18,
-            top: 220,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: LupusColors.bloodRed.withValues(alpha: 0.90),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white30),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black87,
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      gameState.errorMessage!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+          // 5. Composants UI Natifs (Nom de joueur + Panneau d'action inférieur)
+          Positioned.fill(
+            child: SafeArea(
+              top: false,
+              bottom: true,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(height: topSpacing),
+                          _buildPlayerNameCard(gameState),
+                          const SizedBox(height: 12),
+                          _buildActionPanel(gameState),
+                          const SizedBox(height: 24),
+                        ],
                       ),
                     ),
                   ),
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
-                    onPressed: () => ref.read(gameNotifierProvider.notifier).clearError(),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-
-        // 5. Composants UI Natifs (Nom de joueur + Panneau d'action inférieur)
-        SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  top: constraints.maxHeight * 0.485,
-                  bottom: 24,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildPlayerNameCard(gameState),
-                    const SizedBox(height: 14),
-                    _buildActionPanel(gameState),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   /// 1. Carte native semi-transparente "Nom de joueur"
   Widget _buildPlayerNameCard(LupusGameState gameState) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 18),
+      margin: EdgeInsets.zero,
       decoration: BoxDecoration(
         color: const Color(0xD90B0E20),
         borderRadius: BorderRadius.circular(20),
@@ -356,7 +396,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   /// 2. Panneau d'actions inférieur natif Flutter (CRÉER UN SALON + CODE / REJOINDRE)
   Widget _buildActionPanel(LupusGameState gameState) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 18),
+      margin: EdgeInsets.zero,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -619,40 +659,47 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   /// Écran d'attente du Salon quand une partie a été créée ou rejointe
   Widget _buildWaitingLobby(BuildContext context, LupusGameState gameState, GameRoom room) {
-    return Stack(
-      children: [
-        // Fond atmosphérique Stitch (Village nocturne sous la pleine lune)
-        Positioned.fill(
-          child: LupusAssets.adaptiveImage(
-            assetPath: LupusAssets.villageNightBgAsset,
-            networkUrl: LupusAssets.villageNightBgUrl,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
+    return SizedBox.expand(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Fond atmosphérique Stitch (Village nocturne sous la pleine lune)
+          Positioned.fill(
+            child: LupusAssets.adaptiveImage(
+              assetPath: LupusAssets.villageNightBgAsset,
+              networkUrl: LupusAssets.villageNightBgUrl,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
           ),
-        ),
-        // Vignette sombre
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0xFF060A18).withValues(alpha: 0.90),
-                  const Color(0xFF070B1D).withValues(alpha: 0.55),
-                  const Color(0xFF04060E).withValues(alpha: 0.95),
-                ],
-                stops: const [0.0, 0.4, 1.0],
+          // Vignette sombre
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    const Color(0xFF060A18).withValues(alpha: 0.90),
+                    const Color(0xFF070B1D).withValues(alpha: 0.55),
+                    const Color(0xFF04060E).withValues(alpha: 0.95),
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
+                ),
               ),
             ),
           ),
-        ),
-        SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          Positioned.fill(
+            child: SafeArea(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                 // Sceau / Médaillon du Loup Stitch
                 Center(
                   child: GestureDetector(
@@ -1119,10 +1166,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   label: const Text('Quitter ce salon'),
                 ),
               ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

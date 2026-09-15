@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../AgoraVoiceService.dart';
 import '../../GameNotifier.dart';
 import '../../models/game_phase.dart';
+import '../../models/game_room.dart';
 import '../../models/player_model.dart';
 import '../admin/admin_control_sheet.dart';
 import '../admin/admin_secret_dialog.dart';

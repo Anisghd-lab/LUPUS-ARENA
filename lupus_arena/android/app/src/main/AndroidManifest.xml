@@ -27,6 +27,9 @@
     <!-- Gestion des appels téléphoniques entrants (mise en pause automatique de la voix Agora) -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
+    <!-- Auto-mise à jour in-app via APK GitHub Releases -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+
     <!-- Spécifications matérielles -->
     <uses-feature android:name="android.hardware.microphone" android:required="true"/>
     <uses-feature android:name="android.hardware.bluetooth" android:required="false"/>
@@ -36,6 +39,18 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
+
+        <!-- FileProvider pour l'installation d'APK sécurisée -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileProvider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <activity
             android:name="DZ.LUPUSARENA.MainActivity"
             android:exported="true"

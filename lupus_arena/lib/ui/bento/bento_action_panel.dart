@@ -23,6 +23,7 @@ class BentoActionPanel extends StatefulWidget {
   final ValueChanged<String> onWitchPoison;
   final VoidCallback onWitchPass;
   final ValueChanged<String>? onDefenderProtect;
+  final ValueChanged<String>? onBlackWolfSilence;
   final void Function(String p1, String p2)? onCupidBind;
   final ValueChanged<String>? onThiefSteal;
   final ValueChanged<String>? onHunterShoot;
@@ -49,6 +50,7 @@ class BentoActionPanel extends StatefulWidget {
     required this.onWitchPoison,
     required this.onWitchPass,
     this.onDefenderProtect,
+    this.onBlackWolfSilence,
     this.onCupidBind,
     this.onThiefSteal,
     this.onHunterShoot,
@@ -196,6 +198,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 // 8. LOUPS-GAROUS
                 else if (phase == GamePhase.nightWerewolves && (role.isEvil || widget.isAdmin)) ...[
                   _buildWerewolvesSection(me, selectedTarget),
+                ]
+                // 8.B LOUP NOIR
+                else if (phase == GamePhase.nightBlackWolf &&
+                    (role == GameRole.blackWolf || widget.isAdmin)) ...[
+                  _buildBlackWolfSection(selectedTarget),
                 ]
                 // 9. SORCIÈRE
                 else if (phase == GamePhase.nightWitch && (role == GameRole.witch || widget.isAdmin)) ...[
@@ -608,6 +615,75 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               style: const TextStyle(color: LupusColors.textMuted, fontSize: 10),
             ),
           ),
+      ],
+    );
+  }
+
+  /// Module Loup Noir : Réduire au silence un joueur vivant pour la journée suivante
+  Widget _buildBlackWolfSection(PlayerModel? selectedTarget) {
+    final currentTargetId = widget.room.blackWolfTargetId;
+    final currentTarget = (currentTargetId != null && currentTargetId.isNotEmpty)
+        ? widget.room.players[currentTargetId]
+        : null;
+
+    final String buttonText;
+    if (currentTarget != null) {
+      buttonText = 'Cible : ${currentTarget.name} 🔇';
+    } else if (selectedTarget == null) {
+      buttonText = 'Faire taire (Sélectionner une cible)';
+    } else {
+      buttonText = 'Faire taire ${selectedTarget.name} 🔇';
+    }
+
+    final bool canSilence = selectedTarget != null &&
+        selectedTarget.isAlive &&
+        selectedTarget.id != widget.currentUserId;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF311042),
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFF9333EA), width: 1.2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: canSilence
+                      ? () => widget.onBlackWolfSilence?.call(selectedTarget.id)
+                      : null,
+                  icon: const Icon(Icons.volume_off_rounded, size: 15, color: Color(0xFFC084FC)),
+                  label: Text(
+                    buttonText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 40,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: LupusColors.textSecondary,
+                  side: const BorderSide(color: LupusColors.border),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: widget.onNextPhase,
+                child: const Text('Passer', style: TextStyle(fontSize: 11)),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

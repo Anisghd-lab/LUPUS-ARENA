@@ -18,6 +18,7 @@ class GameRoom {
   final bool pyromaniacIgnited;
   final String? seerInspectedTargetId;
   final String? seerInspectedRole;
+  final String? blackWolfTargetId;
 
   // Résolutions de Morts & Successions
   final List<String> morningVictims;
@@ -55,6 +56,7 @@ class GameRoom {
     this.pyromaniacIgnited = false,
     this.seerInspectedTargetId,
     this.seerInspectedRole,
+    this.blackWolfTargetId,
     this.morningVictims = const [],
     this.pendingHunterId,
     this.pendingCaptainId,
@@ -145,6 +147,8 @@ class GameRoom {
     bool? pyromaniacIgnited,
     String? seerInspectedTargetId,
     String? seerInspectedRole,
+    String? blackWolfTargetId,
+    bool clearBlackWolfTargetId = false,
     List<String>? morningVictims,
     String? pendingHunterId,
     String? pendingCaptainId,
@@ -175,6 +179,9 @@ class GameRoom {
       pyromaniacIgnited: pyromaniacIgnited ?? this.pyromaniacIgnited,
       seerInspectedTargetId: seerInspectedTargetId,
       seerInspectedRole: seerInspectedRole,
+      blackWolfTargetId: clearBlackWolfTargetId
+          ? null
+          : (blackWolfTargetId ?? this.blackWolfTargetId),
       morningVictims: morningVictims ?? this.morningVictims,
       pendingHunterId: pendingHunterId,
       pendingCaptainId: pendingCaptainId,
@@ -207,6 +214,7 @@ class GameRoom {
       'pyromaniacIgnited': pyromaniacIgnited,
       'seerInspectedTargetId': seerInspectedTargetId,
       'seerInspectedRole': seerInspectedRole,
+      'blackWolfTargetId': blackWolfTargetId,
       'morningVictims': morningVictims,
       'pendingHunterId': pendingHunterId,
       'pendingCaptainId': pendingCaptainId,
@@ -338,6 +346,7 @@ class GameRoom {
       pyromaniacIgnited: map['pyromaniacIgnited'] == true,
       seerInspectedTargetId: map['seerInspectedTargetId']?.toString(),
       seerInspectedRole: map['seerInspectedRole']?.toString(),
+      blackWolfTargetId: map['blackWolfTargetId']?.toString(),
       morningVictims: parsedMorningVictims,
       pendingHunterId: map['pendingHunterId']?.toString(),
       pendingCaptainId: map['pendingCaptainId']?.toString(),

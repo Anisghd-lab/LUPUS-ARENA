@@ -77,10 +77,11 @@ jobs:
           name: "Release ${{ env.APP_VERSION }}"
           body: |
             ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
-            - **Interface de Salon 100% Réactive & Immersive** : Arrière-plan étendu en plein écran avec `StackFit.expand` et `SizedBox.expand` supprimant définitivement toute bande noire inférieure sur tous les ratios d'écran (16:9, 19.5:9, 20:9, 21:9, tablettes).
-            - **Calcul dynamique du placement** : Positionnement automatique sous le cadre du loup-garou garantissant la visibilité intégrale de l'illustration et des cartes interactives.
-            - **Barres système Android transparentes** : Intégration bord à bord (`edge-to-edge`) avec navigation et barre de statut translucides.
-            - **Composants Flutter 100% natifs & interactifs** : Carte de profil avec sélection d'avatar et pseudo persistant sur l'appareil (`SharedPreferences`), bouton de création avec croix runique lumineuse, champ de code et bouton rejoindre.
+            - **🎙️ Minute Vocale Collective à la Victoire (60s)** : Dès l'annonce de la victoire (`gameOver`), ouverture automatique d'un canal vocal général à TOUS les joueurs (morts et vivants). Compte à rebours visuel dynamique avec barre de progression, et coupure automatique des micros à l'expiration de la minute.
+            - **🔒 Entrée Unique & Anti-Doublon** : Remplacement transparent du socket (`socketId`) et du flux vocal lors des reconnexions sans créer d'entrée dupliquée dans le salon, avec préservation stricte des rôles et statuts.
+            - **🐺 Pouvoir du Loup Noir** : Sélection nocturne d'une cible pour la réduire au silence (micro coupé et champ de saisie de chat désactivé) pour l'intégralité du jour suivant.
+            - **🔮 Voyante & Loup Blanc** : Perception mystique conforme aux règles officielles : inspection du Loup Blanc renvoyant Simple Villageois.
+            - **📱 Interface de Salon Responsive** : Arrière-plan étendu en plein écran avec `StackFit.expand` et intégration bord à bord sans bande noire.
             
             📲 **Installation recommandée** : Téléchargez et installez simplement **`LupusArena.apk`** (compatible avec tous les téléphones Android récents).
           draft: false

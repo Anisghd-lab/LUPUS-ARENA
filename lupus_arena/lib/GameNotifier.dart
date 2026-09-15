@@ -39,6 +39,7 @@ class LupusGameState {
   final String? currentVoiceChannel;
   final Map<String, GameRole> seerInspectedRoles;
   final Set<String> wolfPlayerIds;
+  final bool isVictoryVoiceExpired;
 
   const LupusGameState({
     required this.currentUserId,
@@ -58,6 +59,7 @@ class LupusGameState {
     this.currentVoiceChannel,
     this.seerInspectedRoles = const {},
     this.wolfPlayerIds = const {},
+    this.isVictoryVoiceExpired = false,
   });
 
   bool get isInGame => room != null;
@@ -97,6 +99,7 @@ class LupusGameState {
     String? currentVoiceChannel,
     Map<String, GameRole>? seerInspectedRoles,
     Set<String>? wolfPlayerIds,
+    bool? isVictoryVoiceExpired,
     bool clearRoom = false,
     bool clearInspectedRole = false,
   }) {
@@ -120,6 +123,8 @@ class LupusGameState {
       currentVoiceChannel: currentVoiceChannel ?? this.currentVoiceChannel,
       seerInspectedRoles: seerInspectedRoles ?? this.seerInspectedRoles,
       wolfPlayerIds: wolfPlayerIds ?? this.wolfPlayerIds,
+      isVictoryVoiceExpired:
+          isVictoryVoiceExpired ?? this.isVictoryVoiceExpired,
     );
   }
 }
@@ -2388,70 +2393,93 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     } catch (_) {}
   }
 
-  Future<void> _applyVoiceRulesForPhase(GameRoom room) async {
-    final me = room.players[state.currentUserId];
-    if (me == null) return;
+  bool get isVictoryVoiceExpired => state.isVictoryVoiceExpired;
 
-    final roomCode = room.roomCode;
-    final mainChannel = 'lupus_$roomCode';
-    final wolfChannel = 'lupus_${roomCode}_wolves';
+  void setVictoryVoiceExpired(bool expired) {
+    state = state.copyWith(isVictoryVoiceExpired: expired);
+    if (state.room != null && state.room!.phase == GamePhase.gameOver) {
+      _applyVoiceRulesForPhase(state.room!);
+    }
+  }
 
-    if (!me.isAlive) {
-      await _voiceService.setMute(true);
-      return;
+  /// Détermine si un joueur doit avoir son micro coupé selon les règles de la phase en cours.
+  static bool calculateShouldMuteForPhase({
+    required GamePhase phase,
+    required bool isAlive,
+    required bool isSilencedByBlackWolf,
+    required bool isCurrentSpeaker,
+    required bool isEvil,
+    required bool isVictoryVoiceExpired,
+    String? pendingHunterId,
+    String? pendingCaptainId,
+    String? currentUserId,
+  }) {
+    // 1. Lors de la fin de partie (gameOver) : Minute vocale collective (60s)
+    // Tous les joueurs (morts, vivants, ou réduits au silence) peuvent parler tant que la minute n'a pas expiré.
+    if (phase == GamePhase.gameOver) {
+      return isVictoryVoiceExpired;
     }
 
-    String targetChannel = mainChannel;
-    bool shouldMute = false;
+    // 2. Morts éliminés du vocal durant la partie
+    if (!isAlive) {
+      return true;
+    }
 
-    switch (room.phase) {
+    // 3. Réduit au silence par le pouvoir du Loup Noir
+    if (isSilencedByBlackWolf) {
+      return true;
+    }
+
+    // 4. Règles spécifiques par phase
+    switch (phase) {
       case GamePhase.nightWerewolves:
-        final isWolf = me.role.isEvil;
-        final canSpy =
-            me.role == GameRole.littleGirl ||
-            (state.isAdmin && state.isOmniscientVoice);
-
-        if (isWolf || canSpy) {
-          targetChannel = wolfChannel;
-          shouldMute = !isWolf;
-        } else {
-          targetChannel = mainChannel;
-          shouldMute = true;
-        }
-        break;
-
+        return !isEvil;
       case GamePhase.dayDebate:
       case GamePhase.dayDefense:
-        targetChannel = mainChannel;
-        final isCurrentSpeaker = room.currentSpeakerId == state.currentUserId;
-        shouldMute = !isCurrentSpeaker;
-        break;
-
+        return !isCurrentSpeaker;
       case GamePhase.dayVoting:
       case GamePhase.dayTieBreakVote:
       case GamePhase.dayResolution:
       case GamePhase.captainElection:
       case GamePhase.morningAnnouncement:
       case GamePhase.lobby:
-      case GamePhase.gameOver:
-        targetChannel = mainChannel;
-        shouldMute = false;
-        break;
-
+        return false;
       case GamePhase.hunterDeathChoice:
-        targetChannel = mainChannel;
-        shouldMute = room.pendingHunterId != state.currentUserId;
-        break;
-
+        return pendingHunterId != currentUserId;
       case GamePhase.captainSuccession:
-        targetChannel = mainChannel;
-        shouldMute = room.pendingCaptainId != state.currentUserId;
-        break;
-
+        return pendingCaptainId != currentUserId;
       default:
-        targetChannel = mainChannel;
-        shouldMute = true;
-        break;
+        return true;
+    }
+  }
+
+  Future<void> _applyVoiceRulesForPhase(GameRoom room) async {
+    final me = room.players[state.currentUserId];
+    if (me == null) return;
+
+    if (room.phase != GamePhase.gameOver && state.isVictoryVoiceExpired) {
+      state = state.copyWith(isVictoryVoiceExpired: false);
+    }
+
+    final roomCode = room.roomCode;
+    final mainChannel = 'lupus_$roomCode';
+    final wolfChannel = 'lupus_${roomCode}_wolves';
+
+    if (!me.isAlive && room.phase != GamePhase.gameOver) {
+      await _voiceService.setMute(true);
+      return;
+    }
+
+    String targetChannel = mainChannel;
+    final isWolf = me.role.isEvil;
+    final canSpy =
+        me.role == GameRole.littleGirl ||
+        (state.isAdmin && state.isOmniscientVoice);
+
+    if (room.phase == GamePhase.nightWerewolves && (isWolf || canSpy)) {
+      targetChannel = wolfChannel;
+    } else {
+      targetChannel = mainChannel;
     }
 
     // Bascule uniquement si le canal de destination ou la phase a réellement changé
@@ -2465,10 +2493,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       );
     }
 
-    // Si le joueur est réduit au silence par le Loup Noir (isMuted), son micro est forcé en sourdine
-    if (me.isMuted) {
-      shouldMute = true;
-    }
+    final shouldMute = calculateShouldMuteForPhase(
+      phase: room.phase,
+      isAlive: me.isAlive,
+      isSilencedByBlackWolf: me.isMuted,
+      isCurrentSpeaker: room.currentSpeakerId == state.currentUserId,
+      isEvil: isWolf,
+      isVictoryVoiceExpired: state.isVictoryVoiceExpired,
+      pendingHunterId: room.pendingHunterId,
+      pendingCaptainId: room.pendingCaptainId,
+      currentUserId: state.currentUserId,
+    );
 
     await _voiceService.setMute(shouldMute);
   }
@@ -2685,7 +2720,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     _lastAppliedVoiceChannel = null;
     _lastAppliedVoicePhase = null;
     await _voiceService.leaveChannel();
-    state = state.copyWith(clearRoom: true);
+    state = state.copyWith(clearRoom: true, isVictoryVoiceExpired: false);
   }
 
   static String _generateRoomCode() {

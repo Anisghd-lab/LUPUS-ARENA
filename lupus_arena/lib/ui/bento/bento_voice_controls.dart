@@ -13,6 +13,7 @@ class BentoVoiceControls extends StatelessWidget {
   final String? currentSpeakerName;
   final GamePhase? phase;
   final bool isMutedByBlackWolf;
+  final bool isVictoryVoiceExpired;
 
   BentoVoiceControls({
     super.key,
@@ -21,10 +22,12 @@ class BentoVoiceControls extends StatelessWidget {
     this.currentSpeakerName,
     this.phase,
     this.isMutedByBlackWolf = false,
+    this.isVictoryVoiceExpired = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isGameOver = phase == GamePhase.gameOver;
     final isDebateOrDefense =
         phase == GamePhase.dayDebate || phase == GamePhase.dayDefense;
 
@@ -51,7 +54,21 @@ class BentoVoiceControls extends StatelessWidget {
                         String statusText;
                         String subtitleText;
 
-                        if (!isAlive) {
+                        if (isGameOver) {
+                          if (isVictoryVoiceExpired || muted) {
+                            statusColor = LupusColors.bloodRed;
+                            borderColor = LupusColors.border;
+                            statusText = 'FIN DE LA MINUTE COLLECTIVE';
+                            subtitleText = 'Micro coupé • Fin de partie';
+                          } else {
+                            statusColor = const Color(0xFF00FF88);
+                            borderColor =
+                                const Color(0xFF00FF88).withValues(alpha: 0.6);
+                            statusText = 'MINUTE VOCALE COLLECTIVE';
+                            subtitleText =
+                                'Canal ouvert à tous (morts et vivants)';
+                          }
+                        } else if (!isAlive) {
                           statusColor = LupusColors.bloodRed;
                           borderColor = LupusColors.border;
                           statusText = 'SILENCE DES OMBRES';
@@ -120,14 +137,18 @@ class BentoVoiceControls extends StatelessWidget {
                           }
                         }
 
-                        final bool canToggleMic =
-                            isAlive && !isMutedByBlackWolf && (!isDebateOrDefense || isCurrentSpeaker);
+                        final bool canToggleMic = isGameOver
+                            ? !isVictoryVoiceExpired
+                            : (isAlive &&
+                                !isMutedByBlackWolf &&
+                                (!isDebateOrDefense || isCurrentSpeaker));
 
                         return BentoCard(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
                           borderColor: borderColor,
-                          glowing: isCurrentSpeaker && !muted,
+                          glowing: (isCurrentSpeaker && !muted) ||
+                              (isGameOver && !muted && !isVictoryVoiceExpired),
                           child: Row(
                             children: [
                               // Indicateur LED de statut
@@ -160,6 +181,9 @@ class BentoVoiceControls extends StatelessWidget {
                                               style: TextStyle(fontSize: 12)),
                                         if (isDebateOrDefense && isCurrentSpeaker)
                                           const Text('🎙️ ',
+                                              style: TextStyle(fontSize: 12)),
+                                        if (isGameOver && !isVictoryVoiceExpired)
+                                          const Text('🎉 ',
                                               style: TextStyle(fontSize: 12)),
                                         Flexible(
                                           child: Text(

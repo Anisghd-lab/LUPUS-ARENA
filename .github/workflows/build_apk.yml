@@ -77,6 +77,7 @@ jobs:
           name: "Release ${{ env.APP_VERSION }}"
           body: |
             ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
+            - **🚀 Système Autonome d'Auto-Mise à Jour In-App** : Détection 100% automatique des nouvelles versions via l'API GitHub Releases (`/releases/latest`), comparaison sémantique de versions (SemVer + build number), bandeau de mise à jour dynamique dans le Lobby, dialogue modal avec affichage du changelog GitHub, barre de progression interactive en temps réel (`LinearProgressIndicator` avec Dio), et déclenchement immédiat de l'installation Android native via `open_filex` et `FileProvider`.
             - **🔄 Bouton Interactif 'Rejouer' & Compteur Dynamique `(prêts/total)`** : Vote interactif de fin de partie avec bascule d'état visuel ("Rejouer" <-> "Prêt"), émission de `player_ready_replay` / `player_cancel_replay`, et synchro temps réel via `replay_status_updated`.
             - **🎲 Mélange Fisher-Yates & Redistribution Impérative des Rôles** : Dès quorum atteint, le serveur génère un deck adapté (Loup Blanc, Loup Noir, Voyante, Sorcière, Chasseur, Villageois...), le brasse via l'algorithme de Fisher-Yates, et attribue à chaque joueur un rôle distinct et différent avant d'émettre `game_reset_to_lobby`.
             - **❤️ Réinitialisation Canonique des Joueurs** : Restauration complète des statistiques (`PV = 100`, `isAlive = true`, `isMuted = false`), réinitialisation des cibles nocturnes et retour synchronisé au salon.

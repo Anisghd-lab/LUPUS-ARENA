@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lupus_arena/GameNotifier.dart';
 import 'package:lupus_arena/models/game_phase.dart';
 import 'package:lupus_arena/models/player_model.dart';
+import 'package:lupus_arena/services/update_service.dart';
 
 void main() {
   test('L\'ordre canonique nocturne respecte strictement le livret officiel', () {
@@ -402,6 +403,31 @@ void main() {
     final restoredRoom = GameRoom.fromMap(map, 'TEST_REPLAY');
     expect(restoredRoom.replayReadyCount, equals(2));
     expect(restoredRoom.isPlayerReadyReplay('p1'), isTrue);
+  });
+
+  group('UpdateService - Détection de version sémantique', () {
+    test('Détecte correctement les versions supérieures (majeure, mineure, patch)', () {
+      expect(UpdateService.isRemoteVersionGreater('1.0.9', '1.0.8'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('v1.0.9', 'v1.0.8'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('v1.1.0', '1.0.8'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('2.0.0', '1.9.9'), isTrue);
+    });
+
+    test('Détecte les builds numbers supérieurs', () {
+      expect(UpdateService.isRemoteVersionGreater('1.0.8+10', '1.0.8+9'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('v1.0.8+10', '1.0.8+9'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('1.0.8+1', '1.0.8'), isTrue);
+    });
+
+    test('Rejette les versions identiques ou inférieures', () {
+      expect(UpdateService.isRemoteVersionGreater('1.0.8', '1.0.8'), isFalse);
+      expect(UpdateService.isRemoteVersionGreater('v1.0.8', '1.0.8'), isFalse);
+      expect(UpdateService.isRemoteVersionGreater('1.0.8+9', '1.0.8+9'), isFalse);
+      expect(UpdateService.isRemoteVersionGreater('1.0.7', '1.0.8'), isFalse);
+      expect(UpdateService.isRemoteVersionGreater('1.0.8+8', '1.0.8+9'), isFalse);
+      expect(UpdateService.isRemoteVersionGreater('', '1.0.8'), isFalse);
+      expect(UpdateService.isRemoteVersionGreater('1.0.8', ''), isFalse);
+    });
   });
 }
 

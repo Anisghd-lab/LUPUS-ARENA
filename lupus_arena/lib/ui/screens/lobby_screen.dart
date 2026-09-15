@@ -14,6 +14,8 @@ import '../bento/bento_player_tile.dart';
 import '../bento/bento_voice_controls.dart';
 import '../bento/role_selector_bento.dart';
 import '../bento/lupus_permission_dialog.dart';
+import '../bento/app_update_dialog.dart';
+import '../../services/update_service.dart';
 import '../theme/lupus_assets.dart';
 import '../theme/lupus_theme.dart';
 import 'arena_game_screen.dart';
@@ -29,6 +31,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
   bool _isNavigatingToArena = false;
+  AppUpdateInfo? _availableUpdate;
+  bool _isCheckingUpdate = false;
 
   @override
   void initState() {
@@ -52,6 +56,26 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       if (!mounted) return;
       LupusPermissionDialog.showIfNeeded(context);
     });
+
+    // Vérification en arrière-plan d'une nouvelle mise à jour GitHub Releases
+    _checkForUpdateInBackground();
+  }
+
+  Future<void> _checkForUpdateInBackground() async {
+    if (_isCheckingUpdate) return;
+    _isCheckingUpdate = true;
+    try {
+      final update = await UpdateService().checkForUpdate();
+      if (mounted && update != null) {
+        setState(() {
+          _availableUpdate = update;
+        });
+      }
+    } catch (_) {
+      // Ignorer silencieusement pour ne pas bloquer l'expérience utilisateur
+    } finally {
+      _isCheckingUpdate = false;
+    }
   }
 
   @override
@@ -252,6 +276,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           SizedBox(height: topSpacing),
+                          if (_availableUpdate != null) ...[
+                            _buildUpdateBanner(context, _availableUpdate!),
+                            const SizedBox(height: 12),
+                          ],
                           _buildPlayerNameCard(gameState),
                           const SizedBox(height: 12),
                           _buildActionPanel(gameState),
@@ -265,6 +293,136 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Bandeau interactif moderne et élégant indiquant qu'une nouvelle version est disponible
+  Widget _buildUpdateBanner(BuildContext context, AppUpdateInfo info) {
+    final mb = (info.fileSize / (1024 * 1024)).toStringAsFixed(1);
+    return GestureDetector(
+      onTap: () => AppUpdateDialog.show(context, info),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xE61E1B4B), // Indigo dark
+              Color(0xE6064E3B), // Emerald dark
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFF10B981).withValues(alpha: 0.85),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF10B981).withValues(alpha: 0.35),
+              blurRadius: 16,
+              spreadRadius: 1,
+            ),
+            const BoxShadow(
+              color: Colors.black87,
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.20),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF10B981), width: 1.5),
+              ),
+              child: const Icon(
+                Icons.system_update_rounded,
+                color: Color(0xFF34D399),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'Mise à jour v${info.version} disponible !',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.3,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'NOUVEAU',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Touchez pour installer (${mb != '0.0' ? '$mb Mo' : 'APK'})',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.80),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white30),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Installer',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 10),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

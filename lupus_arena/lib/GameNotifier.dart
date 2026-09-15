@@ -197,6 +197,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     });
   }
 
+  /// Efface le message d'erreur actuel
+  void clearError() {
+    state = state.copyWith(errorMessage: null);
+  }
+
   /// Synchronise l'état atomiquement sur Firebase (rooms et games)
   Future<void> _syncState(Map<String, dynamic> updates) async {
     if (_currentRoomRef == null) return;

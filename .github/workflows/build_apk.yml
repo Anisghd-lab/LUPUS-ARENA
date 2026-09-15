@@ -48,10 +48,11 @@ jobs:
 
       - name: Prepare Named Release APKs
         run: |
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/LupusArena-arm32.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/LupusArena.apk
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/LupusArena-arm64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/LupusArena-arm32.apk
           echo "=== Fichiers prêts pour la Release ==="
-          ls -lh build/app/outputs/flutter-apk/LupusArena-arm32.apk build/app/outputs/flutter-apk/LupusArena-arm64.apk
+          ls -lh build/app/outputs/flutter-apk/LupusArena*.apk
         working-directory: lupus_arena
 
       - name: Upload APK Artifacts
@@ -59,8 +60,9 @@ jobs:
         with:
           name: lupus-arena-apks
           path: |
-            lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm32.apk
+            lupus_arena/build/app/outputs/flutter-apk/LupusArena.apk
             lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm64.apk
+            lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm32.apk
 
       - name: Determine Version
         run: |
@@ -73,11 +75,18 @@ jobs:
         with:
           tag_name: ${{ env.APP_VERSION }}
           name: "Release ${{ env.APP_VERSION }}"
-          body: "Builds Android optimisés (32-bit et 64-bit séparés pour réduire la taille de l'APK)."
+          body: |
+            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
+            - **Menu Principal Sombre & Mystique** : Interface refondue à l'identique de la maquette de référence (`IMG_20260915_170230.PNG`) avec le médaillon de loup néon violet, runes lumineuses, illustration centrale du loup-garou dans la brume, champ de pseudo interactif et panneau d'action inférieur biseauté.
+            - **Suppression intégrale d'Unity Ads** : Toutes les dépendances, règles ProGuard, services et affichages de publicités ont été éliminés.
+            - **Correction Multitâche Android (Double Application)** : Suppression de `taskAffinity=""` pour garantir une instance unique de l'application et éviter toute duplication de tâche.
+            
+            📲 **Installation recommandée** : Téléchargez et installez simplement **`LupusArena.apk`** (compatible avec tous les téléphones Android récents).
           draft: false
           prerelease: false
           files: |
-            lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm32.apk
+            lupus_arena/build/app/outputs/flutter-apk/LupusArena.apk
             lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm64.apk
+            lupus_arena/build/app/outputs/flutter-apk/LupusArena-arm32.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

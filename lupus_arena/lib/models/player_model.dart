@@ -93,6 +93,19 @@ class PlayerModel {
     );
   }
 
+  /// Déchiffre et résout le rôle véritable du joueur de façon déterministe
+  GameRole resolveRealRole(String roomCode) {
+    if (encryptedRole != null && encryptedRole!.isNotEmpty) {
+      final decrypted = RoleSecurityService.decryptRole(
+        encryptedRole!,
+        id,
+        roomCode,
+      );
+      if (decrypted != null) return decrypted;
+    }
+    return role;
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

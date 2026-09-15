@@ -91,7 +91,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   /// Écran d'accueil principal (Menu) : Arrière-plan net + Composants natifs Flutter à 100%
-  Widget _buildMainMenu(BuildContext context, GameState gameState) {
+  Widget _buildMainMenu(BuildContext context, LupusGameState gameState) {
     return Stack(
       children: [
         // 1. Image d'arrière-plan en plein écran avec BoxFit.cover
@@ -230,7 +230,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   /// 1. Carte native semi-transparente "Nom de joueur"
-  Widget _buildPlayerNameCard(GameState gameState) {
+  Widget _buildPlayerNameCard(LupusGameState gameState) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 18),
       decoration: BoxDecoration(
@@ -354,7 +354,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   /// 2. Panneau d'actions inférieur natif Flutter (CRÉER UN SALON + CODE / REJOINDRE)
-  Widget _buildActionPanel(GameState gameState) {
+  Widget _buildActionPanel(LupusGameState gameState) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 18),
       padding: const EdgeInsets.all(10),
@@ -618,7 +618,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   /// Écran d'attente du Salon quand une partie a été créée ou rejointe
-  Widget _buildWaitingLobby(BuildContext context, GameState gameState, GameRoom room) {
+  Widget _buildWaitingLobby(BuildContext context, LupusGameState gameState, GameRoom room) {
     return Stack(
       children: [
         // Fond atmosphérique Stitch (Village nocturne sous la pleine lune)
@@ -843,7 +843,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                 const SizedBox(height: 14),
 
                 // Contrôles Vocaux en direct dans le Lobby
-                const BentoVoiceControls(),
+                BentoVoiceControls(),
 
                 const SizedBox(height: 14),
 

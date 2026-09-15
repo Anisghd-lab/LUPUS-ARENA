@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'AgoraVoiceService.dart';
 import 'models/game_phase.dart';
@@ -140,8 +141,24 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             agoraUid: Random().nextInt(899999) + 100000,
           ),
         ) {
-    // Les flux vocaux Agora sont désormais isolés via ValueNotifier/ValueListenableBuilder
-    // et ne déclenchent plus de mutation de state globale pour éliminer tout clignotement.
+    loadSavedProfile();
+  }
+
+  /// Charge le profil utilisateur précédemment sauvegardé sur l'appareil
+  Future<void> loadSavedProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString('player_nickname');
+      final savedAvatar = prefs.getInt('player_avatar');
+      if (savedName != null && savedName.trim().isNotEmpty) {
+        state = state.copyWith(currentUserName: savedName.trim());
+      }
+      if (savedAvatar != null) {
+        state = state.copyWith(currentUserAvatar: savedAvatar);
+      }
+    } catch (e) {
+      debugPrint('[Profile] Erreur de chargement du profil local : $e');
+    }
   }
 
   FirebaseDatabase get _database {
@@ -160,10 +177,24 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   void updateProfile({String? name, int? avatarIndex}) {
+    final updatedName = name ?? state.currentUserName;
+    final updatedAvatar = avatarIndex ?? state.currentUserAvatar;
     state = state.copyWith(
-      currentUserName: name ?? state.currentUserName,
-      currentUserAvatar: avatarIndex ?? state.currentUserAvatar,
+      currentUserName: updatedName,
+      currentUserAvatar: updatedAvatar,
     );
+
+    // Sauvegarde persistante sur le téléphone (SharedPreferences)
+    SharedPreferences.getInstance().then((prefs) {
+      if (name != null && name.trim().isNotEmpty) {
+        prefs.setString('player_nickname', name.trim());
+      }
+      if (avatarIndex != null) {
+        prefs.setInt('player_avatar', avatarIndex);
+      }
+    }).catchError((e) {
+      debugPrint('[Profile] Erreur de sauvegarde du profil : $e');
+    });
   }
 
   /// Synchronise l'état atomiquement sur Firebase (rooms et games)

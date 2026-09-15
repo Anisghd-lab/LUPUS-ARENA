@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'locale_provider.dart';
 
 extension TranslationExtension on BuildContext {
-  String tr(String key, [Map<String, String>? params]) =>
+  String tr(String key, [dynamic params]) =>
       AppTranslations.getText(this, key, params);
 }
 
@@ -1287,7 +1287,7 @@ class AppTranslations {
   static String getText(
     BuildContext? context,
     String key, [
-    Map<String, String>? params,
+    dynamic params,
   ]) {
     String code = 'fr';
     if (context != null) {
@@ -1302,17 +1302,31 @@ class AppTranslations {
 
     String result = _strings[code]?[key] ?? _strings['fr']?[key] ?? key;
 
-    if (params != null && params.isNotEmpty) {
-      params.forEach((placeholder, value) {
-        result = result.replaceAll('{$placeholder}', value);
-      });
+    if (params != null) {
+      if (params is Map) {
+        params.forEach((placeholder, value) {
+          result = result.replaceAll('{$placeholder}', value.toString());
+        });
+      } else if (params is List) {
+        final regex = RegExp(r'\{([a-zA-Z0-9_]+)\}');
+        final matches = regex.allMatches(result).toList();
+        for (int i = 0; i < params.length; i++) {
+          if (i < matches.length) {
+            final ph = matches[i].group(0)!;
+            result = result.replaceFirst(ph, params[i].toString());
+          }
+          result = result.replaceAll('{$i}', params[i].toString());
+        }
+      } else {
+        result = result.replaceFirst(RegExp(r'\{[a-zA-Z0-9_]+\}'), params.toString());
+      }
     }
 
     return result;
   }
 
   /// Méthode d'accès statique sans contexte
-  static String tr(String key, [Map<String, String>? params]) =>
+  static String tr(String key, [dynamic params]) =>
       getText(null, key, params);
 
   /// Renvoie le nom traduit d'un rôle

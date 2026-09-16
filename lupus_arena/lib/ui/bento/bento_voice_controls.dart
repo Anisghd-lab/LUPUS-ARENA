@@ -82,7 +82,8 @@ class BentoVoiceControls extends StatelessWidget {
                           statusColor = LupusColors.bloodRed;
                           borderColor = LupusColors.bloodRed.withValues(alpha: 0.6);
                           statusText = context.tr('error_audio_agora');
-                          subtitleText = '$lastError • ${context.tr("retry")}';
+                          subtitleText =
+                              '${context.tr("audio_channel_error")} • ${context.tr("retry")}';
                         } else if (isWolfChannel) {
                           statusColor = muted
                               ? const Color(0xFFFF2A4B)

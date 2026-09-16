@@ -354,7 +354,7 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
                     ),
                   ),
                 Text(
-                  log,
+                  _formatChronicleLog(context, log),
                   style: TextStyle(
                     fontSize: 12.5,
                     height: 1.35,
@@ -368,5 +368,18 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
         ],
       ),
     );
+  }
+
+  String _formatChronicleLog(BuildContext context, String log) {
+    if (log.contains('La première nuit tombe... Salvateur, réveillez-vous !') ||
+        log.contains('Salvateur, réveillez-vous')) {
+      return context.tr('salvateur_wake_banner');
+    }
+    if (log.startsWith('Éveil nocturne :')) {
+      final roleOrPhase =
+          log.replaceFirst('Éveil nocturne :', '').replaceAll('.', '').trim();
+      return '${context.tr("night_awakening")} $roleOrPhase';
+    }
+    return log;
   }
 }

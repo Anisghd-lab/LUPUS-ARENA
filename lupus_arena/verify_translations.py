@@ -31,11 +31,13 @@ def parse_language_blocks(content: str):
         lang = match.group(1)
         body = match.group("body")
         entries = {}
-        # Extrait 'cle': 'valeur'
-        entry_pattern = re.compile(r"'(?P<key>[a-zA-Z0-9_]+)'\s*:\s*'(?P<val>(?:\\'|[^'])*)'")
+        # Extrait 'cle': 'valeur' ou 'cle': "valeur"
+        entry_pattern = re.compile(
+            r"'(?P<key>[a-zA-Z0-9_]+)'\s*:\s*(?:'(?P<val1>(?:\\'|[^'])*)'|\"(?P<val2>(?:\\\"|[^\"])*)\")"
+        )
         for em in entry_pattern.finditer(body):
             k = em.group("key")
-            v = em.group("val").replace(r"\'", "'")
+            v = (em.group("val1") if em.group("val1") is not None else em.group("val2")).replace(r"\'", "'")
             entries[k] = v
         langs[lang] = entries
     return langs

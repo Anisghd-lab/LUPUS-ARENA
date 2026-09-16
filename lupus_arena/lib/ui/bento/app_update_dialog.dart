@@ -389,6 +389,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(
                           context.tr('update_later'),
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.5,
@@ -437,6 +438,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                             : (_isDownloaded
                                 ? context.tr('update_install_now')
                                 : context.tr('update_download').toUpperCase()),
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,

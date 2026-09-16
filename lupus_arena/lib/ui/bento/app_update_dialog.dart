@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../services/app_translations.dart';
 import '../../services/update_service.dart';
@@ -27,39 +28,82 @@ class AppUpdateDialog extends StatefulWidget {
 
 class _AppUpdateDialogState extends State<AppUpdateDialog> {
   bool _isDownloading = false;
+  bool _isDownloaded = false;
+  String? _downloadedFilePath;
   double _progress = 0.0;
   int _receivedBytes = 0;
   int _totalBytes = 0;
   String? _errorMessage;
+  String? _infoMessage;
 
-  void _startDownload() {
+  Future<void> _startDownloadOrInstall() async {
+    // Si l'APK est déjà téléchargé, lancer directement l'installateur
+    if (_isDownloaded && _downloadedFilePath != null) {
+      setState(() {
+        _errorMessage = null;
+        _infoMessage = null;
+      });
+      final result = await UpdateService.launchApkInstallation(_downloadedFilePath!);
+      if (!mounted) return;
+      if (result == 'PERMISSION_REQUIRED') {
+        setState(() {
+          _infoMessage = context.tr('update_permission_hint');
+        });
+      }
+      return;
+    }
+
     setState(() {
       _isDownloading = true;
       _errorMessage = null;
+      _infoMessage = null;
       _progress = 0.0;
       _receivedBytes = 0;
       _totalBytes = widget.updateInfo.fileSize;
     });
 
-    UpdateService().downloadAndInstall(
-      downloadUrl: widget.updateInfo.downloadUrl,
-      fileName: widget.updateInfo.fileName,
-      onProgress: (progress, received, total) {
-        if (!mounted) return;
-        setState(() {
-          _progress = progress.clamp(0.0, 1.0);
-          _receivedBytes = received;
-          _totalBytes = total;
-        });
-      },
-      onError: (err) {
-        if (!mounted) return;
-        setState(() {
-          _isDownloading = false;
-          _errorMessage = context.tr('update_failed', [err.toString()]);
-        });
-      },
-    );
+    try {
+      final installResult = await UpdateService().downloadAndInstall(
+        downloadUrl: widget.updateInfo.downloadUrl,
+        fileName: widget.updateInfo.fileName,
+        onProgress: (progress, received, total) {
+          if (!mounted) return;
+          setState(() {
+            _progress = progress.clamp(0.0, 1.0);
+            _receivedBytes = received;
+            _totalBytes = total;
+          });
+        },
+        onError: (err) {
+          if (!mounted) return;
+          setState(() {
+            _isDownloading = false;
+            _errorMessage = context.tr('update_failed', [err.toString()]);
+          });
+        },
+      );
+
+      if (!mounted) return;
+
+      final tempDir = await getTemporaryDirectory();
+      final path = '${tempDir.path}/${widget.updateInfo.fileName}';
+
+      setState(() {
+        _isDownloading = false;
+        _isDownloaded = true;
+        _downloadedFilePath = path;
+        _progress = 1.0;
+        if (installResult == 'PERMISSION_REQUIRED') {
+          _infoMessage = context.tr('update_permission_hint');
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isDownloading = false;
+        _errorMessage = e.toString();
+      });
+    }
   }
 
   @override
@@ -259,6 +303,39 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                 ),
               ],
 
+              // Message d'information / permission
+              if (_infoMessage != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF10B981)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        color: Color(0xFF10B981),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _infoMessage!,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               // Message d'erreur
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -326,7 +403,9 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _isDownloading
                             ? LupusColors.surfaceLight
-                            : LupusColors.arcaneCyan,
+                            : (_isDownloaded
+                                ? const Color(0xFF10B981)
+                                : LupusColors.arcaneCyan),
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -345,22 +424,26 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                                 ),
                               ),
                             )
-                          : const Icon(
-                              Icons.download_rounded,
+                          : Icon(
+                              _isDownloaded
+                                  ? Icons.system_security_update_good_rounded
+                                  : Icons.download_rounded,
                               size: 20,
                               color: Colors.black,
                             ),
                       label: Text(
                         _isDownloading
                             ? context.tr('update_downloading')
-                            : context.tr('update_download').toUpperCase(),
+                            : (_isDownloaded
+                                ? context.tr('update_install_now')
+                                : context.tr('update_download').toUpperCase()),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.6,
                         ),
                       ),
-                      onPressed: _isDownloading ? null : _startDownload,
+                      onPressed: _isDownloading ? null : _startDownloadOrInstall,
                     ),
                   ),
                 ],

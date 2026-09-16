@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -51,6 +52,31 @@ class UpdateService {
 
   static const String defaultOwner = 'Anisghd-lab';
   static const String defaultRepo = 'LUPUS-ARENA';
+
+  static const MethodChannel _nativeInstaller =
+      MethodChannel('com.anisghdlab.lupusarena/installer');
+
+  /// Vérifie si l'appareil a accordé la permission d'installer des packages inconnus (Android 8+)
+  static Future<bool> canRequestPackageInstalls() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final canInstall =
+          await _nativeInstaller.invokeMethod<bool>('canRequestPackageInstalls');
+      return canInstall ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Ouvre l'écran des paramètres système pour autoriser l'installation d'applications
+  static Future<void> openInstallPermissionSettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _nativeInstaller.invokeMethod('openInstallPermissionSettings');
+    } catch (e) {
+      debugPrint('[UpdateService] Erreur ouverture paramètres permissions: $e');
+    }
+  }
 
   /// Détecte l'architecture du processeur du téléphone via AndroidDeviceInfo.supportedAbis
   static Future<String> getTargetAbi() async {
@@ -225,8 +251,45 @@ class UpdateService {
     }
   }
 
+  /// Déclenche l'installation native d'un fichier APK
+  static Future<String> launchApkInstallation(String filePath) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      debugPrint('[UpdateService] Le fichier APK n\'existe pas à $filePath');
+      return 'FILE_NOT_FOUND';
+    }
+
+    // 1. Essayer d'abord le MethodChannel natif Android (haute fiabilité avec FileProvider interne)
+    if (Platform.isAndroid) {
+      try {
+        final result = await _nativeInstaller.invokeMethod<String>('installApk', {
+          'filePath': filePath,
+        });
+        if (result != null) {
+          debugPrint('[UpdateService Native] Résultat installation natif: $result');
+          return result;
+        }
+      } catch (e) {
+        debugPrint('[UpdateService Native Error] $e - Tentative fallback OpenFilex');
+      }
+    }
+
+    // 2. Fallback avec OpenFilex en spécifiant explicitement le type MIME Android APK
+    try {
+      final openResult = await OpenFilex.open(
+        filePath,
+        type: 'application/vnd.android.package-archive',
+      );
+      debugPrint('[UpdateService OpenFilex] ${openResult.message} (${openResult.type})');
+      return openResult.type == ResultType.done ? 'INSTALLER_LAUNCHED' : openResult.message;
+    } catch (e) {
+      debugPrint('[UpdateService OpenFilex Error] $e');
+      return 'ERROR: $e';
+    }
+  }
+
   /// Télécharge l'APK avec suivi du stream d'octets et lance automatiquement l'installateur de paquets
-  Future<void> downloadAndInstall({
+  Future<String> downloadAndInstall({
     required String downloadUrl,
     required String fileName,
     required void Function(double progress, int received, int total) onProgress,
@@ -255,12 +318,13 @@ class UpdateService {
         },
       );
 
-      // Dès que le téléchargement atteint 100%, appelle immédiatement OpenFilex.open(filePath)
-      final result = await OpenFilex.open(filePath);
-      debugPrint('[UpdateService] Lancement installation APK: ${result.message} (${result.type})');
+      // Lancement immédiat de l'installation de l'APK téléchargé
+      final installResult = await launchApkInstallation(filePath);
+      return installResult;
     } catch (e) {
       debugPrint('[UpdateService Error] Téléchargement / Installation: $e');
       onError?.call(e.toString());
+      return 'ERROR: $e';
     }
   }
 }
@@ -274,8 +338,12 @@ class FastUpdateService {
     String repo = UpdateService.defaultRepo,
   }) => UpdateService().checkForUpdate(owner: owner, repo: repo);
 
+  /// Lance directement l'installation d'un fichier APK déjà présent
+  static Future<String> installApk(String filePath) =>
+      UpdateService.launchApkInstallation(filePath);
+
   /// Télécharge le binaire ciblé et allégé puis lance l'installateur
-  static Future<void> downloadAndInstall({
+  static Future<String> downloadAndInstall({
     required String apkUrl,
     required Function(double progress) onProgress,
     String fileName = 'lupus_quick_update.apk',

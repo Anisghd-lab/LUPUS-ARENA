@@ -432,6 +432,8 @@ class AppTranslations {
       'update_later': 'PLUS TARD',
       'update_version_title': 'MISE À JOUR DISPONIBLE',
       'update_version_sub': 'Version v{version} (actuelle : {current})',
+      'update_install_now': 'INSTALLER MAINTENANT',
+      'update_permission_hint': 'Veuillez autoriser "Installer des applications inconnues" dans les paramètres puis appuyer sur Installer.',
 
       // --- ÉCRAN DE JEU & POUVOIRS DE NUIT (TRADUCTIONS DYNAMIQUES) ---
       'lobby': 'Salon d\'attente',
@@ -920,6 +922,8 @@ class AppTranslations {
       'update_later': 'لاحقاً',
       'update_version_title': 'تحديث متاح',
       'update_version_sub': 'الإصدار v{version} (الحالي : {current})',
+      'update_install_now': 'تثبيت الآن',
+      'update_permission_hint': 'يرجى تفعيل "تثبيت التطبيقات غير المعروفة" في الإعدادات ثم الضغط على تثبيت.',
 
       // --- ÉCRAN DE JEU & POUVOIRS DE NUIT (TRADUCTIONS DYNAMIQUES) ---
       'lobby': 'غرفة الانتظار',
@@ -1408,6 +1412,8 @@ class AppTranslations {
       'update_later': 'LATER',
       'update_version_title': 'UPDATE AVAILABLE',
       'update_version_sub': 'Version v{version} (current: {current})',
+      'update_install_now': 'INSTALL NOW',
+      'update_permission_hint': 'Please enable "Install unknown apps" in settings then tap Install.',
 
       // --- ÉCRAN DE JEU & POUVOIRS DE NUIT (TRADUCTIONS DYNAMIQUES) ---
       'lobby': 'Waiting Lobby',

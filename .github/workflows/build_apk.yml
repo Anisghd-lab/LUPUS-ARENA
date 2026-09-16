@@ -38,6 +38,10 @@ jobs:
         run: flutter pub get
         working-directory: lupus_arena
 
+      - name: Generate Launcher Icons
+        run: dart run flutter_launcher_icons
+        working-directory: lupus_arena
+
       - name: Build Split-per-ABI APKs (32-bit & 64-bit)
         run: |
           mkdir -p build/app/outputs/symbols

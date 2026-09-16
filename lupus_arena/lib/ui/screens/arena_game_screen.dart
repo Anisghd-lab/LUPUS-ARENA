@@ -123,24 +123,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       ValueNotifier<int>(60);
   bool _victoryVoiceStarted = false;
 
-  // Contrôleur de saisie du chat
-  final TextEditingController _chatController = TextEditingController();
-
   @override
   void dispose() {
     _phaseCountdownTimer?.cancel();
     _countdownNotifier.dispose();
     _victoryVoiceTimer?.cancel();
     _victoryVoiceCountdownNotifier.dispose();
-    _chatController.dispose();
     super.dispose();
-  }
-
-  void _handleSendChatMessage(String text) {
-    final clean = text.trim();
-    if (clean.isEmpty) return;
-    _chatController.clear();
-    ref.read(gameNotifierProvider.notifier).sendChatMessage(clean);
   }
 
   void _startCountdown() {
@@ -485,11 +474,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                               .read(gameNotifierProvider.notifier)
                               .passTurnDebate(),
                         ),
-                        const SizedBox(height: 4),
-
-                        // CHAMP DE CHAT DU VILLAGE (Désactivé si Loup Noir / Silence)
-                        _buildChatInputBar(context, room, gameState),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
 
                         // CONTRÔLES VOCAUX AGORA
                         BentoVoiceControls(
@@ -2244,91 +2229,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     } else {
       AdminSecretDialog.show(context);
     }
-  }
-
-  /// Champ de saisie de chat du village
-  /// Si le joueur a été réduit au silence par le Loup Noir (isMuted = true),
-  /// son champ de saisie est désactivé et indique le sortilège de silence.
-  Widget _buildChatInputBar(
-    BuildContext context,
-    dynamic room,
-    dynamic gameState,
-  ) {
-    final isSilenced = (gameState.isSilencedByBlackWolf as bool?) ?? false;
-    final isAlive = (gameState.isAlive as bool?) ?? true;
-    final canChat = isAlive && !isSilenced;
-
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: isSilenced
-            ? const Color(0x33FF2A4B)
-            : const Color(0x800F1424),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isSilenced
-              ? LupusColors.bloodRed.withValues(alpha: 0.8)
-              : LupusColors.border.withValues(alpha: 0.5),
-          width: isSilenced ? 1.2 : 0.8,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isSilenced
-                ? Icons.voice_over_off_rounded
-                : Icons.chat_bubble_outline_rounded,
-            size: 15,
-            color: isSilenced ? LupusColors.bloodRed : LupusColors.arcaneGold,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: _chatController,
-              enabled: canChat,
-              style: TextStyle(
-                fontSize: 11.5,
-                color: canChat ? Colors.white : LupusColors.textMuted,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                border: InputBorder.none,
-                hintText: isSilenced
-                    ? context.tr('chat_silenced_hint')
-                    : (!isAlive
-                        ? context.tr('chat_dead_hint')
-                        : context.tr('chat_normal_hint')),
-                hintStyle: TextStyle(
-                  fontSize: 11,
-                  fontStyle: isSilenced ? FontStyle.italic : FontStyle.normal,
-                  color: isSilenced
-                      ? const Color(0xFFFF8A9E)
-                      : LupusColors.textMuted.withValues(alpha: 0.7),
-                ),
-              ),
-              onSubmitted:
-                  canChat ? (text) => _handleSendChatMessage(text) : null,
-            ),
-          ),
-          IconButton(
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            icon: Icon(
-              Icons.send_rounded,
-              size: 14,
-              color: canChat
-                  ? LupusColors.arcaneGold
-                  : LupusColors.textMuted.withValues(alpha: 0.3),
-            ),
-            onPressed: canChat
-                ? () => _handleSendChatMessage(_chatController.text)
-                : null,
-          ),
-        ],
-      ),
-    );
   }
 
   /// Déporte et ouvre les Chroniques du Village dans un Modal BottomSheet Glassmorphism

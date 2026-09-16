@@ -111,7 +111,7 @@ enum GamePhase {
       case GamePhase.nightWerewolves:
         return 'Les loups votent et débattent en secret. La petite fille écoute passivement.';
       case GamePhase.nightBlackWolf:
-        return 'Le Loup Noir choisit un joueur vivant pour lui couper la parole (micro et chat) toute la journée suivante.';
+        return 'Le Loup Noir choisit un joueur vivant pour lui couper la parole (micro désactivé) toute la journée suivante.';
       case GamePhase.nightWitch:
         return 'La sorcière découvre la victime des loups et choisit d\'utiliser guérison ou poison.';
       case GamePhase.nightPyromaniac:

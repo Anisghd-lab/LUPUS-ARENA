@@ -10,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'AgoraVoiceService.dart';
-import 'models/chat_message.dart';
 import 'models/game_phase.dart';
 import 'models/game_room.dart';
 import 'models/player_model.dart';
@@ -1217,7 +1216,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         if (silencedPlayer != null && !allDeaths.contains(silencedId)) {
           updates['players/$silencedId/isMuted'] = true;
           logs.add(
-            '🔇 SORT DU LOUP NOIR : ${silencedPlayer.name} est réduit(e) au silence pour toute la journée ! (Micro et chat désactivés)',
+            '🔇 SORT DU LOUP NOIR : ${silencedPlayer.name} est réduit(e) au silence pour toute la journée ! (Micro désactivé)',
           );
           if (state.currentUserId == silencedId) {
             _voiceService.setMute(true);
@@ -1320,10 +1319,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['phase'] = GamePhase.dayDebate.name;
       updates['debateQueue'] = aliveList;
       updates['currentSpeakerId'] = aliveList.first;
-      updates['timerSeconds'] = 45;
+      updates['timerSeconds'] = 60;
       final speakerName = room.players[aliveList.first]?.name ?? 'Inconnu';
       logs.add(
-        '🎙️ Débat du village ouvert. Parole exclusive accordée à $speakerName (45s).',
+        '🎙️ Débat du village ouvert. Parole exclusive accordée à $speakerName (60s).',
       );
     } else {
       updates['phase'] = GamePhase.dayVoting.name;
@@ -1355,7 +1354,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final speakerName = room.players[nextSpeakerId]?.name ?? 'Inconnu';
       updates['debateQueue'] = queue;
       updates['currentSpeakerId'] = nextSpeakerId;
-      updates['timerSeconds'] = 45;
+      updates['timerSeconds'] = 60;
       logs.add('🎙️ $currentSpeakerName a cédé sa parole. La parole passe à $speakerName.');
     } else {
       updates['phase'] = GamePhase.dayVoting.name;
@@ -2155,6 +2154,71 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await _syncState(updates);
   }
 
+  /// Résolution automatique de fin de temps pour le Chasseur (abandon automatique)
+  Future<void> autoResolveHunterTimeout() async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final room = state.room!;
+    if (room.phase != GamePhase.hunterDeathChoice) return;
+
+    final updates = <String, dynamic>{
+      'pendingHunterId': null,
+    };
+    final logs = List<String>.from(room.logs);
+    logs.add(
+      '⏳ Le Chasseur n\'a pas tiré à temps dans son dernier souffle. Son tir est perdu !',
+    );
+
+    if (room.pendingCaptainId != null) {
+      updates['phase'] = GamePhase.captainSuccession.name;
+      updates['timerSeconds'] = 25;
+      logs.add('🎖️ Le Capitaine a péri ! Il dispose de 25s pour désigner son successeur.');
+    } else if (room.morningVictims.isNotEmpty) {
+      updates['phase'] = GamePhase.morningAnnouncement.name;
+      updates['timerSeconds'] = 20;
+    } else {
+      _finishDayCycle(room, updates, logs);
+    }
+
+    updates['logs'] = logs;
+    await _syncState(updates);
+  }
+
+  /// Résolution automatique de fin de temps pour le Capitaine (désignation par défaut)
+  Future<void> autoResolveCaptainTimeout() async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final room = state.room!;
+    if (room.phase != GamePhase.captainSuccession) return;
+
+    final updates = <String, dynamic>{
+      'pendingCaptainId': null,
+    };
+    final logs = List<String>.from(room.logs);
+
+    final living = room.alivePlayers.toList();
+    if (living.isNotEmpty) {
+      final successor = living.first;
+      updates['captainId'] = successor.id;
+      updates['players/${successor.id}/isCaptain'] = true;
+      logs.add(
+        '⏳ Faute de choix du défunt Capitaine, l\'écharpe est transmise d\'office à ${successor.name} !',
+      );
+    } else {
+      logs.add(
+        '⏳ Le Capitaine n\'a pas désigné de successeur et aucun survivant ne peut reprendre l\'écharpe.',
+      );
+    }
+
+    if (room.morningVictims.isNotEmpty) {
+      updates['phase'] = GamePhase.morningAnnouncement.name;
+      updates['timerSeconds'] = 20;
+    } else {
+      _finishDayCycle(room, updates, logs);
+    }
+
+    updates['logs'] = logs;
+    await _syncState(updates);
+  }
+
   Future<void> concludeCaptainElection() async {
     if (!state.isHost || state.room == null) return;
     final room = state.room!;
@@ -2196,10 +2260,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['phase'] = GamePhase.dayDebate.name;
       updates['debateQueue'] = aliveList;
       updates['currentSpeakerId'] = aliveList.first;
-      updates['timerSeconds'] = 45;
+      updates['timerSeconds'] = 60;
       final speakerName = room.players[aliveList.first]?.name ?? 'Inconnu';
       logs.add(
-        '🎙️ Débat du village ouvert. Parole exclusive accordée à $speakerName (45s).',
+        '🎙️ Débat du village ouvert. Parole exclusive accordée à $speakerName (60s).',
       );
     } else {
       updates['phase'] = GamePhase.dayVoting.name;
@@ -2261,6 +2325,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       await _syncState(updates);
     } else if (phase == GamePhase.captainElection) {
       await concludeCaptainElection();
+    } else if (phase == GamePhase.hunterDeathChoice) {
+      await autoResolveHunterTimeout();
+    } else if (phase == GamePhase.captainSuccession) {
+      await autoResolveCaptainTimeout();
     } else if (phase == GamePhase.dayDebate) {
       await passTurnDebate();
     } else if (phase == GamePhase.dayVoting ||
@@ -2601,6 +2669,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final aliveIds = state.room!.alivePlayers.map((p) => p.id).toList();
       updates['debateQueue'] = aliveIds;
       updates['currentSpeakerId'] = aliveIds.isNotEmpty ? aliveIds.first : null;
+      updates['timerSeconds'] = 60;
     }
     if (targetPhase == GamePhase.nightWitch &&
         state.room?.nightVictimId == null) {
@@ -2728,54 +2797,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (state.room != null) {
         _applyVoiceRulesForPhase(state.room!);
       }
-    }
-  }
-
-  /// Envoi d'un message dans le chat du jeu
-  /// Si le joueur est réduit au silence par le Loup Noir (isMuted = true),
-  /// l'envoi est strictement interdit et le chat est bloqué pour toute la journée.
-  Future<bool> sendChatMessage(String content) async {
-    final clean = content.trim();
-    if (clean.isEmpty || state.room == null) return false;
-    final room = state.room!;
-
-    final me = state.currentPlayer;
-    if (me?.isMuted == true) {
-      state = state.copyWith(
-        errorMessage:
-            '🔇 Vous êtes réduit au silence par le Loup Noir (micro coupé et chat désactivé pour toute la journée).',
-      );
-      return false;
-    }
-
-    if (!state.isAlive && !state.isAdmin) {
-      state = state.copyWith(
-        errorMessage: 'Les défunts ne peuvent pas s\'exprimer dans le village.',
-      );
-      return false;
-    }
-
-    final messageId =
-        'msg_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9999)}';
-    final chatMsg = ChatMessage(
-      id: messageId,
-      senderId: state.currentUserId,
-      senderName: state.currentUserName,
-      senderAvatar: state.currentUserAvatar,
-      content: clean,
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      isWolfChat: false,
-      senderRole: state.myRole.displayName,
-    );
-
-    try {
-      await _database
-          .ref('rooms/${room.roomCode}/chat/$messageId')
-          .set(chatMsg.toMap());
-      return true;
-    } catch (e) {
-      debugPrint('[Firebase Chat Error] $e');
-      return false;
     }
   }
 

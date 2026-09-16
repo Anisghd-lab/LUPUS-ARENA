@@ -395,6 +395,11 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                     gameState.seerInspectedRoles,
                                 wolfPlayerIds: gameState.wolfPlayerIds,
                                 onPlayerSelected: (id) {
+                                  if (room.phase == GamePhase.nightSeer &&
+                                      (myRole == GameRole.seer || isGodMode) &&
+                                      _selectedPlayerId != null) {
+                                    return;
+                                  }
                                   setState(() {
                                     _selectedPlayerId =
                                         (_selectedPlayerId == id) ? null : id;
@@ -472,7 +477,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                               .blackWolfSilence(targetId),
                           onPassDebate: () => ref
                               .read(gameNotifierProvider.notifier)
-                              .passTurnDebate(),
+                              .passDebate(),
                         ),
                         const SizedBox(height: 6),
 
@@ -488,6 +493,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           isMutedByBlackWolf: gameState.isSilencedByBlackWolf,
                           isVictoryVoiceExpired:
                               gameState.isVictoryVoiceExpired,
+                          isWolf: myRole.isEvil || myRole == GameRole.whiteWerewolf,
                         ),
                       ],
                     ),
@@ -2100,7 +2106,84 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
+
+                // CONTRÔLE MICRO VOLONTAIRE DANS L'ÉCRAN DE VICTOIRE
+                ValueListenableBuilder<bool>(
+                  valueListenable: AgoraVoiceService().isMuted,
+                  builder: (context, isMuted, _) {
+                    return ValueListenableBuilder<int>(
+                      valueListenable: _victoryVoiceCountdownNotifier,
+                      builder: (context, secondsRemaining, _) {
+                        final isExpired = secondsRemaining <= 0;
+                        return Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B).withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isExpired
+                                  ? LupusColors.border
+                                  : (isMuted
+                                      ? LupusColors.voiceMuted
+                                      : const Color(0xFF00FF88).withValues(alpha: 0.6)),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: isExpired
+                                  ? null
+                                  : () => AgoraVoiceService().toggleMute(),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      isMuted
+                                          ? Icons.mic_off_rounded
+                                          : Icons.mic_rounded,
+                                      color: isExpired
+                                          ? LupusColors.textMuted
+                                          : (isMuted
+                                              ? LupusColors.voiceMuted
+                                              : const Color(0xFF00FF88)),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      isExpired
+                                          ? context.tr('minute_collective_end')
+                                          : (isMuted
+                                              ? 'Micro coupé (Appuyer pour parler)'
+                                              : 'Micro ouvert (Appuyer pour couper)'),
+                                      style: TextStyle(
+                                        color: isExpired
+                                            ? LupusColors.textMuted
+                                            : (isMuted
+                                                ? LupusColors.voiceMuted
+                                                : const Color(0xFF00FF88)),
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
 
                 // BOUTON INTERACTIF 'REJOUER' AVEC COMPTEUR DYNAMIQUE (prêts/total)
                 Builder(

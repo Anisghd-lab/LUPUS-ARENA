@@ -74,7 +74,12 @@ class BentoPlayerTile extends StatelessWidget {
     } else if (seerDiscoveredRole != null) {
       roleLabel = '🔮 ${seerDiscoveredRole!.displayName}';
     } else if (isWolfPeer) {
-      roleLabel = '🐺 ${player.role.displayName}';
+      final wolfName = (player.role == GameRole.whiteWerewolf)
+          ? 'Loup Blanc'
+          : (player.role.isEvil && player.role != GameRole.simpleVillager)
+              ? player.role.displayName
+              : 'Loup-Garou';
+      roleLabel = '🐺 $wolfName';
     } else if (isGodMode) {
       roleLabel = player.role.displayName;
     } else {

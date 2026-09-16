@@ -854,14 +854,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               ),
                             ],
                           ),
+                          alignment: Alignment.center,
                           child: Center(
                             child: Text(
                               context.tr('join_room').toUpperCase(),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),

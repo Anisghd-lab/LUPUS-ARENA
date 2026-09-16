@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// Informations détaillées sur une mise à jour disponible
 class AppUpdateInfo {
@@ -156,6 +157,24 @@ class UpdateService {
           ? '${packageInfo.version}+${packageInfo.buildNumber}'
           : packageInfo.version;
 
+      AppUpdateInfo? update = await _fetchRelease(owner, repo, localVersion);
+      if (update == null && owner == defaultOwner && repo == defaultRepo) {
+        debugPrint('[UpdateService] Tentative de secours sur le miroir zakghd/LUPUS_ARENA...');
+        update = await _fetchRelease('zakghd', 'LUPUS_ARENA', localVersion);
+      }
+      return update;
+    } catch (e) {
+      debugPrint('[UpdateService Error] $e');
+      return null;
+    }
+  }
+
+  Future<AppUpdateInfo?> _fetchRelease(
+    String owner,
+    String repo,
+    String localVersion,
+  ) async {
+    try {
       final url = Uri.parse('https://api.github.com/repos/$owner/$repo/releases/latest');
       final response = await http.get(
         url,
@@ -166,7 +185,7 @@ class UpdateService {
       );
 
       if (response.statusCode != 200) {
-        debugPrint('[UpdateService] Réponse GitHub non-200 : ${response.statusCode}');
+        debugPrint('[UpdateService] Réponse GitHub non-200 pour $owner/$repo : ${response.statusCode}');
         return null;
       }
 
@@ -213,7 +232,7 @@ class UpdateService {
       );
 
       if (targetAsset == null) {
-        debugPrint('[UpdateService] Aucun asset APK trouvé dans la release $rawTag');
+        debugPrint('[UpdateService] Aucun asset APK trouvé dans la release $rawTag sur $owner/$repo');
         return null;
       }
 
@@ -233,7 +252,7 @@ class UpdateService {
         return null;
       }
 
-      debugPrint('[UpdateService] Nouvelle version disponible : $remoteVersion ($fileName, ${(fileSize / (1024 * 1024)).toStringAsFixed(1)} Mo, ABI: $abi)');
+      debugPrint('[UpdateService] Nouvelle version disponible sur $owner/$repo : $remoteVersion ($fileName, ${(fileSize / (1024 * 1024)).toStringAsFixed(1)} Mo, ABI: $abi)');
       return AppUpdateInfo(
         version: remoteVersion,
         rawTag: rawTag,
@@ -246,7 +265,7 @@ class UpdateService {
         hasUpdate: true,
       );
     } catch (e) {
-      debugPrint('[UpdateService Error] $e');
+      debugPrint('[UpdateService Fetch Error] $e');
       return null;
     }
   }
@@ -257,6 +276,24 @@ class UpdateService {
     if (!await file.exists()) {
       debugPrint('[UpdateService] Le fichier APK n\'existe pas à $filePath');
       return 'FILE_NOT_FOUND';
+    }
+
+    // 0. Vérifier si l'autorisation d'installer depuis des sources inconnues est accordée (Android 8.0+)
+    if (Platform.isAndroid) {
+      try {
+        final status = await Permission.requestInstallPackages.status;
+        if (!status.isGranted) {
+          debugPrint('[UpdateService] Demande d\'autorisation REQUEST_INSTALL_PACKAGES...');
+          final requestResult = await Permission.requestInstallPackages.request();
+          if (!requestResult.isGranted) {
+            debugPrint('[UpdateService] Autorisation refusée. Redirection vers paramètres...');
+            await openInstallPermissionSettings();
+            return 'PERMISSION_REQUIRED';
+          }
+        }
+      } catch (e) {
+        debugPrint('[UpdateService Permission Warning] $e');
+      }
     }
 
     // 1. Essayer d'abord le MethodChannel natif Android (haute fiabilité avec FileProvider interne)
@@ -288,7 +325,7 @@ class UpdateService {
     }
   }
 
-  /// Télécharge l'APK avec suivi du stream d'octets et lance automatiquement l'installateur de paquets
+  /// Télécharge l'APK avec suivi du stream d'octets, reprise sur coupure réseau (Range header) et lance automatiquement l'installateur
   Future<String> downloadAndInstall({
     required String downloadUrl,
     required String fileName,
@@ -298,25 +335,125 @@ class UpdateService {
     try {
       final tempDir = await getTemporaryDirectory();
       final filePath = '${tempDir.path}/$fileName';
-
       final file = File(filePath);
-      if (await file.exists()) {
-        try {
-          await file.delete();
-        } catch (_) {}
-      }
 
-      final dio = Dio();
-      await dio.download(
-        downloadUrl,
-        filePath,
-        onReceiveProgress: (received, total) {
-          if (total > 0) {
-            final progress = received / total;
-            onProgress(progress, received, total);
-          }
-        },
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(minutes: 5),
+          sendTimeout: const Duration(seconds: 30),
+          followRedirects: true,
+          maxRedirects: 5,
+        ),
       );
+
+      const maxRetries = 5;
+      int retryCount = 0;
+      int totalBytes = -1;
+
+      while (retryCount < maxRetries) {
+        int existingBytes = 0;
+        if (await file.exists()) {
+          existingBytes = await file.length();
+        }
+
+        try {
+          debugPrint(
+            '[UpdateService] Téléchargement essai ${retryCount + 1}/$maxRetries (offset: $existingBytes octets)...',
+          );
+
+          final headers = <String, dynamic>{
+            'User-Agent': 'LupusArena-App',
+          };
+          if (existingBytes > 0) {
+            headers['Range'] = 'bytes=$existingBytes-';
+          }
+
+          final response = await dio.get<ResponseBody>(
+            downloadUrl,
+            options: Options(
+              responseType: ResponseType.stream,
+              headers: headers,
+              validateStatus: (status) =>
+                  status != null &&
+                  ((status >= 200 && status < 300) || status == 206),
+            ),
+          );
+
+          final responseBody = response.data;
+          if (responseBody == null) {
+            throw Exception('Flux de données vide reçu du serveur');
+          }
+
+          final isPartial = response.statusCode == 206;
+          final contentRange = response.headers.value('content-range');
+          final contentLength = response.headers.value('content-length');
+
+          if (contentRange != null && contentRange.contains('/')) {
+            final totalStr = contentRange.split('/').last.trim();
+            totalBytes = int.tryParse(totalStr) ?? totalBytes;
+          } else if (contentLength != null) {
+            final parsedLength = int.tryParse(contentLength) ?? 0;
+            if (isPartial) {
+              totalBytes = existingBytes + parsedLength;
+            } else {
+              totalBytes = parsedLength;
+            }
+          }
+
+          final shouldAppend = isPartial && existingBytes > 0;
+          if (!shouldAppend && existingBytes > 0) {
+            existingBytes = 0;
+            if (await file.exists()) {
+              try {
+                await file.delete();
+              } catch (_) {}
+            }
+          }
+
+          final sink = file.openWrite(
+            mode: shouldAppend ? FileMode.append : FileMode.write,
+          );
+
+          int received = existingBytes;
+          await for (final chunk in responseBody.stream) {
+            sink.add(chunk);
+            received += chunk.length;
+            if (totalBytes > 0) {
+              final progress = (received / totalBytes).clamp(0.0, 1.0);
+              onProgress(progress, received, totalBytes);
+            } else {
+              onProgress(0.5, received, totalBytes);
+            }
+          }
+
+          await sink.flush();
+          await sink.close();
+
+          final downloadedLength = await file.length();
+          if (totalBytes > 0 && downloadedLength < totalBytes) {
+            throw DioException(
+              requestOptions: response.requestOptions,
+              error:
+                  'Téléchargement incomplet ($downloadedLength / $totalBytes octets)',
+            );
+          }
+
+          debugPrint(
+            '[UpdateService] Téléchargement complété avec succès ($downloadedLength octets)',
+          );
+          break; // Téléchargement réussi
+        } catch (e) {
+          retryCount++;
+          debugPrint(
+            '[UpdateService Warning] Coupure/Erreur téléchargement ($retryCount/$maxRetries): $e',
+          );
+          if (retryCount >= maxRetries) {
+            rethrow;
+          }
+          await Future.delayed(Duration(seconds: retryCount * 2));
+        }
+      }
 
       // Lancement immédiat de l'installation de l'APK téléchargé
       final installResult = await launchApkInstallation(filePath);

@@ -417,6 +417,24 @@ class AgoraVoiceService {
     }
   }
 
+  /// Active ou coupe le microphone local
+  Future<void> muteMicrophone(bool mute) async => setMute(mute);
+
+  /// Réactive immédiatement le microphone local
+  Future<void> unmuteMicrophone() async => setMute(false);
+
+  /// Coupe ou réactive la réception audio distante (Haut-parleur)
+  Future<void> muteSpeaker(bool mute) async {
+    try {
+      await _engine?.muteAllRemoteAudioStreams(mute);
+      isDeafened.value = mute;
+      addLog(mute ? '🔕 Haut-parleur coupé (Mute Speaker)' : '🔔 Haut-parleur rétabli (Undeafen)');
+    } catch (e) {
+      addLog('❌ Erreur muteSpeaker: $e');
+      debugPrint('[AgoraVoiceService] Erreur muteSpeaker: $e');
+    }
+  }
+
   Future<void> toggleDeafen() async {
     final nextState = !isDeafened.value;
     try {

@@ -47,8 +47,9 @@ class ArbitrePartieTest {
         assertEquals(Role.SORCIERE, r3)
         assertEquals(0, gestionnaire.visionsRestantes)
 
-        // DÉCHÉANCE IMMÉDIATE
-        assertEquals(Role.VILLAGEOIS_SIMPLE, voyante.role, "La Voyante doit devenir un Simple Villageois dès l'épuisement de son quota.")
+        // DÉCHÉANCE IMMÉDIATE DU RÔLE ACTIF (RÔLE INITIAL CONSERVÉ)
+        assertEquals(Role.VILLAGEOIS_SIMPLE, voyante.roleActif, "La Voyante doit devenir un Simple Villageois dès l'épuisement de son quota.")
+        assertEquals(Role.VOYANTE, voyante.roleInitial, "Le rôle initial d'origine doit rester STRICTEMENT Role.VOYANTE.")
 
         // Toute tentative ultérieure d'inspection doit échouer
         val r4 = gestionnaire.inspecter(cible1)
@@ -131,8 +132,9 @@ class ArbitrePartieTest {
         assertEquals(0, gestionnaire.potionsVie)
         assertEquals(0, gestionnaire.potionsMort)
 
-        // DÉCHÉANCE IMMÉDIATE
-        assertEquals(Role.VILLAGEOIS_SIMPLE, sorciere.role, "La sorcière doit être rétrogradée en Simple Villageois dès épuisement de ses deux stocks.")
+        // DÉCHÉANCE IMMÉDIATE DU RÔLE ACTIF (RÔLE INITIAL CONSERVÉ)
+        assertEquals(Role.VILLAGEOIS_SIMPLE, sorciere.roleActif, "La sorcière doit être rétrogradée en Simple Villageois dès épuisement de ses deux stocks.")
+        assertEquals(Role.SORCIERE, sorciere.roleInitial, "Le rôle initial de la Sorcière doit rester STRICTEMENT Role.SORCIERE.")
     }
 
     @Test

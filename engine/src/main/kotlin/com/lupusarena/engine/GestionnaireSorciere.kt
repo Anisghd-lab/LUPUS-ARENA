@@ -3,12 +3,12 @@ package com.lupusarena.engine
 /**
  * Gestionnaire du rôle de la Sorcière :
  * - Calcul initial du quota de potions : maxPotions = maxOf(1, totalJoueurs / 10) (division entière)
- *   * Moins de 20 joueurs (ex: 4 à 19) -> 1 potion de vie et 1 potion de mort
- *   * De 20 à 29 joueurs (ex: 20 à 29) -> 2 potions de chaque
- *   * 30 joueurs et plus (ex: 30+)     -> 3+ potions de chaque
+ *   * Moins de 20 joueurs -> 1 potion de vie et 1 potion de mort
+ *   * De 20 à 29 joueurs  -> 2 potions de chaque
+ *   * 30 joueurs et plus  -> 3+ potions de chaque
  * - Stocks indépendants pour potionsVie et potionsMort
- * - Application des effets en cours de partie
- * - Révocation automatique du pouvoir vers Role.VILLAGEOIS_SIMPLE dès épuisement total (potionsVie == 0 && potionsMort == 0)
+ * - Révocation automatique vers Role.VILLAGEOIS_SIMPLE dès épuisement total (potionsVie == 0 && potionsMort == 0)
+ * - IMPORTANT : Seul roleActif est déchu, roleInitial reste Role.SORCIERE
  */
 class GestionnaireSorciere(
     val totalJoueurs: Int,
@@ -19,74 +19,86 @@ class GestionnaireSorciere(
      */
     constructor(joueur: Joueur, totalJoueurs: Int) : this(totalJoueurs, joueur)
 
-    val maxPotions: Int = maxOf(1, totalJoueurs / 10)
+    val maxPotionsInitiale: Int = maxOf(1, totalJoueurs / 10)
+    val maxPotions: Int get() = maxPotionsInitiale
 
-    var potionsVie: Int = maxPotions
+    var potionsVie: Int = maxPotionsInitiale
         private set
 
-    var potionsMort: Int = maxPotions
+    var potionsMort: Int = maxPotionsInitiale
         private set
 
     init {
         joueur?.let {
-            require(it.role == Role.SORCIERE) {
-                "Le joueur doit être assigné au rôle Role.SORCIERE."
+            require(it.roleInitial == Role.SORCIERE) {
+                "Le joueur doit avoir pour rôle initial Role.SORCIERE."
             }
-            it.potionsVie = maxPotions
-            it.potionsMort = maxPotions
+            it.potionsVie = maxPotionsInitiale
+            it.potionsMort = maxPotionsInitiale
         }
     }
 
-    val aEncoreDesPotions: Boolean get() = potionsVie > 0 || potionsMort > 0
-    val peutSauver: Boolean get() = potionsVie > 0
-    val peutEmpoisonner: Boolean get() = potionsMort > 0
+    val aEncoreDesPotions: Boolean
+        get() = potionsVie > 0 || potionsMort > 0
+
+    val peutSauver: Boolean
+        get() = potionsVie > 0
+
+    val peutEmpoisonner: Boolean
+        get() = potionsMort > 0
+
+    fun consommerPotionVie(): Boolean {
+        if (peutSauver) {
+            potionsVie--
+            joueur?.potionsVie = potionsVie
+            verifierEtAppliquerDecheance()
+            return true
+        }
+        return false
+    }
+
+    fun consommerPotionMort(): Boolean {
+        if (peutEmpoisonner) {
+            potionsMort--
+            joueur?.potionsMort = potionsMort
+            verifierEtAppliquerDecheance()
+            return true
+        }
+        return false
+    }
 
     /**
-     * Utilise une potion de vie sur la victime désignée de la nuit pour annuler sa mort.
-     * @param victime Le joueur ciblé par les loups.
-     * @return true si la potion a pu être consommée, false sinon.
+     * Utilise une potion de vie sur une cible (victime des loups).
      */
-    fun utiliserPotionVie(victime: Joueur): Boolean {
-        if (joueur != null && (!joueur.estEnVie || joueur.role != Role.SORCIERE)) {
-            return false
+    fun utiliserPotionVie(cible: Joueur): Boolean {
+        if (peutSauver && !cible.estEnVie) {
+            cible.estEnVie = true
+            consommerPotionVie()
+            return true
         }
-        if (potionsVie <= 0) {
-            return false
-        }
-        potionsVie--
-        joueur?.potionsVie = potionsVie
-        victime.estEnVie = true
-        verifierEtAppliquerDecheance()
-        return true
+        return false
     }
 
     /**
-     * Utilise une potion de mort pour éliminer un joueur vivant.
-     * @param cible Le joueur vivant ciblé par la sorcière.
-     * @return true si la potion a pu être consommée, false sinon.
+     * Utilise une potion de mort pour éliminer une cible vivante.
      */
     fun utiliserPotionMort(cible: Joueur): Boolean {
-        if (joueur != null && (!joueur.estEnVie || joueur.role != Role.SORCIERE)) {
-            return false
+        if (peutEmpoisonner && cible.estEnVie) {
+            cible.estEnVie = false
+            consommerPotionMort()
+            return true
         }
-        if (potionsMort <= 0 || !cible.estEnVie) {
-            return false
-        }
-        potionsMort--
-        joueur?.potionsMort = potionsMort
-        cible.estEnVie = false
-        verifierEtAppliquerDecheance()
-        return true
+        return false
     }
 
     /**
-     * Vérifie si les deux stocks de potions sont à zéro.
-     * Si oui, le rôle actif est immédiatement révoqué en Role.VILLAGEOIS_SIMPLE.
+     * Dès que les deux potions sont épuisées, le rôle actif est rétrogradé en VILLAGEOIS_SIMPLE.
+     * roleInitial reste Role.SORCIERE.
      */
     fun verifierEtAppliquerDecheance(): Boolean {
         joueur?.let {
-            if (potionsVie == 0 && potionsMort == 0 && it.role == Role.SORCIERE) {
-                it.role = Role.VILLAGEOIS_SIMPLE
+            if (potionsVie == 0 && potionsMort == 0 && it.roleActif == Role.SORCIERE) {
+                it.roleActif = Role.VILLAGEOIS_SIMPLE
                 return true
             }
         }

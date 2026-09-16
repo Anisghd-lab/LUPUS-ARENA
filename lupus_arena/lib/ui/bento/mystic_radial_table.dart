@@ -286,7 +286,12 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                   roleText = '🔮 ${targetSeerRole.displayName}';
                   roleColor = targetSeerRole.accentColor;
                 } else if (isTargetWolf) {
-                  roleText = '🐺 ${selectedPlayer.role.displayName}';
+                  final wolfName = (selectedPlayer.role == GameRole.whiteWerewolf)
+                      ? 'Loup Blanc'
+                      : (selectedPlayer.role.isEvil && selectedPlayer.role != GameRole.simpleVillager)
+                          ? selectedPlayer.role.displayName
+                          : 'Loup-Garou';
+                  roleText = '🐺 $wolfName';
                   roleColor = const Color(0xFFFF8B8B);
                 } else if (isTargetGodMode) {
                   roleText = selectedPlayer.role.displayName;

@@ -226,7 +226,7 @@ extension GameRoleExtension on GameRole {
       case GameRole.whiteWerewolf:
         return 'Se réveille avec les loups, mais se réveille une nuit sur deux pour éliminer un loup.';
       case GameRole.blackWolf:
-        return 'Chaque nuit, sélectionne un joueur vivant pour le réduire au silence. Au lever du jour, le joueur désigné a son micro coupé et son chat désactivé pour toute la durée de la journée.';
+        return 'Chaque nuit, sélectionne un joueur vivant pour le réduire au silence. Au lever du jour, le joueur désigné a son micro coupé pour toute la durée de la journée.';
       case GameRole.vileFatherOfWolves:
         return 'Une fois par partie, transforme la victime des loups en loup-garou au lieu de la tuer.';
       case GameRole.wolfCub:

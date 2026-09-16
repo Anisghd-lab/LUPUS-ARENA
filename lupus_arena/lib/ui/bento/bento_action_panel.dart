@@ -689,32 +689,56 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Chasseur au dernier souffle : Bouton direct [Tirer sur (Nom)]
+  /// Module Chasseur au dernier souffle : Bouton direct [Tirer sur (Nom)] et [Passer]
   Widget _buildHunterSection(PlayerModel? selectedTarget) {
-    return SizedBox(
-      height: 40,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: LupusColors.sunAmber,
-          foregroundColor: Colors.black,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 40,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: LupusColors.sunAmber,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: (selectedTarget != null &&
+                      selectedTarget.isAlive &&
+                      selectedTarget.id != widget.currentUserId)
+                  ? () => widget.onHunterShoot?.call(selectedTarget.id)
+                  : null,
+              icon: const Icon(Icons.crisis_alert_rounded, size: 15),
+              label: Text(
+                selectedTarget != null
+                    ? context.tr('shoot_target', {'name': selectedTarget.name})
+                    : context.tr('shoot_select'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+              ),
+            ),
+          ),
         ),
-        onPressed: (selectedTarget != null &&
-                selectedTarget.isAlive &&
-                selectedTarget.id != widget.currentUserId)
-            ? () => widget.onHunterShoot?.call(selectedTarget.id)
-            : null,
-        icon: const Icon(Icons.crisis_alert_rounded, size: 15),
-        label: Text(
-          selectedTarget != null
-              ? context.tr('shoot_target', {'name': selectedTarget.name})
-              : context.tr('shoot_select'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+        const SizedBox(width: 8),
+        SizedBox(
+          height: 40,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0x33450A0A),
+              foregroundColor: LupusColors.textMuted,
+              side: BorderSide(color: LupusColors.border.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: widget.onNextPhase,
+            icon: const Icon(Icons.cancel_outlined, size: 14),
+            label: const Text(
+              'Passer',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -778,32 +802,56 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Capitaine (Succession) : Bouton direct [Nommer (Nom)]
+  /// Module Capitaine (Succession) : Bouton direct [Nommer (Nom)] et [D'office]
   Widget _buildCaptainSuccessionSection(PlayerModel? selectedTarget) {
-    return SizedBox(
-      height: 40,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: LupusColors.sunAmber,
-          foregroundColor: Colors.black,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 40,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: LupusColors.sunAmber,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: (selectedTarget != null &&
+                      selectedTarget.isAlive &&
+                      selectedTarget.id != widget.currentUserId)
+                  ? () => widget.onCaptainPass?.call(selectedTarget.id)
+                  : null,
+              icon: const Icon(Icons.military_tech_rounded, size: 15),
+              label: Text(
+                selectedTarget != null
+                    ? context.tr('name_captain_target', {'name': selectedTarget.name})
+                    : context.tr('name_captain_select'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+              ),
+            ),
+          ),
         ),
-        onPressed: (selectedTarget != null &&
-                selectedTarget.isAlive &&
-                selectedTarget.id != widget.currentUserId)
-            ? () => widget.onCaptainPass?.call(selectedTarget.id)
-            : null,
-        icon: const Icon(Icons.military_tech_rounded, size: 15),
-        label: Text(
-          selectedTarget != null
-              ? context.tr('name_captain_target', {'name': selectedTarget.name})
-              : context.tr('name_captain_select'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+        const SizedBox(width: 8),
+        SizedBox(
+          height: 40,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0x33450A0A),
+              foregroundColor: LupusColors.textMuted,
+              side: BorderSide(color: LupusColors.border.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: widget.onNextPhase,
+            icon: const Icon(Icons.casino_outlined, size: 14),
+            label: const Text(
+              "D'office",
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 

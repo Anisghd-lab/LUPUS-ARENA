@@ -64,6 +64,21 @@ class LupusTheme {
           letterSpacing: 1.2,
         ),
       ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          alignment: Alignment.center,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          alignment: Alignment.center,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          alignment: Alignment.center,
+        ),
+      ),
     );
   }
 

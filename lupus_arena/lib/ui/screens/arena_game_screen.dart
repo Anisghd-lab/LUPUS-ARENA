@@ -1162,13 +1162,47 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
           ],
 
           // Alerte Victime des Loups pour la Sorcière
-          if (phase == GamePhase.nightWitch) ...[
+          if (phase == GamePhase.nightWitch &&
+              (gameState.myRole == GameRole.witch || gameState.isAdmin)) ...[
             Builder(
               builder: (_) {
                 final victimId = room.nightVictimId;
                 final victim = victimId != null ? room.players[victimId] : null;
                 final isHealed = room.witchHealed == true;
-                if (victim == null) return const SizedBox.shrink();
+                if (victim == null) {
+                  return Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0x330284C7),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF38BDF8),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '🕊️',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          context.tr('no_victim_to_save'),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFBAE6FD),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
                 return Container(
                   margin: const EdgeInsets.only(top: 4),
                   padding: const EdgeInsets.symmetric(

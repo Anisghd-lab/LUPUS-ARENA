@@ -5,6 +5,7 @@ import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
+import 'bento_player_tile.dart';
 
 /// Panneau d'actions Bento contextuel compact pour chaque rôle.
 /// Format compact sans overflow, sans narrations superflues,
@@ -260,7 +261,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   // --- MODULES DE RÔLES COMPACTS SANS OVERFLOW ---
   // ==========================================
 
-  /// Module Sorcière : Boutons côte à côte [Sauver (Nom)] et [Empoisonner (Nom)] avec un bouton [Valider]
+  /// Module Sorcière :
+  /// 1. Carte dédiée pour la victime des loups avec bouton direct [Sauver (Nom)] (sans sélection préalable)
+  ///    OU bannière explicite si aucune victime ciblée par les loups.
+  /// 2. Section Fiole de Mort (sélection libre parmi les joueurs vivants)
+  /// 3. Bouton [Valider / Passer son tour]
   Widget _buildWitchSection(PlayerModel witch, PlayerModel? selectedTarget) {
     final wolfVictimId = widget.room.nightVictimId;
     final wolfVictim = wolfVictimId != null ? widget.room.players[wolfVictimId] : null;
@@ -269,101 +274,380 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final isHealed = widget.room.witchHealed;
     final poisonVictimId = widget.room.witchPoisonVictimId;
     final poisonVictim = poisonVictimId != null ? widget.room.players[poisonVictimId] : null;
-
-    final String saveLabel;
-    if (isHealed) {
-      saveLabel = context.tr('healed_badge');
-    } else if (!hasHeal) {
-      saveLabel = context.tr('heal_exhausted');
-    } else if (wolfVictim != null) {
-      saveLabel = context.tr('save_target', {'name': wolfVictim.name});
-    } else {
-      saveLabel = context.tr('save_victim_btn');
-    }
-
-    final String poisonLabel;
-    if (poisonVictim != null) {
-      poisonLabel = context.tr('poisoned_target', {'name': poisonVictim.name});
-    } else if (!hasPoison) {
-      poisonLabel = context.tr('poison_exhausted');
-    } else if (selectedTarget != null) {
-      poisonLabel = context.tr('poison_target', {'name': selectedTarget.name});
-    } else {
-      poisonLabel = context.tr('poison_target_btn');
-    }
+    final hasActed = isHealed || poisonVictim != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            // Bouton Sauver (Nom)
-            Expanded(
-              child: SizedBox(
-                height: 40,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isHealed
-                        ? const Color(0xFF064E3B)
-                        : (hasHeal ? const Color(0xFF10B981) : LupusColors.surfaceLight),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        // --- 1. CARTE DÉDIÉE : VICTIME DES LOUPS & POTION DE VIE ---
+        if (wolfVictim != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isHealed
+                    ? [const Color(0x33064E3B), const Color(0x22022C22)]
+                    : [const Color(0x33450A0A), const Color(0x221E1B4B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isHealed
+                    ? LupusColors.poisonGreen.withValues(alpha: 0.8)
+                    : LupusColors.arcaneCrimson.withValues(alpha: 0.8),
+                width: 1.2,
+              ),
+            ),
+            child: Row(
+              children: [
+                // Avatar de la victime
+                CircleAvatar(
+                  radius: 17,
+                  backgroundColor: isHealed
+                      ? LupusColors.poisonGreen.withValues(alpha: 0.2)
+                      : LupusColors.bloodRed.withValues(alpha: 0.25),
+                  child: Icon(
+                    BentoPlayerTile.avatarIcons[
+                        wolfVictim.avatarIndex % BentoPlayerTile.avatarIcons.length],
+                    size: 17,
+                    color: isHealed
+                        ? LupusColors.poisonGreen
+                        : const Color(0xFFFECDD3),
                   ),
-                  onPressed: (wolfVictim != null && hasHeal && !isHealed) ? widget.onWitchSave : null,
-                  icon: Icon(isHealed ? Icons.check_circle_rounded : Icons.healing_rounded, size: 14),
-                  label: Text(
-                    saveLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                ),
+                const SizedBox(width: 8),
+                // Pseudo et statut de danger
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              wolfVictim.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: isHealed
+                                  ? LupusColors.poisonGreen.withValues(alpha: 0.2)
+                                  : LupusColors.bloodRed.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isHealed ? context.tr('saved') : context.tr('victim'),
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: isHealed
+                                    ? LupusColors.poisonGreen
+                                    : const Color(0xFFFECDD3),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isHealed
+                            ? context.tr('victim_saved_tonight')
+                            : (hasHeal
+                                ? context.tr('life_potion')
+                                : context.tr('heal_exhausted')),
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: isHealed
+                              ? LupusColors.poisonGreen
+                              : (hasHeal
+                                  ? const Color(0xFFFECDD3)
+                                  : LupusColors.textMuted),
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                const SizedBox(width: 6),
+                // Action directe sur la victime : Sauver en 1 clic
+                if (isHealed) ...[
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0x33064E3B),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: LupusColors.poisonGreen.withValues(alpha: 0.6)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle_rounded,
+                            size: 13, color: LupusColors.poisonGreen),
+                        const SizedBox(width: 3),
+                        Text(
+                          context.tr('saved'),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: LupusColors.poisonGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (hasHeal) ...[
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.black,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      elevation: 2,
+                    ),
+                    onPressed: widget.onWitchSave,
+                    icon: const Icon(Icons.healing_rounded, size: 14),
+                    label: Text(
+                      context.tr('save_target', {'name': wolfVictim.name}),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900, fontSize: 11),
+                    ),
+                  ),
+                ] else ...[
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white10,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      context.tr('used_potion'),
+                      style: const TextStyle(
+                          fontSize: 9.5,
+                          color: LupusColors.textMuted,
+                          fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ] else ...[
+          // Message explicite : Aucune victime des loups cette nuit (bouton soin désactivé/masqué)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0x1F1E293B),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: const Color(0x330284C7),
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: const Color(0xFF38BDF8), width: 1),
+                  ),
+                  child: const Text('🕊️', style: TextStyle(fontSize: 13)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        context.tr('no_victim_to_save'),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFBAE6FD),
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        hasHeal
+                            ? context.tr('potion_available')
+                            : context.tr('potion_depleted'),
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: hasHeal
+                              ? LupusColors.poisonGreen
+                              : LupusColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 6),
+
+        // --- 2. SECTION POTION DE MORT (SÉLECTION LIBRE) ---
+        if (poisonVictim != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: LupusColors.bloodRed.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: LupusColors.bloodRed.withValues(alpha: 0.6)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.science_rounded,
+                    size: 14, color: LupusColors.bloodRed),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.tr('victim_poisoned_tonight',
+                        {'name': poisonVictim.name}),
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFFECDD3),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else if (hasPoison) ...[
+          if (selectedTarget != null &&
+              selectedTarget.isAlive &&
+              selectedTarget.id != widget.currentUserId) ...[
+            SizedBox(
+              height: 38,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: LupusColors.bloodRed,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => widget.onWitchPoison(selectedTarget.id),
+                icon: const Icon(Icons.science_rounded, size: 14),
+                label: Text(
+                  context.tr('poison_target', {'name': selectedTarget.name}),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 11),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            // Bouton Empoisonner (Nom)
-            Expanded(
-              child: SizedBox(
-                height: 40,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: hasPoison ? LupusColors.bloodRed : LupusColors.surfaceLight,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0x1F450A0A),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: LupusColors.bloodRed.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.science_outlined,
+                      size: 13,
+                      color: LupusColors.bloodRed.withValues(alpha: 0.8)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      context.tr('tap_player_to_target'),
+                      style: const TextStyle(
+                          fontSize: 10, color: LupusColors.textMuted),
+                    ),
                   ),
-                  onPressed: (selectedTarget != null && selectedTarget.isAlive && hasPoison && poisonVictimId == null)
-                      ? () => widget.onWitchPoison(selectedTarget.id)
-                      : null,
-                  icon: const Icon(Icons.science_rounded, size: 14),
-                  label: Text(
-                    poisonLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
-                  ),
-                ),
+                ],
               ),
             ),
           ],
-        ),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.science_outlined,
+                    size: 13, color: LupusColors.textMuted),
+                const SizedBox(width: 6),
+                Text(
+                  context.tr('poison_exhausted'),
+                  style: const TextStyle(
+                      fontSize: 10, color: LupusColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+
         const SizedBox(height: 6),
-        // Bouton [Valider]
+
+        // --- 3. BOUTON VALIDER / PASSER SON TOUR ---
         SizedBox(
           height: 38,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: LupusColors.arcanePurple,
-              side: const BorderSide(color: LupusColors.arcanePurple, width: 1.2),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: hasActed
+                  ? LupusColors.arcanePurple
+                  : LupusColors.surfaceLight,
+              foregroundColor: Colors.white,
+              elevation: hasActed ? 2 : 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              side: BorderSide(
+                color: hasActed
+                    ? LupusColors.arcanePurple
+                    : LupusColors.border.withValues(alpha: 0.6),
+              ),
             ),
             onPressed: widget.onWitchPass,
-            icon: const Icon(Icons.check_circle_outline_rounded, size: 15),
+            icon: Icon(
+              hasActed
+                  ? Icons.check_circle_rounded
+                  : Icons.bedtime_outlined,
+              size: 14,
+            ),
             label: Text(
-              context.tr('validate'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+              hasActed
+                  ? context.tr('confirm_witch_choices')
+                  : context.tr('witch_pass'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w800, fontSize: 11),
             ),
           ),
         ),

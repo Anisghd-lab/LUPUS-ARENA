@@ -1,139 +1,120 @@
-name: Lupus Arena CI/CD - Build & Release
+name: Build & Release Flutter APK
 
 on:
-  # Déclenchement automatique lors de la création d'un tag Git de version (ex: v1.0.16+17)
   push:
+    branches: [ main ]
     tags:
       - 'v*'
-    branches:
-      - main
-
-  # Déclenchement manuel depuis l'interface GitHub Actions
   workflow_dispatch:
-    inputs:
-      publish_release:
-        description: 'Publier automatiquement la release GitHub (true/false)'
-        required: false
-        default: 'true'
-        type: boolean
 
 permissions:
   contents: write
 
 jobs:
-  # =========================================================================
-  # ÉTAPE 1 : QUALITY GATE (Analyse statique et tests unitaires bloquants)
-  # =========================================================================
-  quality_gate:
-    name: Contrôle Qualité (Analyse & Tests Unitaires)
+  quality_check:
+    name: Contrôle Qualité (Analyse & Tests)
     runs-on: ubuntu-latest
     steps:
-      - name: Récupération du code source (Checkout)
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configuration de Java (JDK 17 Zulu)
-        uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
           cache: 'gradle'
 
-      - name: Configuration de l'environnement Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
-          cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash'
 
-      - name: Installation des dépendances du projet
+      - name: Install dependencies
         run: flutter pub get
         working-directory: lupus_arena
 
-      - name: Analyse statique du code (Quality Gate)
+      - name: Analyse statique
         run: flutter analyze --no-fatal-infos
         working-directory: lupus_arena
 
-      - name: Exécution des tests unitaires critiques de non-régression
+      - name: Tests unitaires critiques de non-régression
         run: flutter test test/werewolf_mechanics_test.dart
         working-directory: lupus_arena
 
-  # =========================================================================
-  # ÉTAPE 2 : COMPILATION MULTI-ABI & PUBLICATION DE LA RELEASE
-  # =========================================================================
-  build_and_release:
-    name: Compilation Multi-ABI & Publication GitHub Release
-    needs: quality_gate
-    # Exécuté uniquement lors d'un tag de version, d'un dispatch manuel ou si demandé
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+  build:
+    name: Compilation Multi-ABI & Release
+    needs: quality_check
     runs-on: ubuntu-latest
     env:
       ANDROID_USER_HOME: /tmp/android-user-home
-
     steps:
-      - name: Récupération du code source (Checkout)
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configuration de Java (JDK 17 Zulu)
-        uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
           cache: 'gradle'
 
-      - name: Configuration de l'environnement Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
-          cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash'
 
-      - name: Préparation de l'environnement Android
+      - name: Prepare Android user directory
         run: mkdir -p "$ANDROID_USER_HOME/.android"
         working-directory: lupus_arena
 
-      - name: Installation des dépendances Flutter
+      - name: Install dependencies
         run: flutter pub get
         working-directory: lupus_arena
 
-      - name: Génération des icônes de lancement haute résolution
+      - name: Generate Launcher Icons
         run: dart run flutter_launcher_icons
         working-directory: lupus_arena
 
-      - name: Compilation de l'APK Universel (Compatibilité tous téléphones)
+      - name: Build Universal APK
         run: |
           mkdir -p build/app/outputs/symbols
           flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols --android-skip-build-dependency-validation
         working-directory: lupus_arena
 
-      - name: Compilation des APKs scindés par architecture (Multi-ABI : arm64, arm32, x86_64)
+      - name: Build Split-per-ABI APKs (32-bit, 64-bit, x86_64)
         run: |
           flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/app/outputs/symbols --android-skip-build-dependency-validation
+          echo "=== Taille des APKs générés ==="
+          ls -lh build/app/outputs/flutter-apk/
         working-directory: lupus_arena
 
-      - name: Préparation et renommage des artéfacts de Release
+      - name: Prepare Named Release APKs
         run: |
           mkdir -p release_assets
-          # 1. APK Universel (Toutes architectures embarquées)
+          # 1. APK Universel (Toutes architectures)
           cp build/app/outputs/flutter-apk/app-release.apk release_assets/LupusArena.apk
           # 2. APK ARM 64-bit (Smartphones récents)
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release_assets/LupusArena-arm64.apk
-          # 3. APK ARM 32-bit (Anciens smartphones Android)
+          # 3. APK ARM 32-bit (Smartphones 32-bit)
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk release_assets/LupusArena-arm32.apk
-          # 4. APK x86_64 (Émulateurs et Chromebooks)
+          # 4. APK x86_64 (Émulateurs / Chromebooks)
           cp build/app/outputs/flutter-apk/app-x86_64-release.apk release_assets/LupusArena-x86_64.apk
 
-          echo "=== Artéfacts finaux prêts pour la release ==="
+          echo "=== Fichiers prêts pour la Release ==="
           ls -lh release_assets/
         working-directory: lupus_arena
 
-      - name: Sauvegarde des artéfacts dans les artéfacts GitHub Actions
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: lupus-arena-apks
           path: lupus_arena/release_assets/LupusArena*.apk
 
-      - name: Détermination de la version de l'application
-        id: get_version
+      - name: Determine Version
+        id: version_step
         run: |
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
@@ -142,19 +123,19 @@ jobs:
             TAG="v$RAW_VER"
           fi
           echo "APP_VERSION=$TAG" >> $GITHUB_ENV
-          echo "Version sélectionnée : $TAG"
+          echo "Building version: $TAG"
 
-      - name: Publication de la Release GitHub et attachement des APKs
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.APP_VERSION }}
-          name: "🐺 Lupus Arena Release ${{ env.APP_VERSION }}"
+          name: "Release ${{ env.APP_VERSION }}"
           body: |
             ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
 
-            Cette mise à jour majeure consolide la machine d'état du jeu, optimise l'équilibrage des factions et parachève l'expérience 100% vocale en direct.
+            Mise à jour majeure : stabilisation de la machine d'état, équilibrage canonique des factions, expérience 100% vocale et packaging multi-architecture.
 
-            #### 🌟 Points Forts & Correctifs Majeurs de cette Release :
+            #### 🌟 Points Forts & Correctifs :
             - **🧙‍♀️ Résolution Définitive de la Sorcière** : Résolution du blocage et du saut de tour à partir de la nuit 2 grâce à la propagation dynamique des rôles réels déchiffrés. Utilisation sécurisée et différée de la potion de mort à l'aube.
             - **⚖️ Règle Canonique de Parité des Loups & Fin de Partie Sanctuarisée** : Élimination du seuil prématuré de défaite. La meute ne l'emporte que par domination stricte (`loups >= villageois`), et la victoire n'est évaluée qu'à l'aube après annonce officielle ou après le vote du bûcher.
             - **🐺 Intégration Complète du Loup Noir & Silence Vocal Agora** : Application rigoureuse du silence vocal de 24h sur le microphone des victimes, avec harmonisation complète des modèles et des traductions (FR / EN / AR).
@@ -164,11 +145,11 @@ jobs:
             - **🚀 Module In-App Update Multi-Architecture** : Sélection automatique du binaire adapté au processeur de votre appareil (arm64, arm32, x86_64) pour des téléchargements ultra-légers et instantanés.
 
             ---
-            #### 📲 Binaires Disponibles au Téléchargement :
-            * **`LupusArena.apk`** : Paquet **Universel** (recommandé si vous hésitez, compatible 100% des téléphones Android).
-            * **`LupusArena-arm64.apk`** : Paquet optimisé **64-bit** (taille réduite, pour la majorité des smartphones récents).
-            * **`LupusArena-arm32.apk`** : Paquet optimisé **32-bit** (pour anciens smartphones Android).
-            * **`LupusArena-x86_64.apk`** : Paquet optimisé **x86_64** (pour émulateurs Android et Chromebooks).
+            #### 📲 Binaires Téléchargeables :
+            * **`LupusArena.apk`** : Paquet **Universel** (recommandé par défaut, compatible avec tous les téléphones Android).
+            * **`LupusArena-arm64.apk`** : Paquet optimisé **64-bit** (taille réduite, smartphones récents).
+            * **`LupusArena-arm32.apk`** : Paquet optimisé **32-bit** (anciens smartphones Android).
+            * **`LupusArena-x86_64.apk`** : Paquet optimisé **x86_64** (émulateurs et Chromebooks).
           draft: false
           prerelease: false
           files: |

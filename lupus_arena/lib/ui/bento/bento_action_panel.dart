@@ -674,6 +674,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       devourLabel = context.tr('devour_select');
     }
 
+    final isTargetWolf = selectedTarget != null &&
+        (selectedTarget.role.isEvil ||
+            selectedTarget.role.isWolfTeam ||
+            selectedTarget.role == GameRole.whiteWerewolf);
+
     return Row(
       children: [
         // Bouton Dévorer (Nom)
@@ -689,7 +694,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
               onPressed: (selectedTarget != null &&
                       selectedTarget.isAlive &&
-                      !selectedTarget.role.isEvil)
+                      !isTargetWolf)
                   ? () => widget.onVote(selectedTarget.id)
                   : null,
               icon: const Icon(Icons.pets_rounded, size: 15),

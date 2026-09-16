@@ -369,6 +369,15 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                         room,
                                       ),
                                       onPlayerSelected: (id) {
+                                        // Sécurité anti-fratricide : un loup ne peut pas cibler un confrère loup la nuit des loups
+                                        if (room.phase == GamePhase.nightWerewolves && isMeEvil) {
+                                          final target = room.players[id];
+                                          final isTargetWolf = target != null &&
+                                              (target.role.isEvil ||
+                                                  target.role.isWolfTeam ||
+                                                  gameState.wolfPlayerIds.contains(id));
+                                          if (isTargetWolf) return;
+                                        }
                                         setState(() {
                                           _selectedPlayerId =
                                               (_selectedPlayerId == id)
@@ -399,6 +408,15 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                       (myRole == GameRole.seer || isGodMode) &&
                                       _selectedPlayerId != null) {
                                     return;
+                                  }
+                                  // Sécurité anti-fratricide : un loup ne peut pas cibler un confrère loup la nuit des loups
+                                  if (room.phase == GamePhase.nightWerewolves && isMeEvil) {
+                                    final target = room.players[id];
+                                    final isTargetWolf = target != null &&
+                                        (target.role.isEvil ||
+                                            target.role.isWolfTeam ||
+                                            gameState.wolfPlayerIds.contains(id));
+                                    if (isTargetWolf) return;
                                   }
                                   setState(() {
                                     _selectedPlayerId =

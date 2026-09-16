@@ -5,23 +5,20 @@ package com.lupusarena.engine
  * - À 4 joueurs -> 1 vision
  * - De 5 à 9 joueurs -> 2 visions
  * - De 10 à 14 joueurs -> 3 visions
- * - 15+ joueurs -> N / 4
- * - Décrémentation à chaque inspection nocturne via consommerVision()
- * - Révocation automatique et immédiate du rôle en Role.VILLAGEOIS_SIMPLE dès que visionsRestantes == 0
+ * - 15+ joueurs -> totalJoueurs / 4
+ * - Décrémentation à chaque inspection nocturne
+ * - Révocation automatique vers Role.VILLAGEOIS_SIMPLE dès que visionsRestantes == 0
+ * - IMPORTANT : Seul roleActif est déchu, roleInitial reste Role.VOYANTE
  */
 class GestionnaireVoyante(
     val totalJoueurs: Int,
     val joueur: Joueur? = null
 ) {
     /**
-     * Constructeur secondaire avec joueur en premier argument pour interopérabilité.
+     * Constructeur secondaire facilitant l'instanciation directe avec un Joueur et le total de joueurs.
      */
     constructor(joueur: Joueur, totalJoueurs: Int) : this(totalJoueurs, joueur)
 
-    // À 4 joueurs -> 1 vision
-    // De 5 à 9 joueurs -> 2 visions
-    // De 10 à 14 joueurs -> 3 visions
-    // 15+ joueurs -> N / 4
     val maxVisions: Int = when {
         totalJoueurs <= 4 -> 1
         totalJoueurs < 10 -> 2
@@ -34,52 +31,54 @@ class GestionnaireVoyante(
 
     init {
         joueur?.let {
-            require(it.role == Role.VOYANTE) {
-                "Le joueur doit être assigné au rôle Role.VOYANTE."
+            require(it.roleInitial == Role.VOYANTE) {
+                "Le joueur doit avoir pour rôle initial Role.VOYANTE."
             }
             it.visionsRestantes = maxVisions
         }
     }
 
-    fun peutSonder(): Boolean = visionsRestantes > 0
+    val peutSonder: Boolean
+        get() = visionsRestantes > 0
+
+    val aEncoreDesVisions: Boolean
+        get() = peutSonder
 
     fun consommerVision(): Boolean {
-        if (peutSonder()) {
+        if (peutSonder) {
             visionsRestantes--
-            joueur?.let {
-                it.visionsRestantes = visionsRestantes
-                verifierEtAppliquerDecheance()
-            }
+            joueur?.visionsRestantes = visionsRestantes
+            verifierEtAppliquerDecheance()
             return true
         }
         return false
     }
 
-    val aEncoreDesVisions: Boolean get() = peutSonder()
-
     /**
      * Inspecte l'identité secrète d'un joueur vivant.
-     * Consomme 1 vision et déclenche la déchéance si le quota tombe à 0.
-     * @param cible Le joueur ciblé pour la révélation.
-     * @return Le rôle découvert, ou null si l'inspection est impossible.
+     * Le Loup Blanc apparaît sous l'apparence trompeuse d'un Simple Villageois.
      */
     fun inspecter(cible: Joueur): Role? {
-        if (joueur != null && (!joueur.estEnVie || joueur.role != Role.VOYANTE)) {
+        if (joueur != null && (!joueur.estEnVie || joueur.roleActif != Role.VOYANTE)) {
             return null
         }
-        if (!consommerVision()) {
-            return null
+        if (consommerVision()) {
+            return when (cible.roleInitial) {
+                Role.LOUP_BLANC -> Role.VILLAGEOIS_SIMPLE
+                else -> cible.roleInitial
+            }
         }
-        return cible.role
+        return null
     }
 
     /**
-     * Dès que visionsRestantes == 0, le rôle actif est immédiatement transformé en Role.VILLAGEOIS_SIMPLE.
+     * Dès que visionsRestantes == 0, roleActif est immédiatement transformé en VILLAGEOIS_SIMPLE.
+     * roleInitial reste Role.VOYANTE.
      */
     fun verifierEtAppliquerDecheance(): Boolean {
         joueur?.let {
-            if (visionsRestantes == 0 && it.role == Role.VOYANTE) {
-                it.role = Role.VILLAGEOIS_SIMPLE
+            if (visionsRestantes == 0 && it.roleActif == Role.VOYANTE) {
+                it.roleActif = Role.VILLAGEOIS_SIMPLE
                 return true
             }
         }

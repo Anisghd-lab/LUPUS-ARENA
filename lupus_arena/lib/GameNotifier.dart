@@ -1370,6 +1370,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await _syncState(updates);
   }
 
+  Future<void> passDebate() => passTurnDebate();
+
   Future<void> processDayVoteResolution() async {
     if (!state.isHost || state.room == null) return;
 

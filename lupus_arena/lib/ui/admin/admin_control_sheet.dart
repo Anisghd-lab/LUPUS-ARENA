@@ -318,13 +318,37 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${player.role.displayName} • ${player.role.defaultTeam.name.toUpperCase()}',
+                        player.estDechu
+                            ? '${player.role.displayName} (Déchu de ${player.roleInitial.displayName}) • ${player.role.defaultTeam.name.toUpperCase()}'
+                            : '${player.role.displayName} • ${player.role.defaultTeam.name.toUpperCase()}',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: player.role.accentColor,
                         ),
                       ),
+                      if (player.roleInitial == GameRole.witch) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '🧪 Vie: ${player.potionsVie} | ☠️ Mort: ${player.potionsMort}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: LupusColors.poisonGreen,
+                          ),
+                        ),
+                      ],
+                      if (player.roleInitial == GameRole.seer) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '🔮 Visions restantes : ${player.visionsRestantes}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFC084FC),
+                          ),
+                        ),
+                      ],
                       if (targetPlayer != null) ...[
                         const SizedBox(height: 2),
                         Text(
@@ -644,14 +668,41 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${player.name} (${player.role.displayName})',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: player.isAlive
-                            ? Colors.white
-                            : LupusColors.textMuted,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            player.estDechu
+                                ? '${player.name} (${player.role.displayName} • Ex-${player.roleInitial.displayName})'
+                                : '${player.name} (${player.role.displayName})',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: player.isAlive
+                                  ? Colors.white
+                                  : LupusColors.textMuted,
+                            ),
+                          ),
+                          if (player.roleInitial == GameRole.witch)
+                            Text(
+                              '🧪 Vie: ${player.potionsVie} | ☠️ Mort: ${player.potionsMort}',
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: LupusColors.poisonGreen,
+                              ),
+                            ),
+                          if (player.roleInitial == GameRole.seer)
+                            Text(
+                              '🔮 Visions restantes : ${player.visionsRestantes}',
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFC084FC),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     Row(

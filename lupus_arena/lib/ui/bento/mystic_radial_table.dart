@@ -280,8 +280,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       {'role': selectedPlayer.role.displayName});
                   roleColor = selectedPlayer.role.accentColor;
                 } else if (isTargetDead) {
-                  roleText = selectedPlayer.role.displayName;
-                  roleColor = selectedPlayer.role.accentColor;
+                  roleText = selectedPlayer.roleInitial.displayName;
+                  roleColor = selectedPlayer.roleInitial.accentColor;
                 } else if (targetSeerRole != null) {
                   roleText = '🔮 ${targetSeerRole.displayName}';
                   roleColor = targetSeerRole.accentColor;
@@ -294,7 +294,9 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                   roleText = '🐺 $wolfName';
                   roleColor = const Color(0xFFFF8B8B);
                 } else if (isTargetGodMode) {
-                  roleText = selectedPlayer.role.displayName;
+                  roleText = selectedPlayer.estDechu
+                      ? '${selectedPlayer.role.displayName} (Ex-${selectedPlayer.roleInitial.displayName})'
+                      : selectedPlayer.role.displayName;
                   roleColor = selectedPlayer.role.accentColor;
                 }
 

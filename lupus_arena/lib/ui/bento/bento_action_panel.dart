@@ -269,8 +269,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   Widget _buildWitchSection(PlayerModel witch, PlayerModel? selectedTarget) {
     final wolfVictimId = widget.room.nightVictimId;
     final wolfVictim = wolfVictimId != null ? widget.room.players[wolfVictimId] : null;
-    final hasHeal = !witch.hasUsedHealPotion || widget.isAdmin;
-    final hasPoison = !witch.hasUsedPoisonPotion || widget.isAdmin;
+    final hasHeal = (witch.potionsVie > 0 && !widget.room.witchHealed) || widget.isAdmin;
+    final hasPoison = witch.potionsMort > 0 || widget.isAdmin;
     final isHealed = widget.room.witchHealed;
     final poisonVictimId = widget.room.witchPoisonVictimId;
     final poisonVictim = poisonVictimId != null ? widget.room.players[poisonVictimId] : null;
@@ -280,6 +280,43 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Bandeau d'état des potions Sorcière (stocks indépendants)
+        Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: const Color(0x1F10B981),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: LupusColors.poisonGreen.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '🧪 Potions de Vie : ${witch.potionsVie}',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: witch.potionsVie > 0
+                      ? LupusColors.poisonGreen
+                      : LupusColors.textMuted,
+                ),
+              ),
+              Text(
+                '☠️ Potions de Mort : ${witch.potionsMort}',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: witch.potionsMort > 0
+                      ? LupusColors.arcaneCrimson
+                      : LupusColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
         // --- 1. CARTE DÉDIÉE : VICTIME DES LOUPS & POTION DE VIE ---
         if (wolfVictim != null) ...[
           Container(
@@ -658,11 +695,16 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Loups-Garous : [Dévorer (Nom)] + [Valider]
+  /// Module Loups-Garous : [Dévorer (Nom)] + [Faire Taire (Nom)] + [Valider]
   Widget _buildWerewolvesSection(PlayerModel me, PlayerModel? selectedTarget) {
     final currentVoteTargetId = me.targetVoteId;
     final currentVoteTarget = currentVoteTargetId != null
         ? widget.room.players[currentVoteTargetId]
+        : null;
+
+    final silencedTargetId = widget.room.blackWolfTargetId;
+    final silencedTarget = (silencedTargetId != null && silencedTargetId.isNotEmpty)
+        ? widget.room.players[silencedTargetId]
         : null;
 
     final String devourLabel;
@@ -674,59 +716,112 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       devourLabel = context.tr('devour_select');
     }
 
+    final String silenceLabel;
+    if (silencedTarget != null) {
+      silenceLabel = '🔇 ${silencedTarget.name}';
+    } else if (selectedTarget != null) {
+      silenceLabel = '🔇 Taire ${selectedTarget.name}';
+    } else {
+      silenceLabel = '🔇 Faire Taire';
+    }
+
     final isTargetWolf = selectedTarget != null &&
         (selectedTarget.role.isEvil ||
             selectedTarget.role.isWolfTeam ||
             selectedTarget.role == GameRole.whiteWerewolf);
 
-    return Row(
+    final canSilence = selectedTarget != null &&
+        selectedTarget.isAlive &&
+        !isTargetWolf &&
+        selectedTarget.id != currentVoteTargetId;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Bouton Dévorer (Nom)
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LupusColors.bloodRed,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        Row(
+          children: [
+            // Bouton Dévorer (Nom)
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: LupusColors.bloodRed,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: (selectedTarget != null &&
+                          selectedTarget.isAlive &&
+                          !isTargetWolf)
+                      ? () => widget.onVote(selectedTarget.id)
+                      : null,
+                  icon: const Icon(Icons.pets_rounded, size: 14),
+                  label: Text(
+                    devourLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                  ),
+                ),
               ),
-              onPressed: (selectedTarget != null &&
-                      selectedTarget.isAlive &&
-                      !isTargetWolf)
-                  ? () => widget.onVote(selectedTarget.id)
-                  : null,
-              icon: const Icon(Icons.pets_rounded, size: 15),
-              label: Text(
-                devourLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+            ),
+            const SizedBox(width: 6),
+            // Bouton Faire Taire (Nom) - Intimidation de la meute
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF311042),
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: canSilence || silencedTarget != null
+                          ? const Color(0xFF9333EA)
+                          : Colors.white12,
+                      width: 1.2,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: canSilence
+                      ? () => widget.onBlackWolfSilence?.call(selectedTarget.id)
+                      : null,
+                  icon: const Icon(Icons.volume_off_rounded, size: 14, color: Color(0xFFC084FC)),
+                  label: Text(
+                    silenceLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        // Bouton [Valider]
-        SizedBox(
-          height: 40,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0x992B1010),
-              foregroundColor: const Color(0xFFFECDD3),
-              side: BorderSide(color: LupusColors.arcaneCrimson.withValues(alpha: 0.6)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            const SizedBox(width: 6),
+            // Bouton [Valider]
+            SizedBox(
+              height: 40,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0x992B1010),
+                  foregroundColor: const Color(0xFFFECDD3),
+                  side: BorderSide(color: LupusColors.arcaneCrimson.withValues(alpha: 0.6)),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: widget.onNextPhase,
+                icon: const Icon(Icons.check_rounded, size: 14),
+                label: Text(
+                  context.tr('validate'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+                ),
+              ),
             ),
-            onPressed: widget.onNextPhase,
-            icon: const Icon(Icons.check_rounded, size: 15),
-            label: Text(
-              context.tr('validate'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-            ),
-          ),
+          ],
         ),
       ],
     );
@@ -734,6 +829,14 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
   /// Module Voyante : [Sonder (Nom)] + [Valider]
   Widget _buildSeerSection(PlayerModel? selectedTarget) {
+    final me = widget.room.players[widget.currentUserId] ??
+        widget.room.playerList.first;
+    final seerPlayer = widget.room.playerList.firstWhere(
+      (p) => p.role == GameRole.seer || p.roleInitial == GameRole.seer,
+      orElse: () => me,
+    );
+    final visionsLeft = seerPlayer.visionsRestantes;
+
     if (widget.inspectedRole != null) {
       final role = widget.inspectedRole!;
       return Row(
@@ -789,49 +892,100 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       inspectLabel = context.tr('inspect_select');
     }
 
-    return Row(
+    final canInspect = (visionsLeft > 0 || widget.isAdmin) &&
+        selectedTarget != null &&
+        selectedTarget.isAlive &&
+        selectedTarget.id != widget.currentUserId;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Bouton Sonder (Nom)
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LupusColors.arcanePurple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: (selectedTarget != null &&
-                      selectedTarget.isAlive &&
-                      selectedTarget.id != widget.currentUserId)
-                  ? () => widget.onInspect(selectedTarget.id)
-                  : null,
-              icon: const Icon(Icons.visibility_rounded, size: 15),
-              label: Text(
-                inspectLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
-              ),
+        // Indicateur quota dynamique de visions Voyante
+        Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: const Color(0x1F9333EA),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: LupusColors.arcanePurple.withValues(alpha: 0.35),
             ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text('🔮', style: TextStyle(fontSize: 12)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Visions restantes : $visionsLeft',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: visionsLeft > 0
+                          ? const Color(0xFFE9D5FF)
+                          : LupusColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+              if (visionsLeft == 0 && !widget.isAdmin)
+                const Text(
+                  'Déchu en Villageois',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: LupusColors.arcaneCrimson,
+                  ),
+                ),
+            ],
           ),
         ),
-        const SizedBox(width: 8),
-        // Bouton Valider
-        SizedBox(
-          height: 40,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: LupusColors.arcanePurple,
-              side: const BorderSide(color: LupusColors.arcanePurple),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        Row(
+          children: [
+            // Bouton Sonder (Nom)
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: LupusColors.arcanePurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: canInspect
+                      ? () => widget.onInspect(selectedTarget.id)
+                      : null,
+                  icon: const Icon(Icons.visibility_rounded, size: 15),
+                  label: Text(
+                    inspectLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+                  ),
+                ),
+              ),
             ),
-            onPressed: widget.onCompleteSeerTurn,
-            icon: const Icon(Icons.check_rounded, size: 15),
-            label: Text(context.tr('validate'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-          ),
+            const SizedBox(width: 8),
+            // Bouton Valider
+            SizedBox(
+              height: 40,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: LupusColors.arcanePurple,
+                  side: const BorderSide(color: LupusColors.arcanePurple),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: widget.onCompleteSeerTurn,
+                icon: const Icon(Icons.check_rounded, size: 15),
+                label: Text(context.tr('validate'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+              ),
+            ),
+          ],
         ),
       ],
     );

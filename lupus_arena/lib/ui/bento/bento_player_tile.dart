@@ -64,13 +64,13 @@ class BentoPlayerTile extends StatelessWidget {
     final GameRole roleToDisplay =
         (seerDiscoveredRole != null && !isMe && !isDead)
             ? seerDiscoveredRole!
-            : player.role;
+            : (isDead ? player.roleInitial : player.role);
 
     String roleLabel;
     if (isMe) {
       roleLabel = context.tr('my_role_label', {'role': player.role.displayName});
     } else if (isDead) {
-      roleLabel = player.role.displayName;
+      roleLabel = player.roleInitial.displayName;
     } else if (seerDiscoveredRole != null) {
       roleLabel = '🔮 ${seerDiscoveredRole!.displayName}';
     } else if (isWolfPeer) {
@@ -81,7 +81,9 @@ class BentoPlayerTile extends StatelessWidget {
               : 'Loup-Garou';
       roleLabel = '🐺 $wolfName';
     } else if (isGodMode) {
-      roleLabel = player.role.displayName;
+      roleLabel = player.estDechu
+          ? '${player.role.displayName} (Ex-${player.roleInitial.displayName})'
+          : player.role.displayName;
     } else {
       roleLabel = context.tr('alive');
     }
@@ -240,6 +242,11 @@ class BentoPlayerTile extends StatelessWidget {
                 if (player.isDoused && (isMe || myRole == GameRole.pyromaniac || isGodMode || isDead)) ...[
                   const Icon(Icons.local_fire_department_rounded,
                       size: 11, color: Color(0xFFFF4800)),
+                  const SizedBox(width: 2),
+                ],
+                if (player.isMuted) ...[
+                  const Icon(Icons.volume_off_rounded,
+                      size: 11, color: Color(0xFFC084FC)),
                   const SizedBox(width: 2),
                 ],
                 Flexible(

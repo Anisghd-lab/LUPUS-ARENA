@@ -79,13 +79,13 @@ class GameRoom {
       final list = <PlayerModel>[];
       final seen = <String>{};
       for (final id in seatingOrder) {
-        if (players.containsKey(id)) {
+        if (players.containsKey(id) && players[id] != null) {
           list.add(players[id]!);
           seen.add(id);
         }
       }
       for (final entry in players.entries) {
-        if (!seen.contains(entry.key)) {
+        if (!seen.contains(entry.key) && entry.value != null) {
           list.add(entry.value);
           seen.add(entry.key);
         }
@@ -95,7 +95,7 @@ class GameRoom {
     final all = <PlayerModel>[];
     final seen = <String>{};
     for (final p in players.values) {
-      if (!seen.contains(p.id)) {
+      if (p != null && !seen.contains(p.id)) {
         all.add(p);
         seen.add(p.id);
       }

@@ -951,59 +951,66 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   Future<void> processNightTransitions() async {
     if (state.room == null) return;
 
-    final room = state.room!;
-    final current = room.phase;
-    final round = room.round;
-    final realRoles = await _resolveRealRoles(room);
+    try {
+      final room = state.room!;
+      final current = room.phase;
+      final round = room.round;
+      final realRoles = await _resolveRealRoles(room);
 
-    final next = _getNextNightPhase(
-      current: current,
-      round: round,
-      players: room.players,
-      realRoles: realRoles,
-    );
+      final next = _getNextNightPhase(
+        current: current,
+        round: round,
+        players: room.players,
+        realRoles: realRoles,
+      );
 
-    if (next == GamePhase.morningAnnouncement) {
-      await resolveMorningDeaths();
-    } else {
-      final logs = List<String>.from(room.logs);
-      logs.add('Éveil nocturne : ${next.titleFr}.');
+      if (next == GamePhase.morningAnnouncement) {
+        await resolveMorningDeaths();
+      } else {
+        final logs = List<String>.from(room.logs);
+        logs.add('Éveil nocturne : ${next.titleFr}.');
 
-      final updates = <String, dynamic>{
-        'phase': next.name,
-        'timerSeconds': 40,
-        'logs': logs,
-      };
+        final updates = <String, dynamic>{
+          'phase': next.name,
+          'timerSeconds': 40,
+          'logs': logs,
+        };
 
-      // Si les loups terminent leur phase, calculer et fixer leur cible pour la Voyante et la Sorcière
-      if (current == GamePhase.nightWerewolves) {
-        String? wolfVictimId = _tallyWerewolfVotes() ?? room.nightVictimId;
+        // Si les loups terminent leur phase, calculer et fixer leur cible pour la Voyante et la Sorcière
+        if (current == GamePhase.nightWerewolves) {
+          String? wolfVictimId = _tallyWerewolfVotes() ?? room.nightVictimId;
 
-        if (wolfVictimId == null) {
-          final innocentLiving = room.alivePlayers
-              .where((p) => !(realRoles[p.id] ?? p.role).isEvil)
-              .toList();
-          if (innocentLiving.isNotEmpty) {
-            final randomVictim =
-                innocentLiving[Random().nextInt(innocentLiving.length)];
-            wolfVictimId = randomVictim.id;
+          if (wolfVictimId == null) {
+            final innocentLiving = room.alivePlayers
+                .where((p) => !(realRoles[p.id] ?? p.role).isEvil)
+                .toList();
+            if (innocentLiving.isNotEmpty) {
+              final randomVictim =
+                  innocentLiving[Random().nextInt(innocentLiving.length)];
+              wolfVictimId = randomVictim.id;
+            }
+          }
+
+          if (wolfVictimId != null) {
+            updates['nightVictimId'] = wolfVictimId;
+            final victim = room.players[wolfVictimId];
+            final victimName = victim?.name ?? 'Un villageois';
+            logs.add(
+              '🐺 Les Loups-Garous ont choisi leur victime dans l\'ombre : $victimName.',
+            );
           }
         }
 
-        if (wolfVictimId != null) {
-          updates['nightVictimId'] = wolfVictimId;
-          final victim = room.players[wolfVictimId];
-          final victimName = victim?.name ?? 'Un villageois';
-          logs.add(
-            '🐺 Les Loups-Garous ont choisi leur victime dans l\'ombre : $victimName.',
-          );
-        }
+        // Nettoyage systématique des votes lors de chaque transition
+        _resetAllVotes(updates);
+
+        await _syncState(updates);
       }
-
-      // Nettoyage systématique des votes lors de chaque transition
-      _resetAllVotes(updates);
-
-      await _syncState(updates);
+    } catch (e, stack) {
+      debugPrint('[processNightTransitions Exception] $e\n$stack');
+      try {
+        await resolveMorningDeaths();
+      } catch (_) {}
     }
   }
 
@@ -1116,168 +1123,164 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         room.phase == GamePhase.gameOver) {
       return;
     }
-    final updates = <String, dynamic>{};
-    final logs = List<String>.from(room.logs);
-    final List<String> effectiveDeaths = [];
+    try {
+      final updates = <String, dynamic>{};
+      final logs = List<String>.from(room.logs);
+      final List<String> effectiveDeaths = [];
 
-    // 1. Victime des Loups
-    final wolfVictimId = room.nightVictimId ?? _tallyWerewolfVotes();
-    if (wolfVictimId != null) {
-      final isProtected = room.currentProtectedPlayerId == wolfVictimId;
-      final isHealed = room.witchHealed;
+      // 1. Victime des Loups
+      final wolfVictimId = room.nightVictimId ?? _tallyWerewolfVotes();
+      if (wolfVictimId != null) {
+        final isProtected = room.currentProtectedPlayerId == wolfVictimId;
+        final isHealed = room.witchHealed;
 
-      if (!isProtected && !isHealed) {
-        effectiveDeaths.add(wolfVictimId);
-      } else if (isProtected) {
-        logs.add(
-          '🛡️ Le Salvateur a veillé sur la cible des loups cette nuit !',
-        );
-      } else if (isHealed) {
-        logs.add('✨ Une potion de guérison miraculeuse a sauvé la victime !');
-      }
-    }
-
-    // 2. Victime du poison
-    if (room.witchPoisonVictimId != null &&
-        !effectiveDeaths.contains(room.witchPoisonVictimId)) {
-      effectiveDeaths.add(room.witchPoisonVictimId!);
-    }
-
-    // 2b. Pyromane
-    if (room.pyromaniacIgnited) {
-      int burnedCount = 0;
-      for (final p in room.alivePlayers) {
-        if (p.isDoused) {
-          if (!effectiveDeaths.contains(p.id)) {
-            effectiveDeaths.add(p.id);
-          }
-          updates['players/${p.id}/isDoused'] = false;
-          burnedCount++;
+        if (!isProtected && !isHealed) {
+          effectiveDeaths.add(wolfVictimId);
+        } else if (isProtected) {
+          logs.add(
+            '🛡️ Le Salvateur a veillé sur la cible des loups cette nuit !',
+          );
+        } else if (isHealed) {
+          logs.add('✨ Une potion de guérison miraculeuse a sauvé la victime !');
         }
       }
-      if (burnedCount > 0) {
-        logs.add(
-          '🔥 LE BRASIER DU PYROMANE : $burnedCount maison(s) calcinée(s) !',
-        );
-      }
-      updates['pyromaniacIgnited'] = false;
-    }
 
-    // 3. Morts et Chagrin des Amoureux
-    final allDeaths = <String>{...effectiveDeaths};
-    for (final deadId in effectiveDeaths) {
-      final partnerDead = handleLoverDeath(deadId, room.players, logs);
-      if (partnerDead != null) {
-        allDeaths.add(partnerDead);
+      // 2. Victime du poison
+      if (room.witchPoisonVictimId != null &&
+          !effectiveDeaths.contains(room.witchPoisonVictimId)) {
+        effectiveDeaths.add(room.witchPoisonVictimId!);
       }
-    }
 
-    for (final id in allDeaths) {
-      updates['players/$id/isAlive'] = false;
-      final player = room.players[id];
-      if (player != null) {
-        GameRole revealedRole = player.role;
-        try {
-          final sSnap = await _database
-              .ref('rooms/${room.roomCode}/secret_roles/$id/roleId')
-              .get();
-          if (sSnap.exists && sSnap.value != null) {
-            revealedRole = GameRole.fromId(sSnap.value.toString());
+      // 2b. Pyromane
+      if (room.pyromaniacIgnited) {
+        int burnedCount = 0;
+        for (final p in room.alivePlayers) {
+          if (p.isDoused) {
+            if (!effectiveDeaths.contains(p.id)) {
+              effectiveDeaths.add(p.id);
+            }
+            updates['players/${p.id}/isDoused'] = false;
+            burnedCount++;
           }
-        } catch (_) {}
-        updates['players/$id/role'] = revealedRole.id;
-        logs.add(
-          '💀 ${player.name} (${revealedRole.displayNameFr}) a succombé.',
-        );
+        }
+        if (burnedCount > 0) {
+          logs.add(
+            '🔥 LE BRASIER DU PYROMANE : $burnedCount maison(s) calcinée(s) !',
+          );
+        }
+        updates['pyromaniacIgnited'] = false;
       }
-    }
 
-    if (allDeaths.isEmpty) {
-      logs.add(
-        '🌅 L\'aube se lève sur Thiercelieux... Aucun mort n\'est à déplorer cette nuit !',
-      );
-    } else {
-      logs.add(
-        '🌅 L\'aube se lève dans le deuil. Le village compte ${allDeaths.length} trépassé(s).',
-      );
-    }
-
-    // 2c. Loup Noir : Réduire au silence pour toute la durée de la journée
-    if (room.blackWolfTargetId != null) {
-      final silencedId = room.blackWolfTargetId!;
-      final silencedPlayer = room.players[silencedId];
-      if (silencedPlayer != null && !allDeaths.contains(silencedId)) {
-        updates['players/$silencedId/isMuted'] = true;
-        logs.add(
-          '🔇 SORT DU LOUP NOIR : ${silencedPlayer.name} est réduit(e) au silence pour toute la journée ! (Micro et chat désactivés)',
-        );
-        if (state.currentUserId == silencedId) {
-          _voiceService.setMute(true);
+      // 3. Morts et Chagrin des Amoureux
+      final allDeaths = <String>{...effectiveDeaths};
+      for (final deadId in effectiveDeaths) {
+        final partnerDead = handleLoverDeath(deadId, room.players, logs);
+        if (partnerDead != null) {
+          allDeaths.add(partnerDead);
         }
       }
-    }
 
-    updates['lastProtectedPlayerId'] = room.currentProtectedPlayerId;
-    updates['currentProtectedPlayerId'] = null;
-    updates['nightVictimId'] = null;
-    updates['witchHealed'] = false;
-    updates['witchPoisonVictimId'] = null;
-    updates['morningVictims'] = allDeaths.toList();
-
-    _resetAllVotes(updates);
-
-    String? pendingHunter;
-    String? pendingCaptain;
-
-    final realRoles = await _resolveRealRoles(room);
-
-    for (final id in allDeaths) {
-      final p = room.players[id];
-      final r = realRoles[id] ?? p?.role;
-      if (r == GameRole.hunter) {
-        pendingHunter = id;
+      for (final id in allDeaths) {
+        updates['players/$id/isAlive'] = false;
+        final player = room.players[id];
+        if (player != null) {
+          GameRole revealedRole = player.role;
+          try {
+            final sSnap = await _database
+                .ref('rooms/${room.roomCode}/secret_roles/$id/roleId')
+                .get();
+            if (sSnap.exists && sSnap.value != null) {
+              revealedRole = GameRole.fromId(sSnap.value.toString());
+            }
+          } catch (_) {}
+          updates['players/$id/role'] = revealedRole.id;
+          logs.add(
+            '💀 ${player.name} (${revealedRole.displayNameFr}) a succombé.',
+          );
+        }
       }
-      if (p?.isCaptain == true || room.captainId == id) {
-        pendingCaptain = id;
+
+      if (allDeaths.isEmpty) {
+        logs.add(
+          '🌅 L\'aube se lève sur Thiercelieux... Aucun mort n\'est à déplorer cette nuit !',
+        );
+      } else {
+        logs.add(
+          '🌅 L\'aube se lève dans le deuil. Le village compte ${allDeaths.length} trépassé(s).',
+        );
       }
-    }
 
-    final simulatedRoom = room.copyWith(
-      players: room.players.map(
-        (k, v) =>
-            MapEntry(k, allDeaths.contains(k) ? v.copyWith(isAlive: false) : v),
-      ),
-    );
-    final win = checkWinConditions(simulatedRoom, realRoles);
-
-    if (win != null) {
-      updates['phase'] = GamePhase.gameOver.name;
-      updates['winner'] = win;
-      logs.add(_formatVictoryMessage(win));
-      // Révélation publique de tous les rôles restants à la fin de partie
-      for (final p in room.playerList) {
-        final revealedRole = realRoles[p.id] ?? p.role;
-        updates['players/${p.id}/role'] = revealedRole.id;
+      // 2c. Loup Noir : Réduire au silence pour toute la durée de la journée
+      if (room.blackWolfTargetId != null) {
+        final silencedId = room.blackWolfTargetId!;
+        final silencedPlayer = room.players[silencedId];
+        if (silencedPlayer != null && !allDeaths.contains(silencedId)) {
+          updates['players/$silencedId/isMuted'] = true;
+          logs.add(
+            '🔇 SORT DU LOUP NOIR : ${silencedPlayer.name} est réduit(e) au silence pour toute la journée ! (Micro et chat désactivés)',
+          );
+          if (state.currentUserId == silencedId) {
+            _voiceService.setMute(true);
+          }
+        }
       }
-    } else if (pendingHunter != null) {
-      updates['phase'] = GamePhase.hunterDeathChoice.name;
-      updates['pendingHunterId'] = pendingHunter;
-      updates['timerSeconds'] = 25;
-      logs.add(
-        '🎯 Le Chasseur a été abattu ! Il a 25s pour faire feu dans son dernier souffle.',
-      );
-    } else if (pendingCaptain != null) {
-      updates['phase'] = GamePhase.captainSuccession.name;
-      updates['pendingCaptainId'] = pendingCaptain;
-      updates['timerSeconds'] = 25;
-      logs.add('🎖️ Le Capitaine est tombé ! Il doit nommer son héritier.');
-    } else {
-      updates['phase'] = GamePhase.morningAnnouncement.name;
-      updates['timerSeconds'] = 20;
-    }
 
-    updates['logs'] = logs;
-    await _syncState(updates);
+      updates['lastProtectedPlayerId'] = room.currentProtectedPlayerId;
+      updates['currentProtectedPlayerId'] = null;
+      updates['nightVictimId'] = null;
+      updates['witchHealed'] = false;
+      updates['witchPoisonVictimId'] = null;
+      updates['morningVictims'] = allDeaths.toList();
+
+      _resetAllVotes(updates);
+
+      String? pendingHunter;
+      String? pendingCaptain;
+
+      final realRoles = await _resolveRealRoles(room);
+
+      for (final id in allDeaths) {
+        final p = room.players[id];
+        final r = realRoles[id] ?? p?.role;
+        if (r == GameRole.hunter) {
+          pendingHunter = id;
+        }
+        if (p?.isCaptain == true || room.captainId == id) {
+          pendingCaptain = id;
+        }
+      }
+
+      if (pendingHunter != null) {
+        updates['phase'] = GamePhase.hunterDeathChoice.name;
+        updates['pendingHunterId'] = pendingHunter;
+        updates['timerSeconds'] = 25;
+        logs.add(
+          '🎯 Le Chasseur a été abattu ! Il a 25s pour faire feu dans son dernier souffle.',
+        );
+      } else if (pendingCaptain != null) {
+        updates['phase'] = GamePhase.captainSuccession.name;
+        updates['pendingCaptainId'] = pendingCaptain;
+        updates['timerSeconds'] = 25;
+        logs.add('🎖️ Le Capitaine est tombé ! Il doit nommer son héritier.');
+      } else {
+        updates['phase'] = GamePhase.morningAnnouncement.name;
+        updates['timerSeconds'] = 20;
+      }
+
+      updates['logs'] = logs;
+      await _syncState(updates);
+    } catch (e, stack) {
+      debugPrint('[resolveMorningDeaths Exception] $e\n$stack');
+      try {
+        await _syncState({
+          'phase': GamePhase.morningAnnouncement.name,
+          'timerSeconds': 20,
+          'witchHealed': false,
+          'witchPoisonVictimId': null,
+          'nightVictimId': null,
+        });
+      } catch (_) {}
+    }
   }
 
   String? handleLoverDeath(
@@ -1642,7 +1645,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     return roles;
   }
 
-  String? checkWinConditions(
+  static String? checkWinConditions(
     GameRoom room, [
     Map<String, GameRole>? resolvedRealRoles,
   ]) {
@@ -1690,33 +1693,27 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     // 4. Décompte des camps avec les vrais rôles
     final aliveWolves = alive.where((p) => getRole(p).isEvil).length;
     final aliveVillagers = alive.where((p) => !getRole(p).isEvil).length;
-    final totalPlayersAtStart = room.players.length;
 
-    // Condition de victoire des Loups :
-    // - 0 loup en vie = impossible qu'ils gagnent
-    // - Pour une partie lancée à 4 joueurs :
-    //   Le loup gagne uniquement s'il reste 1 loup face à 1 villageois (ou 0 villageois)
-    // - Règle générale (5 joueurs et plus) :
-    //   1 loup vivant contre 2 villageois (ou moins) suffit pour gagner
-    final bool wolvesWon;
-    if (aliveWolves == 0) {
-      wolvesWon = false;
-    } else if (totalPlayersAtStart <= 4) {
-      wolvesWon = (aliveWolves >= 1 && aliveVillagers <= 1);
-    } else {
-      wolvesWon = (aliveWolves >= 1 && aliveVillagers <= 2);
-    }
+    // Rôles solitaires hostiles pouvant encore l'emporter seuls
+    final hasHostileSolo = alive.any((p) {
+      final r = getRole(p);
+      return r == GameRole.pyromaniac || r == GameRole.whiteWerewolf;
+    });
 
-    // Application du résultat
+    // Condition canonique de victoire des Loups :
+    // - Au moins un loup en vie (aliveWolves > 0)
+    // - Parité ou supériorité numérique atteinte face aux villageois (aliveWolves >= aliveVillagers)
+    // - Aucun rôle solitaire hostile (Loup Blanc, Pyromane) en vie
+    final bool wolvesWon = (aliveWolves > 0) && (aliveWolves >= aliveVillagers) && !hasHostileSolo;
+
     if (wolvesWon) {
       return 'werewolves';
     }
 
+    // Condition canonique de victoire du Village :
+    // - Tous les loups sont éliminés (aliveWolves == 0)
+    // - Aucun rôle solitaire hostile en vie
     if (aliveWolves == 0) {
-      final hasHostileSolo = alive.any((p) {
-        final r = getRole(p);
-        return r == GameRole.pyromaniac || r == GameRole.whiteWerewolf;
-      });
       if (!hasHostileSolo) {
         return 'village';
       }
@@ -1726,7 +1723,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     return null;
   }
 
-  String _formatVictoryMessage(String winner) {
+  static String _formatVictoryMessage(String winner) {
     switch (winner) {
       case 'village':
       case 'VILLAGERS':
@@ -1947,17 +1944,25 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> witchSaveVictim() async {
     if ((state.myRole != GameRole.witch && !state.isAdmin) ||
-        _currentRoomRef == null) {
+        _currentRoomRef == null ||
+        state.room == null) {
       return;
     }
     if (state.currentPlayer?.hasUsedHealPotion == true && !state.isAdmin) {
       return;
     }
+    if (state.room!.witchHealed) {
+      return; // Déjà sauvé cette nuit
+    }
+    final wolfVictimId = state.room!.nightVictimId ?? _tallyWerewolfVotes();
+    if (wolfVictimId == null) {
+      return; // Aucune cible des loups à sauver
+    }
 
-    final roomCode = state.room?.roomCode;
-    final witchPlayer = state.room?.playerList.firstWhere(
-      (p) => p.role == GameRole.witch,
-      orElse: () => state.currentPlayer!,
+    final roomCode = state.room!.roomCode;
+    final witchPlayer = state.room!.playerList.cast<PlayerModel?>().firstWhere(
+      (p) => p != null && p.role == GameRole.witch,
+      orElse: () => state.currentPlayer,
     );
     final witchId = (state.myRole == GameRole.witch)
         ? state.currentUserId
@@ -1968,11 +1973,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'players/$witchId/hasUsedHealPotion': true,
       'logs': [
         ...?state.room?.logs,
-        'Une fiole luisante a été versée dans le plus grand secret...',
+        '✨ Une fiole luisante de guérison a été versée dans le plus grand secret...',
       ],
     });
 
-    if (roomCode != null) {
+    if (roomCode.isNotEmpty) {
       try {
         await _database.ref('rooms/$roomCode/witch_potions/$witchId').update({
           'hasHeal': false,
@@ -1983,32 +1988,42 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> witchPoison(String targetId) async {
     if ((state.myRole != GameRole.witch && !state.isAdmin) ||
-        _currentRoomRef == null) {
+        _currentRoomRef == null ||
+        state.room == null) {
       return;
+    }
+    if (targetId.isEmpty) return;
+    final target = state.room!.players[targetId];
+    if (target == null || !target.isAlive) {
+      return; // Cible invalide ou déjà morte
     }
     if (state.currentPlayer?.hasUsedPoisonPotion == true && !state.isAdmin) {
       return;
     }
+    if (state.room!.witchPoisonVictimId != null) {
+      return; // Déjà empoisonné cette nuit
+    }
 
-    final roomCode = state.room?.roomCode;
-    final witchPlayer = state.room?.playerList.firstWhere(
-      (p) => p.role == GameRole.witch,
-      orElse: () => state.currentPlayer!,
+    final roomCode = state.room!.roomCode;
+    final witchPlayer = state.room!.playerList.cast<PlayerModel?>().firstWhere(
+      (p) => p != null && p.role == GameRole.witch,
+      orElse: () => state.currentPlayer,
     );
     final witchId = (state.myRole == GameRole.witch)
         ? state.currentUserId
         : (witchPlayer?.id ?? state.currentUserId);
 
+    // La potion de mort marque la cible pour la résolution du matin sans altérer son statut durant la nuit
     await _syncState({
       'witchPoisonVictimId': targetId,
       'players/$witchId/hasUsedPoisonPotion': true,
       'logs': [
         ...?state.room?.logs,
-        'Un breuvage mortel a été déposé au seuil d\'une maison...',
+        '🧪 Un breuvage mortel a été déposé au seuil d\'une maison...',
       ],
     });
 
-    if (roomCode != null) {
+    if (roomCode.isNotEmpty) {
       try {
         await _database.ref('rooms/$roomCode/witch_potions/$witchId').update({
           'hasPoison': false,
@@ -2019,7 +2034,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> confirmWitchTurn() async {
     if (state.room == null) return;
-    await processNightTransitions();
+    try {
+      await processNightTransitions();
+    } catch (e, stack) {
+      debugPrint('[confirmWitchTurn Exception] $e\n$stack');
+    }
   }
 
   Future<void> witchPass() async {
@@ -2220,9 +2239,24 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (phase.isNight) {
       await processNightTransitions();
     } else if (phase == GamePhase.morningAnnouncement) {
+      final room = state.room!;
+      final realRoles = await _resolveRealRoles(room);
+      final win = checkWinConditions(room, realRoles);
+
       final updates = <String, dynamic>{};
-      final logs = List<String>.from(state.room!.logs);
-      _routeToDayPhase(state.room!, updates, logs);
+      final logs = List<String>.from(room.logs);
+
+      if (win != null) {
+        updates['phase'] = GamePhase.gameOver.name;
+        updates['winner'] = win;
+        logs.add(_formatVictoryMessage(win));
+        for (final p in room.playerList) {
+          final revealedRole = realRoles[p.id] ?? p.role;
+          updates['players/${p.id}/role'] = revealedRole.id;
+        }
+      } else {
+        _routeToDayPhase(room, updates, logs);
+      }
       updates['logs'] = logs;
       await _syncState(updates);
     } else if (phase == GamePhase.captainElection) {
@@ -2244,10 +2278,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       await _syncState(updates);
     } else if (phase == GamePhase.dayResolution) {
       final nextRound = state.room!.round + 1;
+      final realRoles = await _resolveRealRoles(state.room!);
       final firstNight = _getNextNightPhase(
         current: GamePhase.dayResolution,
         round: nextRound,
         players: state.room!.players,
+        realRoles: realRoles,
       );
 
       final updates = <String, dynamic>{

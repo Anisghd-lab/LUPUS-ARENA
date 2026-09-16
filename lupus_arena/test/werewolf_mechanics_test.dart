@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lupus_arena/GameNotifier.dart';
 import 'package:lupus_arena/models/game_phase.dart';
 import 'package:lupus_arena/models/player_model.dart';
+import 'package:lupus_arena/models/game_role.dart';
+import 'package:lupus_arena/models/game_room.dart';
 import 'package:lupus_arena/services/update_service.dart';
 
 void main() {
@@ -427,6 +429,63 @@ void main() {
       expect(UpdateService.isRemoteVersionGreater('1.0.8+8', '1.0.8+9'), isFalse);
       expect(UpdateService.isRemoteVersionGreater('', '1.0.8'), isFalse);
       expect(UpdateService.isRemoteVersionGreater('1.0.8', ''), isFalse);
+    });
+  });
+
+  group('Conditions de victoire et équilibre Sorcière / Loups', () {
+    test('Tous les loups-garous canoniques sont maléfiques (isEvil == true)', () {
+      expect(GameRole.simpleWerewolf.isEvil, isTrue);
+      expect(GameRole.bigBadWolf.isEvil, isTrue);
+      expect(GameRole.blackWolf.isEvil, isTrue);
+      expect(GameRole.vileFatherOfWolves.isEvil, isTrue);
+      expect(GameRole.wolfCub.isEvil, isTrue);
+      expect(GameRole.whiteWerewolf.isEvil, isTrue);
+    });
+
+    test('1 loup face à 2 villageois ne déclenche PAS de Game Over prématuré', () {
+      final room = GameRoom(
+        roomCode: 'TEST1',
+        hostId: 'p1',
+        players: {
+          'wolf': const PlayerModel(id: 'wolf', name: 'Loup', role: GameRole.simpleWerewolf, isAlive: true),
+          'v1': const PlayerModel(id: 'v1', name: 'V1', role: GameRole.simpleVillager, isAlive: true),
+          'v2': const PlayerModel(id: 'v2', name: 'V2', role: GameRole.witch, isAlive: true),
+          'dead1': const PlayerModel(id: 'dead1', name: 'M1', role: GameRole.seer, isAlive: false),
+        },
+      );
+
+      final result = GameNotifier.checkWinConditions(room);
+      expect(result, isNull, reason: '1 loup contre 2 villageois doit continuer vers le débat et le vote');
+    });
+
+    test('1 loup face à 1 villageois déclenche la victoire des loups (parité)', () {
+      final room = GameRoom(
+        roomCode: 'TEST2',
+        hostId: 'wolf',
+        players: {
+          'wolf': const PlayerModel(id: 'wolf', name: 'Loup', role: GameRole.simpleWerewolf, isAlive: true),
+          'v1': const PlayerModel(id: 'v1', name: 'V1', role: GameRole.simpleVillager, isAlive: true),
+          'dead1': const PlayerModel(id: 'dead1', name: 'M1', role: GameRole.simpleVillager, isAlive: false),
+        },
+      );
+
+      final result = GameNotifier.checkWinConditions(room);
+      expect(result, equals('werewolves'), reason: 'Parité 1 contre 1 = victoire des loups');
+    });
+
+    test('0 loup face à des villageois vivants déclenche la victoire du village', () {
+      final room = GameRoom(
+        roomCode: 'TEST3',
+        hostId: 'v1',
+        players: {
+          'wolf_dead': const PlayerModel(id: 'wolf_dead', name: 'LoupMort', role: GameRole.simpleWerewolf, isAlive: false),
+          'v1': const PlayerModel(id: 'v1', name: 'V1', role: GameRole.simpleVillager, isAlive: true),
+          'witch': const PlayerModel(id: 'witch', name: 'Sorcière', role: GameRole.witch, isAlive: true),
+        },
+      );
+
+      final result = GameNotifier.checkWinConditions(room);
+      expect(result, equals('village'), reason: 'Tous les loups éliminés = victoire du village');
     });
   });
 }

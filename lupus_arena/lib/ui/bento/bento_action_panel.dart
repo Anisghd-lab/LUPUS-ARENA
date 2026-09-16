@@ -132,7 +132,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                           size: 11, color: LupusColors.arcaneGold),
                       const SizedBox(width: 4),
                       Text(
-                        '${context.tr("target")} : ${selectedTarget.name}',
+                        context.tr('target_label', {'name': selectedTarget.name}),
                         style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,

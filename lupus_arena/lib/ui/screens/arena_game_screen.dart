@@ -369,11 +369,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                       captainTargetVoteId:
                                           room.captainTargetVoteId,
                                       centerActionTitle: _getTargetActionTitle(
+                                        context,
                                         room.phase,
                                         room,
                                       ),
                                       centerActionSubtitle:
                                           _getTargetActionSubtitle(
+                                        context,
                                         room.phase,
                                         room,
                                       ),
@@ -927,7 +929,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                   Icon(Icons.shield_outlined, size: 14, color: accentColor),
                   const SizedBox(width: 5),
                   Text(
-                    'MON RÔLE',
+                    context.tr('my_role'),
                     style: TextStyle(
                       fontFamily: 'serif',
                       fontSize: 10.5,
@@ -959,10 +961,11 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     dynamic myRole,
   ) {
     final phase = room.phase as GamePhase;
-    final title = _getPhaseTitle(phase);
-    final subtitle = _getPhaseSubtitle(phase);
-    final phaseChip =
-        '${phase.isNight ? "Phase Nuit" : "Phase Jour"} • Tour ${room.round}';
+    final title = _getPhaseTitle(context, phase);
+    final subtitle = _getPhaseSubtitle(context, phase);
+    final phaseChip = phase.isNight
+        ? context.tr('night_phase_round', {'round': room.round})
+        : context.tr('day_phase_round', {'round': room.round});
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
@@ -1073,10 +1076,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                             Expanded(
                               child: Text(
                                 isMeEvil
-                                    ? 'CANAL PRIVÉ DE LA MEUTE (ACTIF)'
+                                    ? context.tr('wolf_channel_active')
                                     : (myRole == GameRole.littleGirl
-                                          ? 'PETITE FILLE : ESPIONNAGE DU CANAL'
-                                          : 'NUIT DES LOUPS • VILLAGE SILENCIEUX'),
+                                          ? context.tr('little_girl_spying')
+                                          : context.tr('silent_village_night')),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -1096,10 +1099,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                         const SizedBox(height: 2),
                         Text(
                           isMeEvil
-                              ? 'Micro ouvert entre loups. Échangez en direct.'
+                              ? context.tr('mic_open_wolves')
                               : (myRole == GameRole.littleGirl
-                                    ? 'Vous entendez les loups en secret !'
-                                    : 'Les loups complotent dans le noir.'),
+                                    ? context.tr('secret_eavesdropping')
+                                    : context.tr('wolves_plotting')),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1151,8 +1154,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                         const SizedBox(width: 3),
                         Text(
                           isMeEvil
-                              ? (gameState.isMuted ? 'MUET' : 'OUVERT')
-                              : 'MUET',
+                              ? (gameState.isMuted
+                                    ? context.tr('mic_muted')
+                                    : context.tr('status_open'))
+                              : context.tr('mic_muted'),
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
@@ -1206,8 +1211,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                       const SizedBox(width: 5),
                       Text(
                         isHealed
-                            ? 'Victime ${victim.name} sauvée par votre potion !'
-                            : 'Victime des Loups : ${victim.name} (À l\'agonie !)',
+                            ? context.tr('witch_victim_saved_banner', {'name': victim.name})
+                            : context.tr('witch_victim_dying_banner', {'name': victim.name}),
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
@@ -1255,6 +1260,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   ) {
     if (logs.isEmpty) return const SizedBox.shrink();
     final latestLog = logs.last;
+    final displayLog = _formatLogForDisplay(context, latestLog);
 
     return GestureDetector(
       onTap: () => _openChroniclesBottomSheet(context, logs, roomCode),
@@ -1283,7 +1289,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                latestLog,
+                displayLog,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -1303,6 +1309,20 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         ),
       ),
     );
+  }
+
+  /// Formate et traduit les logs clés du village pour l'affichage en temps réel
+  String _formatLogForDisplay(BuildContext context, String log) {
+    if (log.contains('La première nuit tombe... Salvateur, réveillez-vous !') ||
+        log.contains('Salvateur, réveillez-vous')) {
+      return context.tr('salvateur_wake_banner');
+    }
+    if (log.startsWith('Éveil nocturne :')) {
+      final roleOrPhase =
+          log.replaceFirst('Éveil nocturne :', '').replaceAll('.', '').trim();
+      return '${context.tr("night_awakening")} $roleOrPhase';
+    }
+    return log;
   }
 
   /// Sélecteur de vue (Table Mystique vs Grille Bento)
@@ -1339,13 +1359,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                         )
                       : null,
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Text('⭕', style: TextStyle(fontSize: 11)),
-                    SizedBox(width: 5),
+                    const Text('⭕', style: TextStyle(fontSize: 11)),
+                    const SizedBox(width: 5),
                     Text(
-                      'Table Mystique',
-                      style: TextStyle(
+                      context.tr('view_mystic_table'),
+                      style: const TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1375,13 +1395,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                         )
                       : null,
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Text('▦', style: TextStyle(fontSize: 11)),
-                    SizedBox(width: 5),
+                    const Text('▦', style: TextStyle(fontSize: 11)),
+                    const SizedBox(width: 5),
                     Text(
-                      'Grille Bento',
-                      style: TextStyle(
+                      context.tr('view_bento_grid'),
+                      style: const TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1397,101 +1417,112 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   }
 
   /// Titres et sous-titres adaptés à chaque phase canonique
-  String _getPhaseTitle(GamePhase phase) {
+  String _getPhaseTitle(BuildContext context, GamePhase phase) {
     switch (phase) {
       case GamePhase.nightThief:
-        return 'Le Voleur Rode';
+        return context.tr('phase_thief_title');
       case GamePhase.nightCupid:
-        return 'Les Flèches de Cupidon';
+        return context.tr('phase_cupid_title');
       case GamePhase.nightDefender:
-        return 'La Bénédiction du Salvateur';
+        return context.tr('salvateur_power_title');
       case GamePhase.nightSeer:
-        return 'L\'Œil de la Voyante';
+        return context.tr('seer_power_title');
       case GamePhase.nightWerewolves:
-        return 'La Nuit Tombe';
+        return context.tr('phase_werewolves_title');
       case GamePhase.nightBlackWolf:
-        return 'Le Silence du Loup Noir';
+        return context.tr('phase_black_wolf_title');
       case GamePhase.nightWitch:
-        return 'Les Chaudrons de la Sorcière';
+        return context.tr('phase_witch_title');
       case GamePhase.nightPyromaniac:
-        return 'Le Brasier du Pyromane';
+        return context.tr('phase_pyromaniac_title');
       case GamePhase.morningAnnouncement:
-        return 'L\'Aube se Lève';
+        return context.tr('phase_dawn_title');
       case GamePhase.hunterDeathChoice:
-        return 'Le Dernier Souffle du Chasseur';
+        return context.tr('phase_hunter_breath_title');
       case GamePhase.captainSuccession:
-        return 'Succession du Capitaine';
+        return context.tr('phase_captain_succession_title');
       case GamePhase.captainElection:
-        return 'Élection du Capitaine';
+        return context.tr('phase_captain_election_title');
       case GamePhase.dayDebate:
-        return 'Le Débat du Village';
+        return context.tr('phase_debate_title');
       case GamePhase.dayVoting:
-        return 'L\'Heure du Jugement';
+        return context.tr('phase_judgment_title');
       case GamePhase.dayDefense:
-        return 'Ultime Plaidoyer';
+        return context.tr('phase_defense_title');
       case GamePhase.dayTieBreakVote:
-        return 'Vote Décisif de l\'Égalité';
+        return context.tr('phase_tie_break_title');
       case GamePhase.dayResolution:
-        return 'Le Verdict Tombe';
+        return context.tr('phase_verdict_title');
       case GamePhase.gameOver:
-        return 'Fin de Partie';
+        return context.tr('phase_game_over_title');
       case GamePhase.lobby:
-        return 'Lobby';
+        return context.tr('lobby');
     }
   }
 
-  String _getPhaseSubtitle(GamePhase phase) {
+  String _getPhaseSubtitle(BuildContext context, GamePhase phase) {
     switch (phase) {
       case GamePhase.nightCupid:
-        return 'Cupidon unit deux destins d\'un amour éternel';
+        return context.tr('phase_cupid_subtitle');
       case GamePhase.nightWerewolves:
-        return 'sur le village endormi de Thiercelieux';
+        return context.tr('phase_werewolves_subtitle');
       case GamePhase.dayVoting:
       case GamePhase.dayTieBreakVote:
-        return 'Les villageois votent • La voix du Maire compte double (2 voix)';
+        return context.tr('phase_voting_subtitle');
       case GamePhase.captainElection:
-        return 'Élisez le Maire du village dont la voix comptera double';
+        return context.tr('phase_captain_election_subtitle');
       case GamePhase.dayDebate:
-        return 'Écoutez attentivement le joueur qui a la parole';
+        return context.tr('phase_debate_subtitle');
       case GamePhase.nightSeer:
-        return 'Découvrez la véritable allégeance d\'une âme';
+        return context.tr('seer_power_desc');
       case GamePhase.nightDefender:
-        return 'Désignez un villageois immunisé cette nuit';
+        return context.tr('salvateur_power_desc');
       case GamePhase.nightWitch:
-        return 'Une potion de vie, une fiole de mort';
+        return context.tr('phase_witch_subtitle');
       case GamePhase.nightPyromaniac:
-        return 'Aspergez un foyer d\'essence ou embrasez le village';
+        return context.tr('phase_pyromaniac_subtitle');
       case GamePhase.morningAnnouncement:
-        return 'Le village découvre le bilan des attaques nocturnes';
+        return context.tr('phase_dawn_subtitle');
       default:
-        return 'Restez sur vos gardes dans l\'arène';
+        return context.tr('phase_default_subtitle');
     }
   }
 
-  String _getTargetActionTitle(GamePhase phase, dynamic room) {
-    if (phase == GamePhase.nightWerewolves) return 'PROIE';
-    if (phase == GamePhase.nightWitch) return 'VICTIME';
-    if (phase == GamePhase.nightPyromaniac) return 'FOYER';
-    if (phase == GamePhase.nightCupid) return 'AMANT';
+  String _getTargetActionTitle(
+    BuildContext context,
+    GamePhase phase,
+    dynamic room,
+  ) {
+    if (phase == GamePhase.nightWerewolves) return context.tr('prey');
+    if (phase == GamePhase.nightWitch) return context.tr('victim');
+    if (phase == GamePhase.nightPyromaniac) return context.tr('hearth');
+    if (phase == GamePhase.nightCupid) return context.tr('lover');
     if (phase == GamePhase.dayVoting || phase == GamePhase.dayTieBreakVote) {
-      return 'ACCUSÉ';
+      return context.tr('accused');
     }
-    if (phase == GamePhase.nightSeer) return 'SONDÉ';
-    if (phase == GamePhase.nightDefender) return 'PROTÉGÉ';
-    if (phase == GamePhase.captainElection) return 'CANDIDAT';
-    return 'CIBLE';
+    if (phase == GamePhase.nightSeer) return context.tr('status_scanned');
+    if (phase == GamePhase.nightDefender) return context.tr('status_protected');
+    if (phase == GamePhase.captainElection) return context.tr('candidate');
+    return context.tr('target');
   }
 
-  String _getTargetActionSubtitle(GamePhase phase, dynamic room) {
+  String _getTargetActionSubtitle(
+    BuildContext context,
+    GamePhase phase,
+    dynamic room,
+  ) {
     if (phase == GamePhase.nightWitch && room.nightVictimId != null) {
       final victim = room.players[room.nightVictimId];
       if (victim != null) {
-        return '${victim.name} (${room.witchHealed == true ? "Sauvé(e)" : "Mordu(e)"})';
+        final status = room.witchHealed == true
+            ? context.tr('saved')
+            : context.tr('bitten');
+        return '${victim.name} ($status)';
       }
     }
-    if (phase == GamePhase.nightWerewolves) return 'En délibération';
-    if (phase == GamePhase.dayVoting) return 'Aucun vote émis';
-    return 'Aucune cible';
+    if (phase == GamePhase.nightWerewolves) return context.tr('deliberating');
+    if (phase == GamePhase.dayVoting) return context.tr('no_votes_cast');
+    return context.tr('no_target');
   }
 
   /// Carte modale centrée (Dialog / Pop-up) au format tarot compact
@@ -1505,10 +1536,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     final color = role.accentColor;
     final isEvil = role.isEvil;
     final teamName = isEvil
-        ? 'CAMP DE LA MEUTE'
+        ? context.tr('camp_werewolves')
         : (role.defaultTeam == Team.solo
-              ? 'CAMP SOLITAIRE'
-              : 'CAMP DU VILLAGE');
+              ? context.tr('camp_solo')
+              : context.tr('camp_village'));
     final teamColor = isEvil
         ? LupusColors.arcaneCrimson
         : (role.defaultTeam == Team.solo
@@ -1572,9 +1603,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           children: [
                             Icon(Icons.shield_rounded, size: 14, color: color),
                             const SizedBox(width: 6),
-                            const Text(
-                              'VOTRE RÔLE SECRET',
-                              style: TextStyle(
+                            Text(
+                              context.tr('your_secret_role'),
+                              style: const TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.1,
@@ -1639,7 +1670,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
 
                         // Nom officiel du rôle en gras
                         Text(
-                          role.displayNameFr,
+                          role.displayName,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: 'serif',
@@ -1720,9 +1751,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                       width: 0.8,
                                     ),
                                   ),
-                                  child: const Text(
-                                    '⭐ Capitaine (Voix double)',
-                                    style: TextStyle(
+                                  child: Text(
+                                    context.tr('captain_double_voice'),
+                                    style: const TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w800,
                                       color: Color(0xFFFDE68A),
@@ -1744,7 +1775,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                     ),
                                   ),
                                   child: Text(
-                                    '💖 Âme sœur : ${gameState.loverName ?? "Inconnu"}',
+                                    context.tr('soulmate_label', {
+                                      'name': gameState.loverName ??
+                                          context.tr('unknown')
+                                    }),
                                     style: const TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w800,
@@ -1766,9 +1800,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                       width: 0.8,
                                     ),
                                   ),
-                                  child: const Text(
-                                    '💀 Éliminé(e)',
-                                    style: TextStyle(
+                                  child: Text(
+                                    '💀 ${context.tr("eliminated")}',
+                                    style: const TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w800,
                                       color: Color(0xFFFECDD3),
@@ -1794,9 +1828,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                             ),
                           ),
                           child: Text(
-                            role.descriptionFr.isNotEmpty
-                                ? role.descriptionFr
-                                : role.description,
+                            role.description,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 11,
@@ -1825,9 +1857,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                               elevation: 0,
                             ),
                             onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text(
-                              'Compris / Replier',
-                              style: TextStyle(
+                            child: Text(
+                              context.tr('close'),
+                              style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.6,

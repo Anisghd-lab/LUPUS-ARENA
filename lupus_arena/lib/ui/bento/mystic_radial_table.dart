@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../models/player_model.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 
 /// Table mystique circulaire inspirée directement du design Stitch (Screen 2: Table de Nuit Ultime).
@@ -224,7 +225,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  widget.centerActionTitle ?? 'CIBLE',
+                  widget.centerActionTitle ?? context.tr('target'),
                   style: const TextStyle(
                     fontSize: 8.5,
                     fontWeight: FontWeight.w900,
@@ -241,7 +242,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
           Text(
             selectedPlayer != null
                 ? selectedPlayer.name
-                : (widget.centerActionSubtitle ?? 'Aucune cible'),
+                : (widget.centerActionSubtitle ?? context.tr('no_target')),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -275,7 +276,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                 Color? roleColor;
 
                 if (isTargetMe) {
-                  roleText = 'Mon Rôle : ${selectedPlayer.role.displayName}';
+                  roleText = context.tr('my_role_label',
+                      {'role': selectedPlayer.role.displayName});
                   roleColor = selectedPlayer.role.accentColor;
                 } else if (isTargetDead) {
                   roleText = selectedPlayer.role.displayName;
@@ -314,8 +316,10 @@ class _MysticRadialTableState extends State<MysticRadialTable>
           // Message d'aide
           Text(
             selectedPlayer != null
-                ? (selectedPlayer.isAlive ? 'Prêt à agir' : 'Éliminé(e)')
-                : 'Touchez un joueur',
+                ? (selectedPlayer.isAlive
+                    ? context.tr('ready_to_act')
+                    : context.tr('eliminated'))
+                : context.tr('tap_a_player'),
             style: const TextStyle(
               fontSize: 8.5,
               color: LupusColors.textMuted,

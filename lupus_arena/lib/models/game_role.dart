@@ -69,6 +69,8 @@ enum GameRole {
       AppTranslations.getRoleDesc(id, context);
   Team get defaultTeam => GameRoleExtension(this).defaultTeam;
   bool get isEvil => GameRoleExtension(this).isEvil;
+  bool get isWolf => isEvil;
+  bool get isWolfTeam => isEvil;
   WakePhase get wakePhase => GameRoleExtension(this).wakePhase;
   int get nightExecutionPriority => GameRoleExtension(this).nightExecutionPriority;
   Color get accentColor => GameRoleExtension(this).accentColor;
@@ -76,8 +78,10 @@ enum GameRole {
   GameRole get seerPerception => GameRoleExtension(this).seerPerception;
 
   static GameRole get loupBlanc => GameRole.whiteWerewolf;
+  static GameRole get whiteWolf => GameRole.whiteWerewolf;
   static GameRole get loupNoir => GameRole.blackWolf;
   static GameRole get simpleVillageois => GameRole.simpleVillager;
+  static GameRole get villager => GameRole.simpleVillager;
 
   static GameRole fromId(String id) => GameRoleExtension.fromId(id);
   static GameRole fromString(String? role) => GameRoleExtension.fromString(role);

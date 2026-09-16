@@ -1906,16 +1906,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
 
     // Règle spéciale Voyante : Le Loup Blanc apparaît comme un Simple Villageois
-    discoveredRole = getSeerPerceivedRole(discoveredRole);
+    final inspectedRole = (discoveredRole == Role.whiteWolf || discoveredRole == GameRole.whiteWerewolf)
+        ? Role.villager
+        : discoveredRole;
 
     final updatedMap = Map<String, GameRole>.from(state.seerInspectedRoles);
-    updatedMap[targetId] = discoveredRole;
+    updatedMap[targetId] = inspectedRole;
 
     state = state.copyWith(
-      inspectedRole: discoveredRole,
+      inspectedRole: inspectedRole,
       seerInspectedRoles: updatedMap,
     );
-    return target.copyWith(role: discoveredRole);
+    return target.copyWith(role: inspectedRole);
   }
 
   Future<void> completeSeerTurn() async {
@@ -2608,7 +2610,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
 
     String targetChannel = mainChannel;
-    final isWolf = me.role.isEvil;
+    final isWolf = me.role.isEvil || me.role == GameRole.whiteWerewolf;
     final canSpy =
         me.role == GameRole.littleGirl ||
         (state.isAdmin && state.isOmniscientVoice);
@@ -2643,6 +2645,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     );
 
     await _voiceService.setMute(shouldMute);
+
+    // Contrôle du haut-parleur (muteSpeaker) :
+    // Pendant la nuit des loups, couper le flux entrant pour tous les non-loups (!isWolf)
+    // Sauf si la petite fille espionne. Pour tous les autres cas/phases, réactiver l'audio.
+    if (room.phase == GamePhase.nightWerewolves && !isWolf && !canSpy) {
+      await _voiceService.muteSpeaker(true);
+    } else {
+      await _voiceService.muteSpeaker(false);
+    }
   }
 
   // ==========================================

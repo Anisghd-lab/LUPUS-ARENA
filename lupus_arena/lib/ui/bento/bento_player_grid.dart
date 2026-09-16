@@ -88,10 +88,14 @@ class BentoPlayerGrid extends StatelessWidget {
         final isSelected = selectedPlayerId == player.id;
         final votes = votesPerPlayer[player.id] ?? 0;
         final isGodMode = isGodModeActive && isDevRoom;
-        final isWolfPeer = (isMeEvil ||
-                myRole.isEvil ||
-                wolfPlayerIds.contains(currentUserId)) &&
-            (player.role.isEvil || wolfPlayerIds.contains(player.id));
+        final isMeWolfTeam = isMeEvil ||
+            myRole.isEvil ||
+            myRole.isWolfTeam ||
+            wolfPlayerIds.contains(currentUserId);
+        final isOtherWolf = player.role.isEvil ||
+            player.role.isWolfTeam ||
+            wolfPlayerIds.contains(player.id);
+        final isWolfPeer = isMeWolfTeam && isOtherWolf;
         final seerRole = seerInspectedRoles[player.id];
 
         return BentoPlayerTile(

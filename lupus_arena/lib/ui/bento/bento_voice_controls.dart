@@ -15,6 +15,7 @@ class BentoVoiceControls extends StatelessWidget {
   final GamePhase? phase;
   final bool isMutedByBlackWolf;
   final bool isVictoryVoiceExpired;
+  final bool isWolf;
 
   BentoVoiceControls({
     super.key,
@@ -24,6 +25,7 @@ class BentoVoiceControls extends StatelessWidget {
     this.phase,
     this.isMutedByBlackWolf = false,
     this.isVictoryVoiceExpired = false,
+    this.isWolf = false,
   });
 
   @override
@@ -116,6 +118,11 @@ class BentoVoiceControls extends StatelessWidget {
                             statusText = context.tr('debate_speaker', {'name': name.toUpperCase()});
                             subtitleText = context.tr('listen_attentively');
                           }
+                        } else if (phase == GamePhase.nightWerewolves && !isWolf) {
+                          statusColor = LupusColors.textMuted;
+                          borderColor = LupusColors.border;
+                          statusText = 'Nuit des Loups (Silence total)';
+                          subtitleText = 'Micro et écoute coupés';
                         } else {
                           // Phases normales (Lobby, Votes, etc.)
                           if (connected) {
@@ -135,10 +142,12 @@ class BentoVoiceControls extends StatelessWidget {
                           }
                         }
 
+                        final isNightWerewolves = phase == GamePhase.nightWerewolves;
                         final bool canToggleMic = isGameOver
                             ? !isVictoryVoiceExpired
                             : (isAlive &&
                                 !isMutedByBlackWolf &&
+                                (!isNightWerewolves || isWolf) &&
                                 (!isDebateOrDefense || isCurrentSpeaker));
 
                         return BentoCard(

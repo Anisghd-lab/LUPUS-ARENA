@@ -105,6 +105,10 @@ class PlayerModel {
     );
   }
 
+  /// Indique si le joueur fait partie du camp des loups (incluant le Loup Blanc)
+  bool get isWolf => role.isEvil || role == GameRole.whiteWerewolf;
+  bool get isWolfTeam => isWolf;
+
   /// Déchiffre et résout le rôle véritable du joueur de façon déterministe
   GameRole resolveRealRole(String roomCode) {
     if (encryptedRole != null && encryptedRole!.isNotEmpty) {

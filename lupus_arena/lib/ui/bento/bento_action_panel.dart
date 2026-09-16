@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../models/game_phase.dart';
-import '../../models/game_role.dart';
 import '../../models/game_room.dart';
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';

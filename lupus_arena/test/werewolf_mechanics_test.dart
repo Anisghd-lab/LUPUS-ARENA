@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lupus_arena/GameNotifier.dart';
 import 'package:lupus_arena/models/game_phase.dart';
 import 'package:lupus_arena/models/player_model.dart';
-import 'package:lupus_arena/models/game_role.dart';
 import 'package:lupus_arena/models/game_room.dart';
 import 'package:lupus_arena/services/update_service.dart';
 

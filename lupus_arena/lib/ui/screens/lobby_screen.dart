@@ -165,7 +165,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               LupusAssets.lobbyCleanBgAsset,
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
-              errorBuilder: (_, __, ___) => Image.asset(
+              errorBuilder: (context, error, stackTrace) => Image.asset(
                 LupusAssets.villageNightBgAssetFallback,
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,

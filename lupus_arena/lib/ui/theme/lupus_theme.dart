@@ -67,25 +67,21 @@ class LupusTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           alignment: Alignment.center,
-          textStyle: const TextStyle(textAlign: TextAlign.center),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           alignment: Alignment.center,
-          textStyle: const TextStyle(textAlign: TextAlign.center),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           alignment: Alignment.center,
-          textStyle: const TextStyle(textAlign: TextAlign.center),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           alignment: Alignment.center,
-          textStyle: const TextStyle(textAlign: TextAlign.center),
         ),
       ),
     );

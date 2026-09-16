@@ -477,7 +477,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                               .blackWolfSilence(targetId),
                           onPassDebate: () => ref
                               .read(gameNotifierProvider.notifier)
-                              .passDebate(),
+                              .passTurnDebate(),
                         ),
                         const SizedBox(height: 6),
 

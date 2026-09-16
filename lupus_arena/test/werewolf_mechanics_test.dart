@@ -8,11 +8,13 @@ import 'package:lupus_arena/services/update_service.dart';
 void main() {
   test('L\'ordre canonique nocturne respecte strictement le livret officiel', () {
     expect(GamePhase.nightThief.index, lessThan(GamePhase.nightCupid.index));
-    expect(GamePhase.nightCupid.index, lessThan(GamePhase.nightSeer.index));
-    expect(GamePhase.nightSeer.index, lessThan(GamePhase.nightDefender.index));
+    expect(GamePhase.nightCupid.index, lessThan(GamePhase.nightDefender.index));
     expect(GamePhase.nightDefender.index, lessThan(GamePhase.nightWerewolves.index));
-    expect(GamePhase.nightWerewolves.index, lessThan(GamePhase.nightWitch.index));
-    expect(GamePhase.nightWitch.index, lessThan(GamePhase.morningAnnouncement.index));
+    expect(GamePhase.nightWerewolves.index, lessThan(GamePhase.nightBlackWolf.index));
+    expect(GamePhase.nightBlackWolf.index, lessThan(GamePhase.nightSeer.index));
+    expect(GamePhase.nightSeer.index, lessThan(GamePhase.nightWitch.index));
+    expect(GamePhase.nightWitch.index, lessThan(GamePhase.nightPyromaniac.index));
+    expect(GamePhase.nightPyromaniac.index, lessThan(GamePhase.morningAnnouncement.index));
   });
 
   test('La distribution par défaut supporte entre 04 et 30 joueurs et respecte la table officielle', () {

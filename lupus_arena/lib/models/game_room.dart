@@ -79,7 +79,7 @@ class GameRoom {
       final list = <PlayerModel>[];
       final seen = <String>{};
       for (final id in seatingOrder) {
-        if (players.containsKey(id) && players[id] != null) {
+        if (!seen.contains(id) && players.containsKey(id) && players[id] != null) {
           list.add(players[id]!);
           seen.add(id);
         }

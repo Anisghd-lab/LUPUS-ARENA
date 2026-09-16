@@ -258,13 +258,12 @@ extension GameRoleExtension on GameRole {
     switch (this) {
       case GameRole.simpleWerewolf:
       case GameRole.bigBadWolf:
-      case GameRole.whiteWerewolf:
-        return Team.solo;
       case GameRole.blackWolf:
       case GameRole.vileFatherOfWolves:
       case GameRole.wolfCub:
         return Team.werewolves;
 
+      case GameRole.whiteWerewolf:
       case GameRole.piedPiper:
       case GameRole.angel:
       case GameRole.sectLeader:

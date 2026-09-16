@@ -310,6 +310,10 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                             const SizedBox(width: 4),
                             const Text('💖', style: TextStyle(fontSize: 12)),
                           ],
+                          if (player.isMuted) ...[
+                            const SizedBox(width: 4),
+                            const Text('🔇', style: TextStyle(fontSize: 12)),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -407,6 +411,12 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
         'label': 'Nuit des Loups',
         'icon': '🐺',
         'color': LupusColors.arcaneCrimson,
+      },
+      {
+        'phase': GamePhase.nightBlackWolf,
+        'label': 'Silence du Loup',
+        'icon': '🔇',
+        'color': const Color(0xFF9333EA),
       },
       {
         'phase': GamePhase.nightSeer,
@@ -648,6 +658,8 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                       children: [
                         if (player.isCaptain)
                           const Text('⭐ ', style: TextStyle(fontSize: 12)),
+                        if (player.isMuted)
+                          const Text('🔇 ', style: TextStyle(fontSize: 12)),
                         Text(
                           player.isAlive ? 'Vivant' : 'Mort',
                           style: TextStyle(
@@ -757,35 +769,91 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 ),
                 const SizedBox(height: 6),
 
-                // Changer de rôle
-                InkWell(
-                  onTap: () => _showRoleSelector(player),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0x661E243D),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: LupusColors.arcanePurple
-                              .withValues(alpha: 0.3)),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('🎭', style: TextStyle(fontSize: 12)),
-                        SizedBox(width: 6),
-                        Text(
-                          'Changer de Rôle Secret...',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            color: LupusColors.arcaneGlow,
+                // Ligne Silence & Rôle
+                Row(
+                  children: [
+                    // Réduire au silence / Rétablir parole
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          notifier.adminTogglePlayerMute(player.id);
+                          _showToast(player.isMuted
+                              ? '${player.name} : parole rétablie'
+                              : '${player.name} : réduit(e) au silence');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: player.isMuted
+                                ? const Color(0x669333EA)
+                                : const Color(0x661E243D),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: player.isMuted
+                                  ? const Color(0xFFC084FC)
+                                  : Colors.white.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(player.isMuted ? '🔇' : '🎙️',
+                                  style: const TextStyle(fontSize: 12)),
+                              const SizedBox(width: 4),
+                              Text(
+                                player.isMuted
+                                    ? 'Silencé (Actif)'
+                                    : 'Silence Loup',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: player.isMuted
+                                      ? const Color(0xFFE9D5FF)
+                                      : LupusColors.textSecondary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 6),
+
+                    // Changer de rôle
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _showRoleSelector(player),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0x661E243D),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: LupusColors.arcanePurple
+                                  .withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('🎭', style: TextStyle(fontSize: 12)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Changer Rôle...',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: LupusColors.arcaneGlow,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

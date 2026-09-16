@@ -2720,10 +2720,23 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         '[ADMIN] ${target.name} a été ${newAlive ? "ressuscité(e)" : "éliminé(e)"} par le Maître du Jeu.';
     final currentLogs = List<String>.from(state.room!.logs)..insert(0, log);
 
-    await _syncState({
+    final updates = <String, dynamic>{
       'players/$playerId/isAlive': newAlive,
       'logs': currentLogs,
-    });
+    };
+
+    if (!newAlive) {
+      try {
+        final sSnap = await _database
+            .ref('rooms/${state.room!.roomCode}/secret_roles/$playerId/roleId')
+            .get();
+        if (sSnap.exists && sSnap.value != null) {
+          updates['players/$playerId/role'] = sSnap.value.toString();
+        }
+      } catch (_) {}
+    }
+
+    await _syncState(updates);
 
     final simulated = state.room!.copyWith(
       players: {
@@ -2736,6 +2749,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (win != null) {
       await _syncState({'winner': win, 'phase': GamePhase.gameOver.name});
     }
+  }
+
+  Future<void> adminTogglePlayerMute(String playerId) async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final target = state.room!.players[playerId];
+    if (target == null) return;
+    final newMuted = !target.isMuted;
+    final log =
+        '[ADMIN] ${target.name} a été ${newMuted ? "réduit(e) au silence (micro coupé)" : "rétabli(e) dans son droit de parole"} par le Maître du Jeu.';
+    final currentLogs = List<String>.from(state.room!.logs)..insert(0, log);
+
+    await _syncState({
+      'players/$playerId/isMuted': newMuted,
+      'logs': currentLogs,
+    });
   }
 
   Future<void> adminForceSpeaker(String? playerId) async {

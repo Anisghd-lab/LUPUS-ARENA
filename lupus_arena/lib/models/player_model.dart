@@ -26,6 +26,10 @@ class PlayerModel {
   final String? socketId;
   final int pv;
   final bool isReadyReplay;
+  final GameRole? initialRole; // Rôle initial immuable (carte de départ)
+  final int potionsVie; // Stock indépendant de potions de vie (Sorcière)
+  final int potionsMort; // Stock indépendant de potions de mort (Sorcière)
+  final int visionsRestantes; // Quota dynamique de visions (Voyante)
 
   const PlayerModel({
     required this.id,
@@ -51,7 +55,19 @@ class PlayerModel {
     this.socketId,
     this.pv = 100,
     this.isReadyReplay = false,
+    this.initialRole,
+    this.potionsVie = 1,
+    this.potionsMort = 1,
+    this.visionsRestantes = 1,
   });
+
+  /// Rôle initial de référence (préservé même si le rôle actif est déchu)
+  GameRole get roleInitial => initialRole ?? role;
+
+  /// Indique si le rôle actif a été déchu vers un simple villageois
+  bool get estDechu =>
+      role == GameRole.simpleVillager &&
+      roleInitial != GameRole.simpleVillager;
 
   PlayerModel copyWith({
     String? id,
@@ -77,6 +93,10 @@ class PlayerModel {
     String? socketId,
     int? pv,
     bool? isReadyReplay,
+    GameRole? initialRole,
+    int? potionsVie,
+    int? potionsMort,
+    int? visionsRestantes,
   }) {
     return PlayerModel(
       id: id ?? this.id,
@@ -102,6 +122,10 @@ class PlayerModel {
       socketId: socketId ?? this.socketId,
       pv: pv ?? this.pv,
       isReadyReplay: isReadyReplay ?? this.isReadyReplay,
+      initialRole: initialRole ?? this.initialRole,
+      potionsVie: potionsVie ?? this.potionsVie,
+      potionsMort: potionsMort ?? this.potionsMort,
+      visionsRestantes: visionsRestantes ?? this.visionsRestantes,
     );
   }
 
@@ -147,6 +171,10 @@ class PlayerModel {
       if (socketId != null) 'socketId': socketId,
       'pv': pv,
       'isReadyReplay': isReadyReplay,
+      if (initialRole != null) 'initialRole': initialRole!.name,
+      'potionsVie': potionsVie,
+      'potionsMort': potionsMort,
+      'visionsRestantes': visionsRestantes,
     };
   }
 
@@ -178,6 +206,10 @@ class PlayerModel {
     } else {
       resolvedRole = GameRole.fromString(rawRole);
     }
+
+    final rawInitialRole = map['initialRole']?.toString();
+    final GameRole? initialRole =
+        rawInitialRole != null ? GameRole.fromString(rawInitialRole) : null;
 
     return PlayerModel(
       id: playerId,
@@ -211,6 +243,16 @@ class PlayerModel {
           ? map['pv'] as int
           : int.tryParse(map['pv']?.toString() ?? '100') ?? 100,
       isReadyReplay: map['isReadyReplay'] == true,
+      initialRole: initialRole,
+      potionsVie: (map['potionsVie'] is int)
+          ? map['potionsVie'] as int
+          : int.tryParse(map['potionsVie']?.toString() ?? '1') ?? 1,
+      potionsMort: (map['potionsMort'] is int)
+          ? map['potionsMort'] as int
+          : int.tryParse(map['potionsMort']?.toString() ?? '1') ?? 1,
+      visionsRestantes: (map['visionsRestantes'] is int)
+          ? map['visionsRestantes'] as int
+          : int.tryParse(map['visionsRestantes']?.toString() ?? '1') ?? 1,
     );
   }
 }

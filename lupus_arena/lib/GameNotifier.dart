@@ -353,6 +353,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final Map<String, dynamic> secretRoles = {};
       String? initialCaptainId;
 
+      final totalJoueurs = participantIds.length;
+      final maxPotions = max(1, totalJoueurs ~/ 10);
+      final maxVisions = totalJoueurs <= 4
+          ? 1
+          : totalJoueurs <= 9
+              ? 2
+              : totalJoueurs <= 14
+                  ? 3
+                  : totalJoueurs ~/ 4;
+
       for (int i = 0; i < participantIds.length; i++) {
         final id = participantIds[i];
         final role = flatRoles[i];
@@ -380,6 +390,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           name: name,
           avatarIndex: avatar,
           role: role,
+          initialRole: role,
+          potionsVie: (role == GameRole.witch) ? maxPotions : 0,
+          potionsMort: (role == GameRole.witch) ? maxPotions : 0,
+          visionsRestantes: (role == GameRole.seer) ? maxVisions : 0,
           isCaptain: isCaptain,
           isHost: isLocal,
           isReady: true,
@@ -841,6 +855,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final Map<String, dynamic> secretRoles = {};
     final List<String> wolfPlayerIds = [];
 
+    final totalJoueurs = shuffledPlayers.length;
+    final maxPotions = max(1, totalJoueurs ~/ 10);
+    final maxVisions = totalJoueurs <= 4
+        ? 1
+        : totalJoueurs <= 9
+            ? 2
+            : totalJoueurs <= 14
+                ? 3
+                : totalJoueurs ~/ 4;
+
     for (int i = 0; i < shuffledPlayers.length; i++) {
       final p = shuffledPlayers[i];
       final assignedRole = flatRoles[i];
@@ -864,6 +888,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
       final updatedP = p.copyWith(
         role: isDevRoom ? assignedRole : GameRole.simpleVillager,
+        initialRole: assignedRole,
+        potionsVie: (assignedRole == GameRole.witch) ? maxPotions : 0,
+        potionsMort: (assignedRole == GameRole.witch) ? maxPotions : 0,
+        visionsRestantes: (assignedRole == GameRole.seer) ? maxVisions : 0,
         isAlive: true,
         targetVoteId: null,
         isCaptain: false,
@@ -1183,7 +1211,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         updates['players/$id/isAlive'] = false;
         final player = room.players[id];
         if (player != null) {
-          GameRole revealedRole = player.role;
+          GameRole revealedRole = player.roleInitial;
           try {
             final sSnap = await _database
                 .ref('rooms/${room.roomCode}/secret_roles/$id/roleId')
@@ -1915,6 +1943,31 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final updatedMap = Map<String, GameRole>.from(state.seerInspectedRoles);
     updatedMap[targetId] = inspectedRole;
 
+    final seerPlayer = state.room?.playerList.cast<PlayerModel?>().firstWhere(
+      (p) => p != null && (p.role == GameRole.seer || p.roleInitial == GameRole.seer),
+      orElse: () => state.currentPlayer,
+    );
+    final seerId = seerPlayer?.id ?? state.currentUserId;
+    final curVisions = seerPlayer?.visionsRestantes ?? 1;
+
+    if (curVisions <= 0 && !state.isAdmin) {
+      return null;
+    }
+
+    final newVisions = max(0, curVisions - 1);
+    final isDechue = newVisions == 0;
+
+    await _syncState({
+      'players/$seerId/visionsRestantes': newVisions,
+      if (isDechue) 'players/$seerId/role': GameRole.simpleVillager.name,
+      'logs': [
+        ...?state.room?.logs,
+        '🔮 La Voyante a sondé une âme ($newVisions vision(s) restante(s)).',
+        if (isDechue)
+          '🥀 La Voyante a épuisé toutes ses visions et devient Simple Villageoise !',
+      ],
+    });
+
     state = state.copyWith(
       inspectedRole: inspectedRole,
       seerInspectedRoles: updatedMap,
@@ -1945,48 +1998,77 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
+  /// Intimidation nocturne de la meute : Faire taire un joueur pour toute la journée du lendemain
+  Future<bool> werewolfSilence(String targetPlayerId) async {
+    if ((!state.myRole.isEvil && !state.isAdmin) || _currentRoomRef == null) {
+      return false;
+    }
+    final target = state.room?.players[targetPlayerId];
+    if (target == null || !target.isAlive) {
+      return false;
+    }
+    // Anti-fratricide formel : interdiction de faire taire un loup
+    if (target.role.isEvil || target.role == GameRole.whiteWerewolf) {
+      return false;
+    }
+    // Interdiction de cibler la proie déjà dévorée de la nuit
+    if (state.room?.nightVictimId == targetPlayerId) {
+      return false;
+    }
+
+    await _syncState({
+      'blackWolfTargetId': targetPlayerId,
+      'logs': [
+        ...?state.room?.logs,
+        '🐺 Les Loups ont intimé le silence à ${target.name} pour la journée suivante.',
+      ],
+    });
+    return true;
+  }
+
   Future<void> witchSaveVictim() async {
     if ((state.myRole != GameRole.witch && !state.isAdmin) ||
         _currentRoomRef == null ||
         state.room == null) {
       return;
     }
-    if (state.currentPlayer?.hasUsedHealPotion == true && !state.isAdmin) {
-      return;
-    }
-    if (state.room!.witchHealed) {
-      return; // Déjà sauvé cette nuit
-    }
     final wolfVictimId = state.room!.nightVictimId ?? _tallyWerewolfVotes();
     if (wolfVictimId == null) {
       return; // Aucune cible des loups à sauver
     }
+    if (state.room!.witchHealed) {
+      return; // Déjà sauvé cette nuit
+    }
 
-    final roomCode = state.room!.roomCode;
     final witchPlayer = state.room!.playerList.cast<PlayerModel?>().firstWhere(
-      (p) => p != null && p.role == GameRole.witch,
+      (p) => p != null && (p.role == GameRole.witch || p.roleInitial == GameRole.witch),
       orElse: () => state.currentPlayer,
     );
     final witchId = (state.myRole == GameRole.witch)
         ? state.currentUserId
         : (witchPlayer?.id ?? state.currentUserId);
 
+    final curVie = witchPlayer?.potionsVie ?? (witchPlayer?.hasUsedHealPotion == true ? 0 : 1);
+    if (curVie <= 0 && !state.isAdmin) {
+      return;
+    }
+
+    final newVie = max(0, curVie - 1);
+    final curMort = witchPlayer?.potionsMort ?? (witchPlayer?.hasUsedPoisonPotion == true ? 0 : 1);
+    final isDechue = newVie == 0 && curMort == 0;
+
     await _syncState({
       'witchHealed': true,
-      'players/$witchId/hasUsedHealPotion': true,
+      'players/$witchId/hasUsedHealPotion': newVie == 0,
+      'players/$witchId/potionsVie': newVie,
+      if (isDechue) 'players/$witchId/role': GameRole.simpleVillager.name,
       'logs': [
         ...?state.room?.logs,
-        '✨ Une fiole luisante de guérison a été versée dans le plus grand secret...',
+        '✨ Une fiole de guérison a sauvé la victime ($newVie potion(s) de vie restante(s)).',
+        if (isDechue)
+          '🥀 La Sorcière a épuisé toutes ses potions et devient Simple Villageoise !',
       ],
     });
-
-    if (roomCode.isNotEmpty) {
-      try {
-        await _database.ref('rooms/$roomCode/witch_potions/$witchId').update({
-          'hasHeal': false,
-        });
-      } catch (_) {}
-    }
   }
 
   Future<void> witchPoison(String targetId) async {
@@ -2000,39 +2082,40 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (target == null || !target.isAlive) {
       return; // Cible invalide ou déjà morte
     }
-    if (state.currentPlayer?.hasUsedPoisonPotion == true && !state.isAdmin) {
-      return;
-    }
     if (state.room!.witchPoisonVictimId != null) {
       return; // Déjà empoisonné cette nuit
     }
 
-    final roomCode = state.room!.roomCode;
     final witchPlayer = state.room!.playerList.cast<PlayerModel?>().firstWhere(
-      (p) => p != null && p.role == GameRole.witch,
+      (p) => p != null && (p.role == GameRole.witch || p.roleInitial == GameRole.witch),
       orElse: () => state.currentPlayer,
     );
     final witchId = (state.myRole == GameRole.witch)
         ? state.currentUserId
         : (witchPlayer?.id ?? state.currentUserId);
 
+    final curMort = witchPlayer?.potionsMort ?? (witchPlayer?.hasUsedPoisonPotion == true ? 0 : 1);
+    if (curMort <= 0 && !state.isAdmin) {
+      return;
+    }
+
+    final newMort = max(0, curMort - 1);
+    final curVie = witchPlayer?.potionsVie ?? (witchPlayer?.hasUsedHealPotion == true ? 0 : 1);
+    final isDechue = newMort == 0 && curVie == 0;
+
     // La potion de mort marque la cible pour la résolution du matin sans altérer son statut durant la nuit
     await _syncState({
       'witchPoisonVictimId': targetId,
-      'players/$witchId/hasUsedPoisonPotion': true,
+      'players/$witchId/hasUsedPoisonPotion': newMort == 0,
+      'players/$witchId/potionsMort': newMort,
+      if (isDechue) 'players/$witchId/role': GameRole.simpleVillager.name,
       'logs': [
         ...?state.room?.logs,
-        '🧪 Un breuvage mortel a été déposé au seuil d\'une maison...',
+        '🧪 Un breuvage mortel a été déposé pour ${target.name} ($newMort potion(s) de mort restante(s)).',
+        if (isDechue)
+          '🥀 La Sorcière a épuisé toutes ses potions et devient Simple Villageoise !',
       ],
     });
-
-    if (roomCode.isNotEmpty) {
-      try {
-        await _database.ref('rooms/$roomCode/witch_potions/$witchId').update({
-          'hasPoison': false,
-        });
-      } catch (_) {}
-    }
   }
 
   Future<void> confirmWitchTurn() async {

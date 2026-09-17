@@ -721,9 +721,13 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             silencedTarget.role.isWolfTeam ||
             silencedTarget.role == GameRole.whiteWerewolf);
 
+    final isSelf = selectedTarget != null && selectedTarget.id == widget.currentUserId;
+    final isSilencedSelf = silencedTarget != null && silencedTarget.id == widget.currentUserId;
+
     final canDevour = selectedTarget != null &&
         selectedTarget.isAlive &&
-        !isTargetWolf;
+        !isTargetWolf &&
+        !isSelf;
 
     final canSilence = selectedTarget != null &&
         selectedTarget.isAlive &&
@@ -736,7 +740,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         : (currentVoteTarget != null ? '🥩 Proie : ${currentVoteTarget.name}' : '🥩 Choisir Proie');
 
     final silenceButtonText = selectedTarget != null
-        ? '🔇 Museler ${selectedTarget.name}'
+        ? (isSelf ? '🔇 Me Museler' : '🔇 Museler ${selectedTarget.name}')
         : (silencedTarget != null ? '🔇 Silence : ${silencedTarget.name}' : '🔇 Museler');
 
     return Column(
@@ -777,10 +781,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                           : const Color(0xFFFECDD3),
                     ),
                   ),
-                  if (selectedTarget != null && isTargetWolf)
-                    const Text(
-                      'Allié (Bluff Silence)',
-                      style: TextStyle(
+                  if (selectedTarget != null && (isTargetWolf || isSelf))
+                    Text(
+                      isSelf ? 'Moi-même (Auto-Silence)' : 'Allié (Bluff Silence)',
+                      style: const TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFFC084FC),
@@ -842,7 +846,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       ),
                       child: Text(
                         silencedTarget != null
-                            ? '🔇 Silence : ${silencedTarget.name}${isSilencedWolf ? " (Bluff)" : ""}'
+                            ? '🔇 Silence : ${silencedTarget.name}${isSilencedSelf ? " (Auto-Silence)" : (isSilencedWolf ? " (Bluff)" : "")}'
                             : '🔇 Silence : Aucun',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

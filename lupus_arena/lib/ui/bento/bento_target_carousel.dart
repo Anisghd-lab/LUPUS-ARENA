@@ -129,7 +129,8 @@ class BentoTargetCarousel extends StatelessWidget {
               final isWolfPeer = player.role.isEvil && isMeEvil;
 
               return GestureDetector(
-                onTap: () => onPlayerSelected(player.id),
+                behavior: HitTestBehavior.opaque,
+                onTap: player.isAlive ? () => onPlayerSelected(player.id) : null,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   width: 104,

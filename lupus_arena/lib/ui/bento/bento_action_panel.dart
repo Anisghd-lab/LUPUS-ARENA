@@ -697,15 +697,19 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
   /// Module Loups-Garous : [Dévorer (Nom)] + [Faire Taire (Nom)] + [Valider]
   Widget _buildWerewolvesSection(PlayerModel me, PlayerModel? selectedTarget) {
-    final currentVoteTargetId = me.targetVoteId;
-    final currentVoteTarget = currentVoteTargetId != null
-        ? widget.room.players[currentVoteTargetId]
+    final effectiveVictimId = widget.room.nightVictimId ?? me.targetVoteId;
+    final currentVoteTarget = effectiveVictimId != null
+        ? widget.room.players[effectiveVictimId]
         : null;
 
     final silencedTargetId = widget.room.blackWolfTargetId;
     final silencedTarget = (silencedTargetId != null && silencedTargetId.isNotEmpty)
         ? widget.room.players[silencedTargetId]
         : null;
+
+    final isDoubleActionComplete = effectiveVictimId != null &&
+        silencedTargetId != null &&
+        effectiveVictimId != silencedTargetId;
 
     final String devourLabel;
     if (selectedTarget != null) {
@@ -732,13 +736,63 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final canSilence = selectedTarget != null &&
         selectedTarget.isAlive &&
-        !isTargetWolf &&
-        selectedTarget.id != currentVoteTargetId;
+        selectedTarget.id != effectiveVictimId;
+
+    final canValidate = widget.isAdmin || isDoubleActionComplete;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Indicateur Double Action Obligatoire (Proie & Silence)
+        Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: isDoubleActionComplete
+                ? const Color(0x1F06D6A0)
+                : const Color(0x1F9333EA),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDoubleActionComplete
+                  ? LupusColors.poisonGreen.withValues(alpha: 0.5)
+                  : const Color(0xFF9333EA).withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text(isDoubleActionComplete ? '✅' : '🐺',
+                      style: const TextStyle(fontSize: 12)),
+                  const SizedBox(width: 6),
+                  Text(
+                    isDoubleActionComplete
+                        ? 'Double action complète (Proie & Silence)'
+                        : 'Double action requise : Dévorer ET Faire Taire',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: isDoubleActionComplete
+                          ? LupusColors.poisonGreen
+                          : const Color(0xFFFECDD3),
+                    ),
+                  ),
+                ],
+              ),
+              if (selectedTarget != null && isTargetWolf && canSilence)
+                const Text(
+                  'Bluff Meute',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFC084FC),
+                  ),
+                ),
+            ],
+          ),
+        ),
         Row(
           children: [
             // Bouton Dévorer (Nom)
@@ -812,7 +866,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: widget.onNextPhase,
+                onPressed: canValidate ? widget.onNextPhase : null,
                 icon: const Icon(Icons.check_rounded, size: 14),
                 label: Text(
                   context.tr('validate'),
@@ -1087,8 +1141,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     }
 
     final bool canSilence = selectedTarget != null &&
-        selectedTarget.isAlive &&
-        selectedTarget.id != widget.currentUserId;
+        selectedTarget.isAlive;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1342,7 +1395,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   /// Module Débat tour par tour
   Widget _buildDebateSection() {
     final isSpeaker = widget.room.currentSpeakerId == widget.currentUserId;
-    if (isSpeaker) {
+    if (isSpeaker || widget.isAdmin) {
       return SizedBox(
         height: 40,
         child: ElevatedButton.icon(
@@ -1355,12 +1408,12 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           onPressed: widget.onPassDebate,
           icon: const Text('🎙️', style: TextStyle(fontSize: 16)),
           label: Text(
-            context.tr('pass_speaking_turn'),
+            isSpeaker ? context.tr('pass_speaking_turn') : 'Forcer la parole au suivant (MJ)',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontWeight: FontWeight.w900,
               color: Colors.black,
-              fontSize: 13,
+              fontSize: 12,
             ),
           ),
         ),

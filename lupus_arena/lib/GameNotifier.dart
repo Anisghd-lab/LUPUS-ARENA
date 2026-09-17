@@ -1026,6 +1026,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
               '🐺 Les Loups-Garous ont choisi leur victime dans l\'ombre : $victimName.',
             );
           }
+
+          // Double action obligatoire : s'assurer qu'une cible de silence est définie
+          if (room.blackWolfTargetId == null && room.alivePlayers.length >= 2) {
+            final silenceCandidates = room.alivePlayers
+                .where((p) => p.id != wolfVictimId)
+                .toList();
+            if (silenceCandidates.isNotEmpty) {
+              final autoSilenceTarget =
+                  silenceCandidates[Random().nextInt(silenceCandidates.length)];
+              updates['blackWolfTargetId'] = autoSilenceTarget.id;
+              logs.add(
+                '🐺 Les Loups ont désigné ${autoSilenceTarget.name} pour être réduit(e) au silence.',
+              );
+            }
+          }
         }
 
         // Nettoyage systématique des votes lors de chaque transition
@@ -2041,11 +2056,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (target == null || !target.isAlive) {
       return false;
     }
-    // Anti-fratricide formel : interdiction de faire taire un loup
-    if (target.role.isEvil || target.role == GameRole.whiteWerewolf) {
-      return false;
-    }
-    // Interdiction de cibler la proie déjà dévorée de la nuit
+    // Interdiction de cibler la proie déjà dévorée de la nuit (inutile de bâillonner un mort)
     if (state.room?.nightVictimId == targetPlayerId) {
       return false;
     }
@@ -2425,6 +2436,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
                 (state.myRole == GameRole.blackWolf || state.isAdmin)));
 
     if (!state.isHost && !state.isAdmin && !canAdvanceNight) return;
+
+    if (phase == GamePhase.nightWerewolves && !state.isAdmin) {
+      final victimId = _tallyWerewolfVotes() ?? state.room!.nightVictimId;
+      final silenceId = state.room!.blackWolfTargetId;
+      if (victimId == null || silenceId == null || victimId == silenceId) {
+        state = state.copyWith(
+          errorMessage:
+              'La meute doit obligatoirement désigner une proie ET un joueur distinct à réduire au silence.',
+        );
+        return;
+      }
+    }
 
     if (phase.isNight) {
       await processNightTransitions();
@@ -2814,7 +2837,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['currentSpeakerId'] = queue.isNotEmpty ? queue.first : null;
       updates['timerSeconds'] = 60;
     }
-    if (targetPhase == GamePhase.nightWerewolves) {
+    if (targetPhase.isNight) {
       for (final p in state.room!.players.values) {
         if (p.isMuted) {
           updates['players/${p.id}/isMuted'] = false;
@@ -2920,6 +2943,36 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         state.room?.currentSpeakerId == playerId) {
       await passTurnDebate();
     }
+  }
+
+  /// God Mode : Forcer ou réinitialiser la proie nocturne des loups
+  Future<void> adminSetNightVictim(String? playerId) async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final target = playerId != null ? state.room!.players[playerId] : null;
+    final log = target != null
+        ? '[ADMIN] Proie des Loups fixée à : ${target.name}'
+        : '[ADMIN] Proie des Loups réinitialisée';
+    final currentLogs = List<String>.from(state.room!.logs)..insert(0, log);
+
+    await _syncState({
+      'nightVictimId': playerId,
+      'logs': currentLogs,
+    });
+  }
+
+  /// God Mode : Forcer ou réinitialiser la cible de silence nocturne des loups
+  Future<void> adminSetNightSilence(String? playerId) async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final target = playerId != null ? state.room!.players[playerId] : null;
+    final log = target != null
+        ? '[ADMIN] Cible de silence des Loups fixée à : ${target.name}'
+        : '[ADMIN] Cible de silence des Loups réinitialisée';
+    final currentLogs = List<String>.from(state.room!.logs)..insert(0, log);
+
+    await _syncState({
+      'blackWolfTargetId': playerId,
+      'logs': currentLogs,
+    });
   }
 
   Future<void> adminForceSpeaker(String? playerId) async {

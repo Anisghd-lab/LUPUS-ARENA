@@ -204,9 +204,11 @@ class GestionnaireDebatTest {
         // Nuit 2 : Voyante sonde j2
         superviseur.actionVoyante("v1", "j2")
 
-        // Loups attaquent j1 mais NE bâillonnent personne cette fois
+        // Loups attaquent j1 et bâillonnent j2 (ne bâillonnent pas Charlie s1)
         superviseur.actionVoteLoup("l1", "j1")
-        superviseur.validerFinTourLoups()
+        superviseur.actionFaireTaireJoueur("l1", "j2")
+        val tourLoupsValide = superviseur.validerFinTourLoups()
+        assertTrue(tourLoupsValide)
 
         // Sorcière passe son tour
         superviseur.passerTourSorciere()

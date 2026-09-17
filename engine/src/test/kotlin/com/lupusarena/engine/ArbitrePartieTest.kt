@@ -82,19 +82,19 @@ class ArbitrePartieTest {
     }
 
     @Test
-    @DisplayName("Test des méthodes peutSonder() et consommerVision()")
+    @DisplayName("Test des méthodes peutSonder et consommerVision()")
     fun testPeutSonderEtConsommerVision() {
         val g = GestionnaireVoyante(totalJoueurs = 8) // 2 visions
         assertEquals(2, g.visionsRestantes)
-        assertTrue(g.peutSonder())
+        assertTrue(g.peutSonder)
 
         assertTrue(g.consommerVision())
         assertEquals(1, g.visionsRestantes)
-        assertTrue(g.peutSonder())
+        assertTrue(g.peutSonder)
 
         assertTrue(g.consommerVision())
         assertEquals(0, g.visionsRestantes)
-        assertFalse(g.peutSonder())
+        assertFalse(g.peutSonder)
 
         assertFalse(g.consommerVision(), "Ne peut plus consommer de vision quand le quota est à 0")
         assertEquals(0, g.visionsRestantes)

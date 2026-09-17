@@ -205,6 +205,29 @@ class BentoPlayerTile extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                // Indicateur micro barré rouge si bâillonné (silence forcé)
+                if (player.isMuted && player.isAlive)
+                  Positioned(
+                    bottom: -2,
+                    left: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF200A10),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFFF3333),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.mic_off_rounded,
+                        color: Color(0xFFFF3333),
+                        size: 11,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -245,8 +268,8 @@ class BentoPlayerTile extends StatelessWidget {
                   const SizedBox(width: 2),
                 ],
                 if (player.isMuted) ...[
-                  const Icon(Icons.volume_off_rounded,
-                      size: 11, color: Color(0xFFC084FC)),
+                  const Icon(Icons.mic_off_rounded,
+                      size: 11, color: Color(0xFFFF3333)),
                   const SizedBox(width: 2),
                 ],
                 Flexible(

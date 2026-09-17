@@ -94,6 +94,22 @@ open class MainActivity : FlutterActivity() {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                         }
+
+                        // Accorder explicitement la permission de lecture à tous les gestionnaires d'installation
+                        val resInfoList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            packageManager.queryIntentActivities(
+                                installIntent,
+                                android.content.pm.PackageManager.ResolveInfoFlags.of(0)
+                            )
+                        } else {
+                            @Suppress("DEPRECATION")
+                            packageManager.queryIntentActivities(installIntent, 0)
+                        }
+                        for (resolveInfo in resInfoList) {
+                            val pkgName = resolveInfo.activityInfo.packageName
+                            grantUriPermission(pkgName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+
                         startActivity(installIntent)
                         result.success("INSTALLER_LAUNCHED")
                     } catch (e: Exception) {

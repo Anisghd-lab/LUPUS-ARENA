@@ -23,6 +23,7 @@ class AgentSurveillance(
     var onStateChangedListener: ((IssuePartie) -> Unit)? = null
     var onRoleDowngradedListener: ((Joueur, Role) -> Unit)? = null
     var onCarteReveleeListener: ((RevelationCarteEvent) -> Unit)? = null
+    var onMortInstantaneeListener: ((MortInstantaneeEvent) -> Unit)? = null
 
     init {
         joueurs.forEach { joueur ->
@@ -50,9 +51,12 @@ class AgentSurveillance(
 
     /**
      * Déclare la mort simultanée d'un groupe de joueurs et révèle publiquement
-     * leur rôle d'origine (roleInitial).
+     * leur rôle d'origine (roleInitial) de façon instantanée.
      */
-    fun declarerMorts(joueurIds: Collection<String>): List<String> {
+    fun declarerMorts(
+        joueurIds: Collection<String>,
+        causeParJoueur: Map<String, CauseMort> = emptyMap()
+    ): List<String> {
         if (isGameOver) return emptyList()
 
         val victimes = joueurs.filter { it.id in joueurIds && it.estEnVie }
@@ -62,6 +66,18 @@ class AgentSurveillance(
             victime.estEnVie = false
             victime.carteEstRevelee = true
             victime.estReduitAuSilence = false // Un mort n'a plus besoin d'être sous silence
+
+            val cause = causeParJoueur[victime.id] ?: CauseMort.MORSURE_LOUPS
+
+            // Diffusion synchrone et instantanée du rôle d'origine
+            val eventMort = MortInstantaneeEvent(
+                joueurId = victime.id,
+                joueurNom = victime.nom,
+                roleAffiche = victime.roleInitial, // STRICTEMENT le rôle d'origine
+                camp = victime.camp,
+                causeMort = cause
+            )
+            onMortInstantaneeListener?.invoke(eventMort)
 
             // Révélation publique immédiate de la carte avec son RÔLE INITIAL (d'origine)
             onCarteReveleeListener?.invoke(
@@ -78,8 +94,8 @@ class AgentSurveillance(
         return victimes.map { it.id }
     }
 
-    fun declarerMort(joueurId: String): Boolean {
-        return declarerMorts(listOf(joueurId)).isNotEmpty()
+    fun declarerMort(joueurId: String, cause: CauseMort = CauseMort.MORSURE_LOUPS): Boolean {
+        return declarerMorts(listOf(joueurId), mapOf(joueurId to cause)).isNotEmpty()
     }
 
     // =========================================================================
@@ -190,6 +206,7 @@ class AgentSurveillance(
 
     fun evaluer(): IssuePartie {
         auditerEtat()
+        onStateChangedListener?.invoke(issueActuelle)
         return issueActuelle
     }
 }

@@ -139,3 +139,25 @@ data class JoueurSilenceEvent(
     val joueurNom: String,
     val tourNumero: Int
 )
+
+/**
+ * Cause d'élimination physique d'un joueur.
+ */
+enum class CauseMort {
+    MORSURE_LOUPS,
+    POISON_SORCIERE,
+    VOTE_VILLAGE
+}
+
+/**
+ * Payload d'événement instantané émis dès la mort d'un joueur,
+ * pour diffusion immédiate par socket / Firebase avant même l'arbitrage.
+ */
+data class MortInstantaneeEvent(
+    val joueurId: String,
+    val joueurNom: String,
+    val roleAffiche: Role, // roleInitial obligatoire
+    val camp: Camp,
+    val causeMort: CauseMort,
+    val timestamp: Long = System.currentTimeMillis()
+)

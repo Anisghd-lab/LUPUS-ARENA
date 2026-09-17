@@ -115,23 +115,31 @@ class SuperviseurDeJeuTest {
     @Test
     @DisplayName("Égalité parfaite lors du vote du village : aucun joueur n'est éliminé")
     fun testEgaliteVotesAucuneExecution() {
-        superviseur.lancerPartie()
-        superviseur.actionVoyante("v1", "j1")
-        superviseur.actionVoteLoup("j1")
-        superviseur.actionSorciereSauver("s1")
+        val v1 = Joueur("v1", "Alice Voyante", Role.VOYANTE)
+        val l1 = Joueur("l1", "Bob Loup", Role.LOUP_GAROU)
+        val s1 = Joueur("s1", "Charlie Sorcière", Role.SORCIERE)
+        val j1 = Joueur("j1", "David Villageois", Role.VILLAGEOIS_SIMPLE)
+        val j2 = Joueur("j2", "Eve Villageoise", Role.VILLAGEOIS_SIMPLE)
+        val sup = SuperviseurDeJeu(mutableListOf(v1, l1, s1, j1, j2))
 
-        superviseur.ouvrirVotesVillage()
+        sup.lancerPartie()
+        sup.actionVoyante("v1", "j1")
+        sup.actionVoteLoup("j1")
+        sup.actionSorciereSauver("s1")
 
-        // Vote éclaté à égalité 2 contre 2
-        superviseur.enregistrerVote("v1", "l1")
-        superviseur.enregistrerVote("s1", "l1")
-        superviseur.enregistrerVote("j1", "v1")
-        superviseur.enregistrerVote("l1", "v1")
+        sup.ouvrirVotesVillage()
 
-        // Tous les joueurs restent vivants et on bascule sur la Nuit 2
-        assertTrue(joueurs.all { it.estEnVie })
-        assertEquals(2, superviseur.tourNumero)
-        assertEquals(PhaseJeu.NUIT_VOYANTE, superviseur.phaseActuelle)
+        // Vote à égalité : 2 contre l1, 2 contre v1, 1 vote sur j2
+        sup.enregistrerVote("v1", "l1")
+        sup.enregistrerVote("s1", "l1")
+        sup.enregistrerVote("j1", "v1")
+        sup.enregistrerVote("l1", "v1")
+        sup.enregistrerVote("j2", "j2")
+
+        // Tous les joueurs restent vivants et on bascule sur la Nuit 2 (avec Voyante encore armée)
+        assertTrue(sup.joueurs.all { it.estEnVie })
+        assertEquals(2, sup.tourNumero)
+        assertEquals(PhaseJeu.NUIT_VOYANTE, sup.phaseActuelle)
     }
 
     @Test

@@ -25,6 +25,10 @@ class SuperviseurDeJeu(
     var onGameOver: ((IssuePartie) -> Unit)? = null
     var onDiffuserCarteRetournee: ((RevelationCarteEvent) -> Unit)? = null
     var onJoueurSilence: ((JoueurSilenceEvent) -> Unit)? = null
+    var onMortInstantanee: ((MortInstantaneeEvent) -> Unit)? = null
+
+    var gestionnaireDebat: GestionnaireDebat? = null
+        private set
 
     init {
         // Câblage de l'arbitrage terminal
@@ -36,11 +40,21 @@ class SuperviseurDeJeu(
             }
         }
 
+        // Câblage de la mort instantanée avec diffusion temps réel
+        agentSurveillance.onMortInstantaneeListener = { event ->
+            onJournalEvent?.invoke("ÉLIMINATION : ${event.joueurNom} vient de mourir ! Sa carte se retourne : c'était un(e) ${event.roleAffiche.nomAffiche}.")
+            diffuserFlipCarteTousJoueurs(event)
+        }
+
         // Câblage de la révélation publique du rôle d'origine
         agentSurveillance.onCarteReveleeListener = { event ->
             onJournalEvent?.invoke("Mort de ${event.joueurNom} : sa carte se retourne... C'était un(e) ${event.roleRevele} (${event.camp}) !")
             onDiffuserCarteRetournee?.invoke(event)
         }
+    }
+
+    fun diffuserFlipCarteTousJoueurs(event: MortInstantaneeEvent) {
+        onMortInstantanee?.invoke(event)
     }
 
     // ==========================================
@@ -185,7 +199,11 @@ class SuperviseurDeJeu(
         }
 
         // Exécution groupée et révélation automatique des rôles d'origine
-        agentSurveillance.declarerMorts(mortsAExecuter)
+        val causeMap = mutableMapOf<String, CauseMort>()
+        cibleLoups?.let { if (!actionNuitEnCours.cibleSorciereVieSauvee) causeMap[it] = CauseMort.MORSURE_LOUPS }
+        ciblePoison?.let { causeMap[it] = CauseMort.POISON_SORCIERE }
+
+        agentSurveillance.declarerMorts(mortsAExecuter, causeMap)
 
         // Application du bâillon si la cible a survécu à la nuit
         val cibleSilenceId = actionNuitEnCours.cibleSilenceId
@@ -199,7 +217,41 @@ class SuperviseurDeJeu(
         }
 
         if (!agentSurveillance.isGameOver) {
-            changerPhase(PhaseJeu.JOUR_DEBAT)
+            lancerDebatDuVillage()
+        }
+    }
+
+    // ==========================================
+    // GESTION DU DÉBAT DU VILLAGE
+    // ==========================================
+
+    fun lancerDebatDuVillage() {
+        changerPhase(PhaseJeu.JOUR_DEBAT)
+
+        gestionnaireDebat = GestionnaireDebat(joueurs).apply {
+            onChangementOrateur = { orateur ->
+                onJournalEvent?.invoke("C'est à ${orateur.nom} de prendre la parole.")
+                // Notifier le serveur audio : ouvrir le micro de cet orateur uniquement
+            }
+
+            onOrateurSauteCarMuet = { muet ->
+                onJournalEvent?.invoke("${muet.nom} est bâillonné par les loups ! Son tour de parole est sauté.")
+                // S'assurer que son micro reste impérativement à 0 / coupé
+            }
+
+            onFinDuDebat = {
+                onJournalEvent?.invoke("Le temps de débat est écoulé. Place aux votes !")
+                ouvrirVotesVillage()
+            }
+        }
+
+        gestionnaireDebat?.demarrerDebat()
+    }
+
+    // Bouton UI "Passer la parole" si l'orateur a fini plus tôt
+    fun passerParoleManuelle(joueurId: String) {
+        if (phaseActuelle == PhaseJeu.JOUR_DEBAT && gestionnaireDebat?.orateurActuel?.id == joueurId) {
+            gestionnaireDebat?.passerAuProchainOrateur()
         }
     }
 
@@ -240,13 +292,14 @@ class SuperviseurDeJeu(
 
         if (majoritaires.size == 1) {
             val condamneId = majoritaires.first()
-            agentSurveillance.declarerMort(condamneId)
+            agentSurveillance.declarerMort(condamneId, CauseMort.VOTE_VILLAGE)
         } else {
             onJournalEvent?.invoke("Égalité des voix : aucun joueur n'est exécuté.")
         }
 
         // Le silence prend fin à l'issue de la journée de vote
         agentSurveillance.reinitialiserSilences()
+        gestionnaireDebat = null
 
         if (!agentSurveillance.isGameOver) {
             tourNumero++

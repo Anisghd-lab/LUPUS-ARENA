@@ -75,9 +75,7 @@ class RevelationCarteTest {
         val superviseur = SuperviseurDeJeu(
             mutableListOf(
                 sorciere,
-                loup,
-                Joueur("V1", "V1", Role.VILLAGEOIS_SIMPLE),
-                Joueur("V2", "V2", Role.VILLAGEOIS_SIMPLE)
+                loup
             )
         )
         val cartesRevelees = mutableListOf<Role>()

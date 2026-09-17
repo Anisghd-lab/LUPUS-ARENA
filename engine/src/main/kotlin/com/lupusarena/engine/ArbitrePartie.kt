@@ -7,14 +7,10 @@ package com.lupusarena.engine
  * (roleActif == Role.SORCIERE avec poison restant).
  */
 class ArbitrePartie(
-    val joueurs: MutableList<Joueur> = mutableListOf(),
+    joueursInitiaux: List<Joueur> = emptyList(),
     val gestionnaireSorciere: GestionnaireSorciere? = null
 ) {
-    /**
-     * Constructeur acceptant une List pour compatibilité.
-     */
-    constructor(joueurs: List<Joueur>, gestionnaireSorciere: GestionnaireSorciere? = null) :
-            this(joueurs.toMutableList(), gestionnaireSorciere)
+    val joueurs: MutableList<Joueur> = joueursInitiaux.toMutableList()
 
     var issueActuelle: IssuePartie = IssuePartie.EN_COURS
         private set

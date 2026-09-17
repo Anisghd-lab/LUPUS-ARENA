@@ -531,6 +531,128 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
         ),
         const SizedBox(height: 14),
 
+        // Section dédiée God Mode : GESTION DU DÉBAT DU VILLAGE (si phase active)
+        if (room.phase == GamePhase.dayDebate) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0x3300FF88),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF00FF88),
+                width: 1.2,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Text('🎙️', style: TextStyle(fontSize: 14)),
+                        SizedBox(width: 6),
+                        Text(
+                          'DÉBAT EN DIRECT (RONDE DE PAROLE)',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: Color(0xFF00FF88),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF070B1D),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'File: ${room.debateQueue.length}',
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  room.currentSpeakerId != null
+                      ? 'Orateur actuel : ${room.players[room.currentSpeakerId]?.name ?? "Inconnu"}'
+                      : 'Aucun orateur en cours',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00FF88),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          notifier.passTurnDebate();
+                          _showToast('Parole avancée (saut auto des bâillonnés)');
+                        },
+                        icon: const Icon(Icons.skip_next_rounded, size: 16),
+                        label: const Text(
+                          'SUIVANT (SAUT AUTO)',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: LupusColors.arcaneGold,
+                          side: const BorderSide(color: LupusColors.arcaneGold),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          notifier.adminForcePhase(GamePhase.dayVoting);
+                          _showToast('Débat clos ➔ Votes ouverts');
+                        },
+                        icon: const Icon(Icons.how_to_vote_rounded, size: 16),
+                        label: const Text(
+                          'OUVRIR LES VOTES',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+
         // Bouton spécial : Résolution Matinale
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
@@ -709,8 +831,35 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                       children: [
                         if (player.isCaptain)
                           const Text('⭐ ', style: TextStyle(fontSize: 12)),
-                        if (player.isMuted)
-                          const Text('🔇 ', style: TextStyle(fontSize: 12)),
+                        if (player.isMuted) ...[
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0x33FF3333),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: const Color(0xFFFF3333), width: 0.8),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.mic_off_rounded,
+                                    size: 10, color: Color(0xFFFF3333)),
+                                SizedBox(width: 3),
+                                Text(
+                                  'BÂILLONNÉ',
+                                  style: TextStyle(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFFFF5252),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         Text(
                           player.isAlive ? 'Vivant' : 'Mort',
                           style: TextStyle(

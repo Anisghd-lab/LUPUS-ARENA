@@ -9,7 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 /// Informations détaillées sur une mise à jour disponible
 class AppUpdateInfo {
@@ -119,11 +118,11 @@ class UpdateService {
 
     final remoteSemver = remoteParts[0]
         .split('.')
-        .map((e) => int.tryParse(e) ?? 0)
+        .map((e) => int.tryParse(RegExp(r'\d+').firstMatch(e)?.group(0) ?? '') ?? 0)
         .toList();
     final localSemver = localParts[0]
         .split('.')
-        .map((e) => int.tryParse(e) ?? 0)
+        .map((e) => int.tryParse(RegExp(r'\d+').firstMatch(e)?.group(0) ?? '') ?? 0)
         .toList();
 
     final maxLen = math.max(remoteSemver.length, localSemver.length);
@@ -136,8 +135,8 @@ class UpdateService {
 
     // Si les versions de base sont identiques, comparer le build number
     if (remoteParts.length > 1 && localParts.length > 1) {
-      final rBuild = int.tryParse(remoteParts[1]) ?? 0;
-      final lBuild = int.tryParse(localParts[1]) ?? 0;
+      final rBuild = int.tryParse(RegExp(r'\d+').firstMatch(remoteParts[1])?.group(0) ?? '') ?? 0;
+      final lBuild = int.tryParse(RegExp(r'\d+').firstMatch(localParts[1])?.group(0) ?? '') ?? 0;
       return rBuild > lBuild;
     } else if (remoteParts.length > 1) {
       return true;
@@ -157,11 +156,22 @@ class UpdateService {
           ? '${packageInfo.version}+${packageInfo.buildNumber}'
           : packageInfo.version;
 
+      // 1. Essai API GitHub sur le dépôt principal
       AppUpdateInfo? update = await _fetchRelease(owner, repo, localVersion);
+
+      // 2. Secours miroir si dépôt principal échoue
       if (update == null && owner == defaultOwner && repo == defaultRepo) {
         debugPrint('[UpdateService] Tentative de secours sur le miroir zakghd/LUPUS_ARENA...');
         update = await _fetchRelease('zakghd', 'LUPUS_ARENA', localVersion);
       }
+
+      // 3. Secours via redirection Web GitHub (contourne la limite de taux API GitHub HTTP 403)
+      if (update == null && owner == defaultOwner && repo == defaultRepo) {
+        debugPrint('[UpdateService] Tentative de secours via redirection Web...');
+        update = await _fetchReleaseFromWeb(owner, repo, localVersion);
+        update ??= await _fetchReleaseFromWeb('zakghd', 'LUPUS_ARENA', localVersion);
+      }
+
       return update;
     } catch (e) {
       debugPrint('[UpdateService Error] $e');
@@ -270,6 +280,109 @@ class UpdateService {
     }
   }
 
+  /// Secours en cas de limitation de taux API GitHub : interroge l'URL web qui redirige vers le tag
+  Future<AppUpdateInfo?> _fetchReleaseFromWeb(
+    String owner,
+    String repo,
+    String localVersion,
+  ) async {
+    try {
+      final client = http.Client();
+      final request = http.Request(
+        'GET',
+        Uri.parse('https://github.com/$owner/$repo/releases/latest'),
+      )..followRedirects = false;
+      final streamedResponse = await client.send(request);
+      final location = streamedResponse.headers['location'];
+      if (location == null || !location.contains('/releases/tag/')) {
+        return null;
+      }
+      final rawTag = location.split('/releases/tag/').last.trim();
+      if (rawTag.isEmpty) return null;
+
+      final remoteVersion = rawTag.replaceFirst(RegExp(r'^[vV]'), '');
+      if (!isRemoteVersionGreater(remoteVersion, localVersion)) {
+        debugPrint('[UpdateService Web] L\'application est à jour ($localVersion >= $remoteVersion)');
+        return null;
+      }
+
+      final abi = await getTargetAbi();
+      final fileName = abi == 'arm64'
+          ? 'LupusArena-arm64.apk'
+          : (abi == 'arm32' ? 'LupusArena-arm32.apk' : 'LupusArena.apk');
+      final downloadUrl =
+          'https://github.com/$owner/$repo/releases/download/$rawTag/$fileName';
+
+      debugPrint('[UpdateService Web] Nouvelle version détectée via Web : $remoteVersion ($fileName)');
+      return AppUpdateInfo(
+        version: remoteVersion,
+        rawTag: rawTag,
+        releaseNotes: 'Mise à jour de performance, corrections de bugs et nouvelles fonctionnalités de jeu.',
+        downloadUrl: downloadUrl,
+        fileName: fileName,
+        fileSize: 0,
+        currentVersion: localVersion,
+        matchedAbi: abi,
+        hasUpdate: true,
+      );
+    } catch (e) {
+      debugPrint('[UpdateService Web Fallback Error] $e');
+      return null;
+    }
+  }
+
+  /// Dossier de téléchargement optimisé (cache externe Android pour éviter les restrictions de bac à sable)
+  static Future<Directory> getDownloadDirectory() async {
+    if (Platform.isAndroid) {
+      try {
+        final extDirs = await getExternalCacheDirectories();
+        if (extDirs != null && extDirs.isNotEmpty) {
+          return extDirs.first;
+        }
+      } catch (_) {}
+    }
+    return await getTemporaryDirectory();
+  }
+
+  /// Vérifie si un APK déjà téléchargé correspond exactement à la version et à la taille attendues
+  static Future<File?> getExistingApkFile(
+    String fileName,
+    String version,
+    int expectedSize,
+  ) async {
+    try {
+      final dir = await getDownloadDirectory();
+      final baseName = fileName.replaceAll('.apk', '');
+      final safeName = '${baseName}_$version.apk';
+      final file = File('${dir.path}/$safeName');
+      if (await file.exists()) {
+        final length = await file.length();
+        if (expectedSize > 0 && length == expectedSize) {
+          return file;
+        } else if (expectedSize <= 0 && length > 10 * 1024 * 1024) {
+          return file;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Nettoie les anciens fichiers APK de mises à jour précédentes pour économiser l'espace disque
+  static Future<void> _cleanupOldApks(Directory dir, String currentApkName) async {
+    try {
+      final entities = await dir.list().toList();
+      for (final entity in entities) {
+        if (entity is File &&
+            entity.path.endsWith('.apk') &&
+            !entity.path.endsWith(currentApkName)) {
+          try {
+            await entity.delete();
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
   /// Déclenche l'installation native d'un fichier APK
   static Future<String> launchApkInstallation(String filePath) async {
     final file = File(filePath);
@@ -280,23 +393,15 @@ class UpdateService {
 
     // 0. Vérifier si l'autorisation d'installer depuis des sources inconnues est accordée (Android 8.0+)
     if (Platform.isAndroid) {
-      try {
-        final status = await Permission.requestInstallPackages.status;
-        if (!status.isGranted) {
-          debugPrint('[UpdateService] Demande d\'autorisation REQUEST_INSTALL_PACKAGES...');
-          final requestResult = await Permission.requestInstallPackages.request();
-          if (!requestResult.isGranted) {
-            debugPrint('[UpdateService] Autorisation refusée. Redirection vers paramètres...');
-            await openInstallPermissionSettings();
-            return 'PERMISSION_REQUIRED';
-          }
-        }
-      } catch (e) {
-        debugPrint('[UpdateService Permission Warning] $e');
+      final canInstall = await canRequestPackageInstalls();
+      if (!canInstall) {
+        debugPrint('[UpdateService] Demande d\'autorisation REQUEST_INSTALL_PACKAGES...');
+        await openInstallPermissionSettings();
+        return 'PERMISSION_REQUIRED';
       }
     }
 
-    // 1. Essayer d'abord le MethodChannel natif Android (haute fiabilité avec FileProvider interne)
+    // 1. Essayer d'abord le MethodChannel natif Android (haute fiabilité avec FileProvider interne et permissions explicites)
     if (Platform.isAndroid) {
       try {
         final result = await _nativeInstaller.invokeMethod<String>('installApk', {
@@ -325,17 +430,42 @@ class UpdateService {
     }
   }
 
-  /// Télécharge l'APK avec suivi du stream d'octets, reprise sur coupure réseau (Range header) et lance automatiquement l'installateur
+  /// Télécharge l'APK avec reprise sécurisée (.part), vérification de taille et lancement de l'installateur
   Future<String> downloadAndInstall({
     required String downloadUrl,
     required String fileName,
+    String? version,
+    int? expectedSize,
     required void Function(double progress, int received, int total) onProgress,
     void Function(String error)? onError,
   }) async {
     try {
-      final tempDir = await getTemporaryDirectory();
-      final filePath = '${tempDir.path}/$fileName';
-      final file = File(filePath);
+      final dir = await getDownloadDirectory();
+      final versionSuffix = version != null ? '_$version' : '';
+      final baseName = fileName.replaceAll('.apk', '');
+      final safeApkName = '$baseName$versionSuffix.apk';
+      final apkFile = File('${dir.path}/$safeApkName');
+      final partFile = File('${dir.path}/$safeApkName.part');
+
+      // Nettoyer les anciens APKs périmés pour libérer l'espace
+      await _cleanupOldApks(dir, safeApkName);
+
+      // Si l'APK complet valide existe déjà sur l'appareil, le lancer immédiatement
+      if (await apkFile.exists()) {
+        final existingFullLength = await apkFile.length();
+        final isValidSize = expectedSize != null && expectedSize > 0
+            ? existingFullLength == expectedSize
+            : existingFullLength > 10 * 1024 * 1024;
+        if (isValidSize) {
+          debugPrint('[UpdateService] APK déjà téléchargé et valide ($existingFullLength octets). Lancement direct...');
+          onProgress(1.0, existingFullLength, existingFullLength);
+          return await launchApkInstallation(apkFile.path);
+        } else {
+          try {
+            await apkFile.delete();
+          } catch (_) {}
+        }
+      }
 
       final dio = Dio(
         BaseOptions(
@@ -349,12 +479,20 @@ class UpdateService {
 
       const maxRetries = 5;
       int retryCount = 0;
-      int totalBytes = -1;
+      int totalBytes = expectedSize ?? -1;
 
       while (retryCount < maxRetries) {
         int existingBytes = 0;
-        if (await file.exists()) {
-          existingBytes = await file.length();
+        if (await partFile.exists()) {
+          existingBytes = await partFile.length();
+        }
+
+        // Si le fichier partiel dépasse la taille attendue, réinitialiser
+        if (totalBytes > 0 && existingBytes >= totalBytes) {
+          try {
+            await partFile.delete();
+          } catch (_) {}
+          existingBytes = 0;
         }
 
         try {
@@ -376,9 +514,20 @@ class UpdateService {
               headers: headers,
               validateStatus: (status) =>
                   status != null &&
-                  ((status >= 200 && status < 300) || status == 206),
+                  ((status >= 200 && status < 300) || status == 206 || status == 416),
             ),
           );
+
+          if (response.statusCode == 416) {
+            // Range non valide -> Réinitialiser le fichier partiel
+            debugPrint('[UpdateService] Code 416 reçu, réinitialisation du fichier partiel...');
+            try {
+              await partFile.delete();
+            } catch (_) {}
+            existingBytes = 0;
+            retryCount++;
+            continue;
+          }
 
           final responseBody = response.data;
           if (responseBody == null) {
@@ -404,33 +553,35 @@ class UpdateService {
           final shouldAppend = isPartial && existingBytes > 0;
           if (!shouldAppend && existingBytes > 0) {
             existingBytes = 0;
-            if (await file.exists()) {
+            if (await partFile.exists()) {
               try {
-                await file.delete();
+                await partFile.delete();
               } catch (_) {}
             }
           }
 
-          final sink = file.openWrite(
+          final sink = partFile.openWrite(
             mode: shouldAppend ? FileMode.append : FileMode.write,
           );
 
           int received = existingBytes;
-          await for (final chunk in responseBody.stream) {
-            sink.add(chunk);
-            received += chunk.length;
-            if (totalBytes > 0) {
-              final progress = (received / totalBytes).clamp(0.0, 1.0);
-              onProgress(progress, received, totalBytes);
-            } else {
-              onProgress(0.5, received, totalBytes);
+          try {
+            await for (final chunk in responseBody.stream) {
+              sink.add(chunk);
+              received += chunk.length;
+              if (totalBytes > 0) {
+                final progress = (received / totalBytes).clamp(0.0, 1.0);
+                onProgress(progress, received, totalBytes);
+              } else {
+                onProgress(0.5, received, totalBytes);
+              }
             }
+          } finally {
+            await sink.flush();
+            await sink.close();
           }
 
-          await sink.flush();
-          await sink.close();
-
-          final downloadedLength = await file.length();
+          final downloadedLength = await partFile.length();
           if (totalBytes > 0 && downloadedLength < totalBytes) {
             throw DioException(
               requestOptions: response.requestOptions,
@@ -440,9 +591,16 @@ class UpdateService {
           }
 
           debugPrint(
-            '[UpdateService] Téléchargement complété avec succès ($downloadedLength octets)',
+            '[UpdateService] Téléchargement complété ($downloadedLength octets). Finalisation de l\'APK...',
           );
-          break; // Téléchargement réussi
+
+          if (await apkFile.exists()) {
+            try {
+              await apkFile.delete();
+            } catch (_) {}
+          }
+          await partFile.rename(apkFile.path);
+          break; // Succès
         } catch (e) {
           retryCount++;
           debugPrint(
@@ -455,8 +613,12 @@ class UpdateService {
         }
       }
 
+      if (!await apkFile.exists()) {
+        throw Exception('Le fichier APK final n\'a pas pu être enregistré sur l\'appareil.');
+      }
+
       // Lancement immédiat de l'installation de l'APK téléchargé
-      final installResult = await launchApkInstallation(filePath);
+      final installResult = await launchApkInstallation(apkFile.path);
       return installResult;
     } catch (e) {
       debugPrint('[UpdateService Error] Téléchargement / Installation: $e');

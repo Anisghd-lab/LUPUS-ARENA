@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../services/app_translations.dart';
 import '../../services/update_service.dart';
@@ -36,6 +35,27 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
   String? _errorMessage;
   String? _infoMessage;
 
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingApk();
+  }
+
+  Future<void> _checkExistingApk() async {
+    final existingFile = await UpdateService.getExistingApkFile(
+      widget.updateInfo.fileName,
+      widget.updateInfo.version,
+      widget.updateInfo.fileSize,
+    );
+    if (existingFile != null && mounted) {
+      setState(() {
+        _isDownloaded = true;
+        _downloadedFilePath = existingFile.path;
+        _progress = 1.0;
+      });
+    }
+  }
+
   Future<void> _startDownloadOrInstall() async {
     // Si l'APK est déjà téléchargé, lancer directement l'installateur
     if (_isDownloaded && _downloadedFilePath != null) {
@@ -48,6 +68,10 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
       if (result == 'PERMISSION_REQUIRED') {
         setState(() {
           _infoMessage = context.tr('update_permission_hint');
+        });
+      } else if (result != 'INSTALLER_LAUNCHED') {
+        setState(() {
+          _errorMessage = result;
         });
       }
       return;
@@ -66,6 +90,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
       final installResult = await UpdateService().downloadAndInstall(
         downloadUrl: widget.updateInfo.downloadUrl,
         fileName: widget.updateInfo.fileName,
+        version: widget.updateInfo.version,
+        expectedSize: widget.updateInfo.fileSize,
         onProgress: (progress, received, total) {
           if (!mounted) return;
           setState(() {
@@ -85,18 +111,28 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
 
       if (!mounted) return;
 
-      final tempDir = await getTemporaryDirectory();
-      final path = '${tempDir.path}/${widget.updateInfo.fileName}';
+      final downloadDir = await UpdateService.getDownloadDirectory();
+      final versionSuffix = '_${widget.updateInfo.version}';
+      final baseName = widget.updateInfo.fileName.replaceAll('.apk', '');
+      final safeApkName = '$baseName$versionSuffix.apk';
+      final path = '${downloadDir.path}/$safeApkName';
 
-      setState(() {
-        _isDownloading = false;
-        _isDownloaded = true;
-        _downloadedFilePath = path;
-        _progress = 1.0;
-        if (installResult == 'PERMISSION_REQUIRED') {
-          _infoMessage = context.tr('update_permission_hint');
-        }
-      });
+      if (installResult.startsWith('ERROR:') || installResult == 'FILE_NOT_FOUND') {
+        setState(() {
+          _isDownloading = false;
+          _errorMessage = installResult;
+        });
+      } else {
+        setState(() {
+          _isDownloading = false;
+          _isDownloaded = true;
+          _downloadedFilePath = path;
+          _progress = 1.0;
+          if (installResult == 'PERMISSION_REQUIRED') {
+            _infoMessage = context.tr('update_permission_hint');
+          }
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {

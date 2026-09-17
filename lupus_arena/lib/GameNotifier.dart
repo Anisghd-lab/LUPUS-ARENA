@@ -1221,6 +1221,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             }
           } catch (_) {}
           updates['players/$id/role'] = revealedRole.id;
+          final cause = (id == room.witchPoisonVictimId)
+              ? 'POISON_SORCIERE'
+              : 'MORSURE_LOUPS';
+          updates['lastDeathFlip'] = {
+            'action': 'FLIP_CARTE_MORT',
+            'joueurId': id,
+            'nom': player.name,
+            'role': revealedRole.name,
+            'camp': revealedRole.isEvil ? 'LOUPS' : 'VILLAGE',
+            'cause': cause,
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          };
           logs.add(
             '💀 ${player.name} (${revealedRole.displayNameFr}) a succombé.',
           );
@@ -1342,13 +1354,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return;
     }
 
-    final aliveList = room.alivePlayers.map((p) => p.id).toList();
-    if (aliveList.isNotEmpty) {
+    final queue = List<String>.from(room.alivePlayers.map((p) => p.id));
+    while (queue.isNotEmpty && (room.players[queue.first]?.isMuted ?? false)) {
+      final mutedId = queue.removeAt(0);
+      final mutedName = room.players[mutedId]?.name ?? 'Un citoyen';
+      logs.add('🔇 $mutedName est bâillonné par les loups ! Son tour de parole est sauté.');
+    }
+
+    if (queue.isNotEmpty) {
       updates['phase'] = GamePhase.dayDebate.name;
-      updates['debateQueue'] = aliveList;
-      updates['currentSpeakerId'] = aliveList.first;
+      updates['debateQueue'] = queue;
+      updates['currentSpeakerId'] = queue.first;
       updates['timerSeconds'] = 60;
-      final speakerName = room.players[aliveList.first]?.name ?? 'Inconnu';
+      final speakerName = room.players[queue.first]?.name ?? 'Inconnu';
       logs.add(
         '🎙️ Débat du village ouvert. Parole exclusive accordée à $speakerName (60s).',
       );
@@ -1375,6 +1393,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     if (queue.isNotEmpty) {
       queue.removeAt(0);
+    }
+
+    // SAUT AUTOMATIQUE SI LE JOUEUR EST RÉDUIT AU SILENCE (isMuted)
+    while (queue.isNotEmpty && (room.players[queue.first]?.isMuted ?? false)) {
+      final mutedId = queue.removeAt(0);
+      final mutedName = room.players[mutedId]?.name ?? 'Un citoyen';
+      logs.add('🔇 $mutedName est bâillonné par les loups ! Son tour de parole est sauté.');
     }
 
     if (queue.isNotEmpty) {
@@ -1528,6 +1553,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     updates['players/$condemnedId/isAlive'] = false;
     updates['players/$condemnedId/role'] = condemnedRealRole.id;
+    updates['lastDeathFlip'] = {
+      'action': 'FLIP_CARTE_MORT',
+      'joueurId': condemnedId,
+      'nom': condemned.name,
+      'role': condemnedRealRole.name,
+      'camp': condemnedRealRole.isEvil ? 'LOUPS' : 'VILLAGE',
+      'cause': 'VOTE_VILLAGE',
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
     logs.add(
       '🔥 Le village a jeté ${condemned.name} aux flammes du bûcher ! Il était ${condemnedRealRole.displayNameFr}.',
     );
@@ -2342,13 +2376,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     _resetAllVotes(updates);
 
     // Le Capitaine est définitivement élu : passage direct au débat du Jour 1
-    final aliveList = room.alivePlayers.map((p) => p.id).toList();
-    if (aliveList.isNotEmpty) {
+    final queue = List<String>.from(room.alivePlayers.map((p) => p.id));
+    while (queue.isNotEmpty && (room.players[queue.first]?.isMuted ?? false)) {
+      final mutedId = queue.removeAt(0);
+      final mutedName = room.players[mutedId]?.name ?? 'Un citoyen';
+      logs.add('🔇 $mutedName est bâillonné par les loups ! Son tour de parole est sauté.');
+    }
+    if (queue.isNotEmpty) {
       updates['phase'] = GamePhase.dayDebate.name;
-      updates['debateQueue'] = aliveList;
-      updates['currentSpeakerId'] = aliveList.first;
+      updates['debateQueue'] = queue;
+      updates['currentSpeakerId'] = queue.first;
       updates['timerSeconds'] = 60;
-      final speakerName = room.players[aliveList.first]?.name ?? 'Inconnu';
+      final speakerName = room.players[queue.first]?.name ?? 'Inconnu';
       logs.add(
         '🎙️ Débat du village ouvert. Parole exclusive accordée à $speakerName (60s).',
       );
@@ -2762,10 +2801,25 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'logs': currentLogs,
     };
     if (targetPhase == GamePhase.dayDebate) {
-      final aliveIds = state.room!.alivePlayers.map((p) => p.id).toList();
-      updates['debateQueue'] = aliveIds;
-      updates['currentSpeakerId'] = aliveIds.isNotEmpty ? aliveIds.first : null;
+      final queue = List<String>.from(state.room!.alivePlayers.map((p) => p.id));
+      while (queue.isNotEmpty && (state.room!.players[queue.first]?.isMuted ?? false)) {
+        final mutedId = queue.removeAt(0);
+        final mutedName = state.room!.players[mutedId]?.name ?? 'Un citoyen';
+        currentLogs.insert(
+          0,
+          '🔇 [GOD MODE] $mutedName est bâillonné ! Son tour de parole est sauté.',
+        );
+      }
+      updates['debateQueue'] = queue;
+      updates['currentSpeakerId'] = queue.isNotEmpty ? queue.first : null;
       updates['timerSeconds'] = 60;
+    }
+    if (targetPhase == GamePhase.nightWerewolves) {
+      for (final p in state.room!.players.values) {
+        if (p.isMuted) {
+          updates['players/${p.id}/isMuted'] = false;
+        }
+      }
     }
     if (targetPhase == GamePhase.nightWitch &&
         state.room?.nightVictimId == null) {
@@ -2809,14 +2863,26 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     };
 
     if (!newAlive) {
+      GameRole realRole = target.roleInitial;
       try {
         final sSnap = await _database
             .ref('rooms/${state.room!.roomCode}/secret_roles/$playerId/roleId')
             .get();
         if (sSnap.exists && sSnap.value != null) {
+          realRole = GameRole.fromId(sSnap.value.toString());
           updates['players/$playerId/role'] = sSnap.value.toString();
         }
       } catch (_) {}
+
+      updates['lastDeathFlip'] = {
+        'action': 'FLIP_CARTE_MORT',
+        'joueurId': playerId,
+        'nom': target.name,
+        'role': realRole.name,
+        'camp': realRole.isEvil ? 'LOUPS' : 'VILLAGE',
+        'cause': 'VOTE_VILLAGE',
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
     }
 
     await _syncState(updates);
@@ -2847,14 +2913,28 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'players/$playerId/isMuted': newMuted,
       'logs': currentLogs,
     });
+
+    // En God Mode : si le joueur bâillonné avait la parole pendant le débat, on saute immédiatement son tour
+    if (newMuted &&
+        state.room?.phase == GamePhase.dayDebate &&
+        state.room?.currentSpeakerId == playerId) {
+      await passTurnDebate();
+    }
   }
 
   Future<void> adminForceSpeaker(String? playerId) async {
     if (_currentRoomRef == null || state.room == null) return;
     final target = playerId != null ? state.room!.players[playerId] : null;
+    final currentLogs = List<String>.from(state.room!.logs);
+    if (target != null && target.isMuted) {
+      currentLogs.insert(
+        0,
+        '⚠️ [ADMIN] Attention : ${target.name} est bâillonné(e) par les loups !',
+      );
+    }
     final log =
         '[ADMIN] Parole accordée à : ${target?.name ?? "Silence général"}';
-    final currentLogs = List<String>.from(state.room!.logs)..insert(0, log);
+    currentLogs.insert(0, log);
 
     await _syncState({'currentSpeakerId': playerId, 'logs': currentLogs});
   }

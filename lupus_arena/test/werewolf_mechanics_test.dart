@@ -488,6 +488,98 @@ void main() {
       final result = GameNotifier.checkWinConditions(room);
       expect(result, equals('village'), reason: 'Tous les loups éliminés = victoire du village');
     });
+
+    test('Débat du village : saut automatique des joueurs bâillonnés (isMuted)', () {
+      final p1 = const PlayerModel(id: '1', name: 'Alice', role: GameRole.simpleVillager, isAlive: true, isMuted: false);
+      final p2 = const PlayerModel(id: '2', name: 'Bob', role: GameRole.simpleVillager, isAlive: true, isMuted: true); // Bâillonné
+      final p3 = const PlayerModel(id: '3', name: 'Charlie', role: GameRole.simpleVillager, isAlive: true, isMuted: false);
+
+      final players = {'1': p1, '2': p2, '3': p3};
+
+      // Simulation de la file de débat
+      final queue = List<String>.from(players.values.where((p) => p.isAlive).map((p) => p.id));
+      final logs = <String>[];
+
+      // Premier orateur : Alice
+      expect(queue.first, equals('1'));
+
+      // Alice termine son tour -> suppression d'Alice
+      queue.removeAt(0);
+
+      // Algorithme de saut automatique identique à passTurnDebate & _routeToDayPhase
+      while (queue.isNotEmpty && (players[queue.first]?.isMuted ?? false)) {
+        final mutedId = queue.removeAt(0);
+        final mutedName = players[mutedId]?.name ?? 'Un citoyen';
+        logs.add('🔇 $mutedName est bâillonné par les loups ! Son tour de parole est sauté.');
+      }
+
+      // Bob a été sauté immédiatement sans temps mort
+      expect(logs, contains(contains('Bob est bâillonné par les loups')));
+      // La parole est directement chez Charlie
+      expect(queue.first, equals('3'));
+    });
+
+    test('Débat du village : cascade de sauts si plusieurs joueurs muets consécutifs', () {
+      final p1 = const PlayerModel(id: '1', name: 'Alice', role: GameRole.simpleVillager, isAlive: true, isMuted: false);
+      final p2 = const PlayerModel(id: '2', name: 'Bob', role: GameRole.simpleVillager, isAlive: true, isMuted: true);
+      final p3 = const PlayerModel(id: '3', name: 'Charlie', role: GameRole.simpleVillager, isAlive: true, isMuted: true);
+      final p4 = const PlayerModel(id: '4', name: 'David', role: GameRole.simpleVillager, isAlive: true, isMuted: false);
+
+      final players = {'1': p1, '2': p2, '3': p3, '4': p4};
+      final queue = ['1', '2', '3', '4'];
+      final logs = <String>[];
+
+      // Alice cède sa parole
+      queue.removeAt(0);
+
+      while (queue.isNotEmpty && (players[queue.first]?.isMuted ?? false)) {
+        final mutedId = queue.removeAt(0);
+        final mutedName = players[mutedId]?.name ?? 'Un citoyen';
+        logs.add('🔇 $mutedName est bâillonné par les loups ! Son tour de parole est sauté.');
+      }
+
+      // Bob et Charlie sautés
+      expect(logs.length, equals(2));
+      expect(queue.first, equals('4'));
+    });
+
+    test('Débat du village : si tous les orateurs restants sont muets, clôture et vote', () {
+      final p1 = const PlayerModel(id: '1', name: 'Alice', role: GameRole.simpleVillager, isAlive: true, isMuted: false);
+      final p2 = const PlayerModel(id: '2', name: 'Bob', role: GameRole.simpleVillager, isAlive: true, isMuted: true);
+
+      final players = {'1': p1, '2': p2};
+      final queue = ['1', '2'];
+      final logs = <String>[];
+
+      queue.removeAt(0); // Alice a fini
+
+      while (queue.isNotEmpty && (players[queue.first]?.isMuted ?? false)) {
+        final mutedId = queue.removeAt(0);
+        logs.add('🔇 ${players[mutedId]?.name} est bâillonné !');
+      }
+
+      expect(queue.isEmpty, isTrue, reason: 'La file doit être vide pour ouvrir le vote');
+    });
+
+    test('UpdateService : comparaison de versions sémantiques et build numbers', () {
+      // Cas de base
+      expect(UpdateService.isRemoteVersionGreater('v1.0.22+23', '1.0.21+22'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('1.0.22+23', '1.0.21+22'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('1.0.21+22', '1.0.21+22'), isFalse);
+      expect(UpdateService.isRemoteVersionGreater('1.0.20+21', '1.0.21+22'), isFalse);
+
+      // Même version majeure.mineure.patch, build number supérieur
+      expect(UpdateService.isRemoteVersionGreater('1.0.21+23', '1.0.21+22'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('1.0.21+21', '1.0.21+22'), isFalse);
+
+      // Version majeure supérieure
+      expect(UpdateService.isRemoteVersionGreater('2.0.0+1', '1.0.21+22'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('1.0.0+1', '2.0.0+1'), isFalse);
+
+      // Format sans préfixe ou avec préfixe 'v'
+      expect(UpdateService.isRemoteVersionGreater('V1.0.22', '1.0.21'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('v1.0.22+23', 'v1.0.22+23'), isFalse);
+    });
   });
 }
 

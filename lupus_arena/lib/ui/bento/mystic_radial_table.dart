@@ -590,6 +590,37 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       ),
                     ),
 
+                  // Badge Micro Barré Rouge si Bâillonné (silence forcé)
+                  if (player.isMuted && player.isAlive)
+                    Positioned(
+                      bottom: -4,
+                      left: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(2.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF200A10),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFFF3333),
+                            width: 1.5,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x99FF3333),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.mic_off_rounded,
+                          size: 9,
+                          color: Color(0xFFFF3333),
+                        ),
+                      ),
+                    ),
+
+
                   // Badge Allié Loup-Garou (visible pour les loups)
                   if (isWolfPeer && !isMe && (player.isAlive || isGodMode))
                     Positioned(

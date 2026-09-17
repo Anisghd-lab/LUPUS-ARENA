@@ -13,8 +13,9 @@ class SilenceEtLeurreTest {
         val loupBlanc = Joueur("LB", "LoupBlanc", Role.LOUP_BLANC)
         val loupGarou = Joueur("LG", "LoupGarou", Role.LOUP_GAROU)
         val simpleV = Joueur("SV", "Villageois", Role.VILLAGEOIS_SIMPLE)
+        val simpleV2 = Joueur("SV2", "Villageois2", Role.VILLAGEOIS_SIMPLE)
 
-        val agent = AgentSurveillance(mutableListOf(voyante, loupBlanc, loupGarou, simpleV))
+        val agent = AgentSurveillance(mutableListOf(voyante, loupBlanc, loupGarou, simpleV, simpleV2))
 
         // Leurre : la voyante perçoit VILLAGEOIS_SIMPLE
         val roleVuLB = agent.executerSondageVoyante("V", "LB")
@@ -40,8 +41,9 @@ class SilenceEtLeurreTest {
         val loupBlanc = Joueur("LB", "Loup2", Role.LOUP_BLANC)
         val victime = Joueur("V", "Victime", Role.VILLAGEOIS_SIMPLE)
         val cibleSilence = Joueur("S", "CibleSilence", Role.VILLAGEOIS_SIMPLE)
+        val autreVillageois = Joueur("V2", "AutreVillageois", Role.VILLAGEOIS_SIMPLE)
 
-        val superviseur = SuperviseurDeJeu(mutableListOf(loupGarou, loupBlanc, victime, cibleSilence))
+        val superviseur = SuperviseurDeJeu(mutableListOf(loupGarou, loupBlanc, victime, cibleSilence, autreVillageois))
         superviseur.lancerPartie() // Passe en NUIT_LOUPS (pas de voyante)
 
         // Interdit de faire taire le loup blanc

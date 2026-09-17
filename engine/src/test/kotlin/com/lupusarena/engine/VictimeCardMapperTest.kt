@@ -73,8 +73,9 @@ class VictimeCardMapperTest {
         val loupBlanc = Joueur("LB", "LoupBlanc", Role.LOUP_BLANC)
         val loupNormal = Joueur("LG", "LoupGarou", Role.LOUP_GAROU)
         val villageois = Joueur("S", "SimpleV", Role.VILLAGEOIS_SIMPLE)
+        val villageois2 = Joueur("S2", "SimpleV2", Role.VILLAGEOIS_SIMPLE)
 
-        val agent = AgentSurveillance(mutableListOf(voyante, loupBlanc, loupNormal, villageois))
+        val agent = AgentSurveillance(mutableListOf(voyante, loupBlanc, loupNormal, villageois, villageois2))
 
         // 1. Sondage sur le Loup Blanc -> Leurre actif
         val visionLoupBlanc = agent.executerSondageVoyante("V", "LB")

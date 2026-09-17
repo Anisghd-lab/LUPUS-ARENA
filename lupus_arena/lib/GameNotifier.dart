@@ -2033,7 +2033,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return false;
     }
     // Interdiction de cibler la proie déjà dévorée de la nuit (inutile de bâillonner un mort)
-    if (state.room?.nightVictimId == targetPlayerId) {
+    final currentVictimId = state.room?.nightVictimId ?? _tallyWerewolfVotes();
+    if (currentVictimId == targetPlayerId) {
       return false;
     }
 
@@ -2044,6 +2045,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         '🐺 Les Loups ont intimé le silence à ${target.name} pour la journée suivante.',
       ],
     });
+    if (state.room != null) {
+      state = state.copyWith(
+        room: state.room!.copyWith(blackWolfTargetId: targetPlayerId),
+      );
+    }
     return true;
   }
 

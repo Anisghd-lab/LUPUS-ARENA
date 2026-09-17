@@ -580,11 +580,13 @@ void main() {
       expect(UpdateService.isRemoteVersionGreater('V1.0.22', '1.0.21'), isTrue);
       expect(UpdateService.isRemoteVersionGreater('v1.0.22+23', 'v1.0.22+23'), isFalse);
 
-      // Version v1.0.23+24 & v1.0.24+25
+      // Version v1.0.23+24, v1.0.24+25 & v1.0.25+26
       expect(UpdateService.isRemoteVersionGreater('v1.0.23+24', '1.0.22+23'), isTrue);
       expect(UpdateService.isRemoteVersionGreater('1.0.23+24', '1.0.22+23'), isTrue);
       expect(UpdateService.isRemoteVersionGreater('v1.0.24+25', '1.0.23+24'), isTrue);
       expect(UpdateService.isRemoteVersionGreater('v1.0.24+25', 'v1.0.24+25'), isFalse);
+      expect(UpdateService.isRemoteVersionGreater('v1.0.25+26', '1.0.24+25'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('v1.0.25+26', 'v1.0.25+26'), isFalse);
     });
 
     test('Double action des loups : proie et silence obligatoires et distincts', () {
@@ -623,6 +625,22 @@ void main() {
 
       // Interdiction formelle sur la proie vouée à mourir cette nuit-là
       expect(canSilence(victim, victim.id), isFalse);
+    });
+
+    test('Anti-fratricide : un loup ne peut JAMAIS dévorer un loup ni soi-même', () {
+      const meWolf = PlayerModel(id: 'w1', name: 'MoiLoup', role: GameRole.simpleWerewolf, isAlive: true);
+      const allyWolf = PlayerModel(id: 'w2', name: 'LoupAllie', role: GameRole.bigBadWolf, isAlive: true);
+      const victim = PlayerModel(id: 'v1', name: 'Victime', role: GameRole.simpleVillager, isAlive: true);
+
+      bool canDevour(PlayerModel target, String currentUserId) {
+        final isTargetWolf = target.role.isEvil || target.role.isWolfTeam;
+        final isSelf = target.id == currentUserId;
+        return target.isAlive && !isTargetWolf && !isSelf;
+      }
+
+      expect(canDevour(victim, meWolf.id), isTrue, reason: 'Peut dévorer un villageois');
+      expect(canDevour(allyWolf, meWolf.id), isFalse, reason: 'Ne peut PAS dévorer un allié');
+      expect(canDevour(meWolf, meWolf.id), isFalse, reason: 'Ne peut PAS se dévorer soi-même');
     });
 
     test('Purge du silence à l\'arrivée de la nuit : les joueurs sous silence retrouvent l\'usage de la parole', () {

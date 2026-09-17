@@ -382,7 +382,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       left: x,
       top: y,
       child: GestureDetector(
-        onTap: () => widget.onPlayerSelected(player.id),
+        behavior: HitTestBehavior.opaque,
+        onTap: player.isAlive ? () => widget.onPlayerSelected(player.id) : null,
         child: SizedBox(
           width: nodeWidth,
           child: Column(

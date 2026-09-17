@@ -1085,7 +1085,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (round == 1 && hasAlive(GameRole.cupid)) return GamePhase.nightCupid;
       if (hasAlive(GameRole.defender)) return GamePhase.nightDefender;
       if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
-      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
@@ -1096,7 +1095,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (round == 1 && hasAlive(GameRole.cupid)) return GamePhase.nightCupid;
       if (hasAlive(GameRole.defender)) return GamePhase.nightDefender;
       if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
-      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
@@ -1106,7 +1104,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (current == GamePhase.nightCupid) {
       if (hasAlive(GameRole.defender)) return GamePhase.nightDefender;
       if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
-      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
@@ -1116,23 +1113,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     // 1. Salvateur
     if (current == GamePhase.nightDefender) {
       if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
-      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
       return GamePhase.morningAnnouncement;
     }
 
-    // 2. Loups
+    // 2. Loups (Double action unifiée : Proie & Silence)
     if (current == GamePhase.nightWerewolves) {
-      if (hasAlive(GameRole.blackWolf)) return GamePhase.nightBlackWolf;
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
       if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
       return GamePhase.morningAnnouncement;
     }
 
-    // 2.B Loup Noir (Pouvoir de faire taire un joueur)
+    // 2.B Loup Noir (Fallback de sécurité si phase résiduelle activée)
     if (current == GamePhase.nightBlackWolf) {
       if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
       if (hasActiveWitch()) return GamePhase.nightWitch;
@@ -1908,27 +1903,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await processNightTransitions();
   }
 
-  /// Pouvoir du Loup Noir : durant la nuit, sélectionne un joueur vivant pour le réduire au silence
-  Future<bool> blackWolfSilence(String targetPlayerId) async {
-    if ((state.myRole != GameRole.blackWolf && !state.isAdmin) ||
-        _currentRoomRef == null) {
-      return false;
-    }
-    final target = state.room?.players[targetPlayerId];
-    if (target == null || !target.isAlive) {
-      return false;
-    }
-
-    await _syncState({
-      'blackWolfTargetId': targetPlayerId,
-      'logs': [
-        ...?state.room?.logs,
-        '🐺 Une aura ténébreuse s\'empare d\'un villageois... Le Loup Noir a désigné sa cible de silence.',
-      ],
-    });
-    await processNightTransitions();
-    return true;
-  }
+  /// Pouvoir de silence des loups : durant la nuit, sélectionne un joueur vivant pour le réduire au silence
+  Future<bool> blackWolfSilence(String targetPlayerId) => werewolfSilence(targetPlayerId);
 
   Future<bool> defenderProtect(String targetPlayerId) async {
     if ((state.myRole != GameRole.defender && !state.isAdmin) ||
@@ -2440,7 +2416,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (phase == GamePhase.nightWerewolves && !state.isAdmin) {
       final victimId = _tallyWerewolfVotes() ?? state.room!.nightVictimId;
       final silenceId = state.room!.blackWolfTargetId;
-      if (victimId == null || silenceId == null || victimId == silenceId) {
+      final livingCount = state.room!.alivePlayers.length;
+      if (victimId == null || (livingCount >= 2 && (silenceId == null || victimId == silenceId))) {
         state = state.copyWith(
           errorMessage:
               'La meute doit obligatoirement désigner une proie ET un joueur distinct à réduire au silence.',

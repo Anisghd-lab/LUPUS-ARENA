@@ -239,6 +239,12 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Carte d'état de la Double Action des Loups (si Nuit en cours)
+        if (room.phase == GamePhase.nightWerewolves || room.phase.isNight) ...[
+          _buildNightWerewolfStatusCard(room),
+          const SizedBox(height: 12),
+        ],
+
         const Text(
           'ROSTER SECRET DES JOUEURS',
           style: TextStyle(
@@ -396,6 +402,115 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
           );
         }),
       ],
+    );
+  }
+
+  Widget _buildNightWerewolfStatusCard(GameRoom room) {
+    final victim = room.nightVictimId != null ? room.players[room.nightVictimId] : null;
+    final silenced = room.blackWolfTargetId != null ? room.players[room.blackWolfTargetId] : null;
+    final isComplete = victim != null && silenced != null && victim.id != silenced.id;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0x339333EA),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isComplete
+              ? LupusColors.poisonGreen.withValues(alpha: 0.6)
+              : const Color(0xFFC084FC).withValues(alpha: 0.4),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Text('🐺', style: TextStyle(fontSize: 14)),
+                  SizedBox(width: 6),
+                  Text(
+                    'DOUBLE ACTION DES LOUPS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                      color: Color(0xFFE9D5FF),
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isComplete
+                      ? const Color(0x3306D6A0)
+                      : const Color(0x33E63946),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isComplete ? 'COMPLÈTE' : 'INCOMPLÈTE',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: isComplete
+                        ? LupusColors.poisonGreen
+                        : const Color(0xFFFCA5A5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Proie (Morsure) :',
+                      style: TextStyle(fontSize: 10, color: LupusColors.textMuted),
+                    ),
+                    Text(
+                      victim != null ? '🥩 ${victim.name}' : '❌ Aucune cible',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: victim != null ? const Color(0xFFFECDD3) : LupusColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Silence (Intimidation/Bluff) :',
+                      style: TextStyle(fontSize: 10, color: LupusColors.textMuted),
+                    ),
+                    Text(
+                      silenced != null
+                          ? '🔇 ${silenced.name} ${(silenced.role.isEvil || silenced.role == GameRole.whiteWerewolf) ? "(Allié/Bluff)" : ""}'
+                          : '❌ Aucune cible',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: silenced != null ? const Color(0xFFE9D5FF) : LupusColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1055,6 +1170,107 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     ),
                   ],
                 ),
+
+                // Contrôles God Mode Nuit des Loups (Double action : Dévorer + Silence)
+                if ((room.phase == GamePhase.nightWerewolves || room.phase.isNight) && player.isAlive) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      // Fixer comme Proie
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            notifier.adminSetNightVictim(
+                                room.nightVictimId == player.id ? null : player.id);
+                            _showToast(room.nightVictimId == player.id
+                                ? 'Proie retirée'
+                                : '${player.name} désigné(e) comme proie des loups');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: room.nightVictimId == player.id
+                                  ? const Color(0x66991B1B)
+                                  : const Color(0x332B1010),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: room.nightVictimId == player.id
+                                    ? LupusColors.arcaneCrimson
+                                    : Colors.white.withValues(alpha: 0.12),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('🥩', style: TextStyle(fontSize: 12)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  room.nightVictimId == player.id
+                                      ? 'Proie (Active)'
+                                      : 'Dévorer',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: room.nightVictimId == player.id
+                                        ? const Color(0xFFFECDD3)
+                                        : LupusColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+
+                      // Fixer comme Cible de Silence (autorise aussi les loups et soi-même pour le bluff)
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            notifier.adminSetNightSilence(
+                                room.blackWolfTargetId == player.id ? null : player.id);
+                            _showToast(room.blackWolfTargetId == player.id
+                                ? 'Silence retiré'
+                                : '${player.name} désigné(e) pour le silence nocturne');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: room.blackWolfTargetId == player.id
+                                  ? const Color(0x66581C87)
+                                  : const Color(0x33311042),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: room.blackWolfTargetId == player.id
+                                    ? const Color(0xFF9333EA)
+                                    : Colors.white.withValues(alpha: 0.12),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('🔇', style: TextStyle(fontSize: 12)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  room.blackWolfTargetId == player.id
+                                      ? 'Silence (Actif)'
+                                      : 'Silence Nuit',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: room.blackWolfTargetId == player.id
+                                        ? const Color(0xFFE9D5FF)
+                                        : LupusColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           );

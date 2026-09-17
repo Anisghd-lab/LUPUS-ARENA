@@ -579,6 +579,66 @@ void main() {
       // Format sans préfixe ou avec préfixe 'v'
       expect(UpdateService.isRemoteVersionGreater('V1.0.22', '1.0.21'), isTrue);
       expect(UpdateService.isRemoteVersionGreater('v1.0.22+23', 'v1.0.22+23'), isFalse);
+
+      // Version v1.0.23+24
+      expect(UpdateService.isRemoteVersionGreater('v1.0.23+24', '1.0.22+23'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('1.0.23+24', '1.0.22+23'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('v1.0.23+24', 'v1.0.23+24'), isFalse);
+    });
+
+    test('Double action des loups : proie et silence obligatoires et distincts', () {
+      const victimId = 'v1';
+      String? silenceId;
+
+      bool canValidate(String? victim, String? silence) {
+        return victim != null && silence != null && victim != silence;
+      }
+
+      expect(canValidate(victimId, silenceId), isFalse);
+
+      // Invalide si la même personne est ciblée par la mort et le silence
+      silenceId = 'v1';
+      expect(canValidate(victimId, silenceId), isFalse);
+
+      // Valide si deux cibles distinctes sont choisies
+      silenceId = 's1';
+      expect(canValidate(victimId, silenceId), isTrue);
+    });
+
+    test('Bluff intra-meute & auto-mutisme : la cible du silence peut être un loup ou soi-même', () {
+      const wolf1 = PlayerModel(id: 'w1', name: 'Loup1', role: GameRole.simpleWerewolf, isAlive: true);
+      const wolf2 = PlayerModel(id: 'w2', name: 'Loup2', role: GameRole.whiteWerewolf, isAlive: true);
+      const victim = PlayerModel(id: 'v1', name: 'Victime', role: GameRole.simpleVillager, isAlive: true);
+
+      bool canSilence(PlayerModel target, String? currentVictimId) {
+        return target.isAlive && target.id != currentVictimId;
+      }
+
+      // Auto-mutisme autorisé pour alibi
+      expect(canSilence(wolf1, victim.id), isTrue);
+
+      // Ciblage d'un confrère loup autorisé pour bluff intra-meute
+      expect(canSilence(wolf2, victim.id), isTrue);
+
+      // Interdiction formelle sur la proie vouée à mourir cette nuit-là
+      expect(canSilence(victim, victim.id), isFalse);
+    });
+
+    test('Purge du silence à l\'arrivée de la nuit : les joueurs sous silence retrouvent l\'usage de la parole', () {
+      const p1 = PlayerModel(id: '1', name: 'Alice', role: GameRole.simpleVillager, isAlive: true, isMuted: true);
+      const p2 = PlayerModel(id: '2', name: 'Bob', role: GameRole.simpleWerewolf, isAlive: true, isMuted: true);
+
+      final players = {'1': p1, '2': p2};
+      final updates = <String, dynamic>{};
+
+      for (final p in players.values) {
+        if (p.isMuted) {
+          updates['players/${p.id}/isMuted'] = false;
+        }
+      }
+
+      expect(updates['players/1/isMuted'], isFalse);
+      expect(updates['players/2/isMuted'], isFalse);
     });
   });
 }

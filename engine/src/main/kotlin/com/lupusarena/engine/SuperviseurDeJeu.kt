@@ -16,7 +16,8 @@ class SuperviseurDeJeu(
     var tourNumero: Int = 0
         private set
 
-    private var actionNuitEnCours = ActionNuit()
+    var actionNuitEnCours = ActionNuit()
+        internal set
     private val votesDuVillage = mutableMapOf<String, String>()
 
     // Callbacks d'événements pour l'UI, Firebase ou les logs
@@ -124,7 +125,7 @@ class SuperviseurDeJeu(
 
     fun actionVoteLoup(loupId: String, cibleId: String): Boolean {
         if (phaseActuelle != PhaseJeu.NUIT_LOUPS || agentSurveillance.isGameOver) return false
-        val loup = joueurs.find { it.id == loupId && it.estEnVie && it.roleInitial.estLoup } ?: return false
+        if (!joueurs.any { it.id == loupId && it.estEnVie && it.roleInitial.estLoup }) return false
         val cible = joueurs.find { it.id == cibleId && it.estEnVie && !it.roleInitial.estLoup && it.camp != Camp.LOUPS } ?: return false
 
         actionNuitEnCours.cibleLoupsId = cible.id
@@ -133,8 +134,8 @@ class SuperviseurDeJeu(
 
     fun actionFaireTaireJoueur(loupId: String, cibleId: String): Boolean {
         if (phaseActuelle != PhaseJeu.NUIT_LOUPS || agentSurveillance.isGameOver) return false
-        val loup = joueurs.find { it.id == loupId && it.estEnVie && it.roleInitial.estLoup } ?: return false
-        val cible = joueurs.find { it.id == cibleId && it.estEnVie && !it.roleInitial.estLoup } ?: return false
+        if (!joueurs.any { it.id == loupId && it.estEnVie && it.roleInitial.estLoup }) return false
+        val cible = joueurs.find { it.id == cibleId && it.estEnVie } ?: return false
 
         // Ne peut pas bâillonner la cible qui est déjà choisie pour mourir cette nuit
         if (cible.id == actionNuitEnCours.cibleLoupsId) return false
@@ -143,10 +144,30 @@ class SuperviseurDeJeu(
         return true
     }
 
-    fun validerFinTourLoups() {
-        if (phaseActuelle == PhaseJeu.NUIT_LOUPS && !agentSurveillance.isGameOver) {
-            passerALaSorciere()
+    fun validerFinTourLoups(): Boolean {
+        if (phaseActuelle != PhaseJeu.NUIT_LOUPS || agentSurveillance.isGameOver) return false
+
+        val vivants = joueurs.filter { it.estEnVie }
+        val doubleActionRequise = vivants.size >= 2
+
+        if (doubleActionRequise) {
+            val cibleLoups = actionNuitEnCours.cibleLoupsId
+            val cibleSilence = actionNuitEnCours.cibleSilenceId
+
+            if (cibleLoups == null || cibleSilence == null) {
+                return false
+            }
+            if (cibleLoups == cibleSilence) {
+                return false
+            }
+        } else {
+            if (actionNuitEnCours.cibleLoupsId == null) {
+                return false
+            }
         }
+
+        passerALaSorciere()
+        return true
     }
 
     fun actionSorciereSauver(sorciereId: String): Boolean {

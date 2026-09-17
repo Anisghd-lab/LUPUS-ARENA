@@ -15,9 +15,11 @@ object LoupActionMapper {
         cibleMorsureSelectionnee: Joueur?,
         cibleSilenceSelectionnee: Joueur?
     ): EcranNuitLoupsUiState {
-        val cibleMorsureValide = cibleMorsureSelectionnee != null && !cibleMorsureSelectionnee.roleInitial.estLoup
+        val cibleMorsureValide = cibleMorsureSelectionnee != null &&
+                cibleMorsureSelectionnee.estEnVie &&
+                !cibleMorsureSelectionnee.roleInitial.estLoup
         val cibleSilenceValide = cibleSilenceSelectionnee != null &&
-                !cibleSilenceSelectionnee.roleInitial.estLoup &&
+                cibleSilenceSelectionnee.estEnVie &&
                 cibleSilenceSelectionnee.id != cibleMorsureSelectionnee?.id
 
         return EcranNuitLoupsUiState(

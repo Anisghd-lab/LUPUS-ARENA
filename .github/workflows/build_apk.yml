@@ -133,16 +133,14 @@ jobs:
           body: |
             ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
 
-            Mise à jour majeure : stabilisation de la machine d'état, équilibrage canonique des factions, expérience 100% vocale et packaging multi-architecture.
+            Mise à jour majeure : Mécanique officielle de double action nocturne des loups, bluff intra-meute & auto-mutisme, saut automatique au débat et parité absolue Room & God Mode.
 
-            #### 🌟 Points Forts & Correctifs :
-            - **🧙‍♀️ Résolution Définitive de la Sorcière** : Résolution du blocage et du saut de tour à partir de la nuit 2 grâce à la propagation dynamique des rôles réels déchiffrés. Utilisation sécurisée et différée de la potion de mort à l'aube.
-            - **⚖️ Règle Canonique de Parité des Loups & Fin de Partie Sanctuarisée** : Élimination du seuil prématuré de défaite. La meute ne l'emporte que par domination stricte (`loups >= villageois`), et la victoire n'est évaluée qu'à l'aube après annonce officielle ou après le vote du bûcher.
-            - **🐺 Intégration Complète du Loup Noir & Silence Vocal Agora** : Application rigoureuse du silence vocal de 24h sur le microphone des victimes, avec harmonisation complète des modèles et des traductions (FR / EN / AR).
-            - **🔮 Masquage Unilatéral du Loup Blanc pour la Voyante** : Projection visuelle sous forme de Simple Villageois pour la Voyante, sans altération de l'identité réelle ni du camp solo du Loup Blanc dans la base de données.
-            - **🎙️ Débat Vocal à 60s par Joueur & Éradication du Chat Texte** : Passage du temps de parole individuel de 45s à 60s avec microphone exclusif et suppression complète de la boîte de discussion textuelle.
-            - **⏱️ Résolution Automatique des Agonies (Anti-Freeze 25s)** : Si le Chasseur ou le Capitaine ne valident pas leur action ou se déconnectent durant leur agonie de 25s, un abandon sécurisé (Chasseur) ou une désignation d'office (Capitaine) se déclenche automatiquement.
-            - **🚀 Module In-App Update Multi-Architecture** : Sélection automatique du binaire adapté au processeur de votre appareil (arm64, arm32, x86_64) pour des téléchargements ultra-légers et instantanés.
+            #### 🌟 Points Forts & Nouveautés :
+            - **🐺 Double Action Nocturne Obligatoire** : Les loups doivent obligatoirement désigner 1 proie à dévorer ET 1 joueur vivant à réduire au silence. Le bouton de validation reste verrouillé tant que les deux cibles distinctes ne sont pas validées.
+            - **🎭 Bluff Intra-Meute & Auto-Mutisme Stratégique** : Les loups peuvent réduire au silence n'importe quel joueur vivant, y compris un complice (Loup-Garou ou Loup Blanc) ou s'auto-museler eux-mêmes pour parfaire leur alibi d'innocent. Seule interdiction stricte : museler la proie dévorée de la nuit.
+            - **🔇 Débat Diurne & Saut de Parole Instantané** : Le joueur sous silence (loup ou villageois) hérite de `isMuted`, voit son micro Agora verrouillé, affiche son badge de mute rouge et son tour de parole est sauté automatiquement sans aucun temps mort lors du débat.
+            - **👑 Parité Isomorphique Room & God Mode** : Intégration dans le panneau Maître du Jeu d'une carte de diagnostic de double action en temps réel, de boutons directs de morsure et de silence nocturne, et d'un forçage d'avance de débat respectant l'exclusion des muets.
+            - **🧹 Cycle de Vie & Purge Automatique du Silence** : Levée du bâillon au crépuscule/fin de vote et purge systématique lors de tout saut arbitraire vers une phase nocturne.
 
             ---
             #### 📲 Binaires Téléchargeables :

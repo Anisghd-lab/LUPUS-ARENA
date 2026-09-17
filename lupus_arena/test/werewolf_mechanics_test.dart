@@ -580,10 +580,11 @@ void main() {
       expect(UpdateService.isRemoteVersionGreater('V1.0.22', '1.0.21'), isTrue);
       expect(UpdateService.isRemoteVersionGreater('v1.0.22+23', 'v1.0.22+23'), isFalse);
 
-      // Version v1.0.23+24
+      // Version v1.0.23+24 & v1.0.24+25
       expect(UpdateService.isRemoteVersionGreater('v1.0.23+24', '1.0.22+23'), isTrue);
       expect(UpdateService.isRemoteVersionGreater('1.0.23+24', '1.0.22+23'), isTrue);
-      expect(UpdateService.isRemoteVersionGreater('v1.0.23+24', 'v1.0.23+24'), isFalse);
+      expect(UpdateService.isRemoteVersionGreater('v1.0.24+25', '1.0.23+24'), isTrue);
+      expect(UpdateService.isRemoteVersionGreater('v1.0.24+25', 'v1.0.24+25'), isFalse);
     });
 
     test('Double action des loups : proie et silence obligatoires et distincts', () {

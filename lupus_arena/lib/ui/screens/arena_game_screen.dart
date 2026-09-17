@@ -492,7 +492,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                               .pyromaniacPass(),
                           onBlackWolfSilence: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
-                              .blackWolfSilence(targetId),
+                              .werewolfSilence(targetId),
                           onPassDebate: () => ref
                               .read(gameNotifierProvider.notifier)
                               .passTurnDebate(),

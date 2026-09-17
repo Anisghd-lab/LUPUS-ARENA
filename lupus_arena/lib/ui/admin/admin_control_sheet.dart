@@ -547,15 +547,9 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
       },
       {
         'phase': GamePhase.nightWerewolves,
-        'label': 'Nuit des Loups',
+        'label': 'Nuit des Loups (Proie & Silence)',
         'icon': '🐺',
         'color': LupusColors.arcaneCrimson,
-      },
-      {
-        'phase': GamePhase.nightBlackWolf,
-        'label': 'Silence du Loup',
-        'icon': '🔇',
-        'color': const Color(0xFF9333EA),
       },
       {
         'phase': GamePhase.nightSeer,

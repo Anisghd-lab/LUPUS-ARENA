@@ -58,8 +58,10 @@ class SuperviseurDeJeuTest {
         assertEquals(Role.LOUP_GAROU, roleVu)
         assertEquals(PhaseJeu.NUIT_LOUPS, superviseur.phaseActuelle)
 
-        // 3. Tour des Loups : ciblent David
+        // 3. Tour des Loups : ciblent David ET musèlent Alice
         superviseur.actionVoteLoup("j1")
+        superviseur.actionFaireTaireJoueur("l1", "v1")
+        assertTrue(superviseur.validerFinTourLoups())
         assertEquals(PhaseJeu.NUIT_SORCIERE, superviseur.phaseActuelle)
 
         // 4. Tour de la Sorcière : sauve David avec sa potion de vie
@@ -94,8 +96,10 @@ class SuperviseurDeJeuTest {
         // Voyante agit
         superviseur.actionVoyante("v1", "j1")
 
-        // Loups attaquent le villageois David
+        // Loups attaquent le villageois David ET musèlent la voyante Alice
         superviseur.actionVoteLoup("j1")
+        superviseur.actionFaireTaireJoueur("l1", "v1")
+        assertTrue(superviseur.validerFinTourLoups())
 
         // Sorcière décide d'empoisonner le loup Bob sans sauver David
         val poisonReussi = superviseur.actionSorcierePoison("s1", "l1")
@@ -125,6 +129,8 @@ class SuperviseurDeJeuTest {
         sup.lancerPartie()
         sup.actionVoyante("v1", "j1")
         sup.actionVoteLoup("j1")
+        sup.actionFaireTaireJoueur("l1", "v1")
+        assertTrue(sup.validerFinTourLoups())
         sup.actionSorciereSauver("s1")
 
         sup.ouvrirVotesVillage()
@@ -184,8 +190,10 @@ class SuperviseurDeJeuTest {
         // Pas de voyante vivante -> directement NUIT_LOUPS
         assertEquals(PhaseJeu.NUIT_LOUPS, sup.phaseActuelle)
 
-        // Loup attaque la sorcière
+        // Loup attaque la sorcière ET s'auto-musèle pour le bluff (2 joueurs vivants)
         sup.actionVoteLoup("s1")
+        sup.actionFaireTaireJoueur("l1", "l1")
+        assertTrue(sup.validerFinTourLoups())
         assertEquals(PhaseJeu.NUIT_SORCIERE, sup.phaseActuelle)
 
         // La sorcière empoisonne le loup
@@ -212,8 +220,10 @@ class SuperviseurDeJeuTest {
 
         // Voyante sonde Bob
         superviseur.actionVoyante("v1", "l1")
-        // Loup attaque David
+        // Loup attaque David ET musèle Charlie
         superviseur.actionVoteLoup("j1")
+        superviseur.actionFaireTaireJoueur("l1", "s1")
+        assertTrue(superviseur.validerFinTourLoups())
         // Sorcière passe
         superviseur.passerTourSorciere()
 

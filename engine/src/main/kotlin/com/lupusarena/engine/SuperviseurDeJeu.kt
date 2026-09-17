@@ -118,8 +118,10 @@ class SuperviseurDeJeu(
         if (phaseActuelle != PhaseJeu.NUIT_LOUPS || agentSurveillance.isGameOver) return false
         val cible = joueurs.find { it.id == cibleId && it.estEnVie && !it.roleInitial.estLoup && it.camp != Camp.LOUPS } ?: return false
 
+        if (actionNuitEnCours.cibleSilenceId == cible.id) {
+            actionNuitEnCours.cibleSilenceId = null
+        }
         actionNuitEnCours.cibleLoupsId = cible.id
-        passerALaSorciere()
         return true
     }
 
@@ -128,7 +130,19 @@ class SuperviseurDeJeu(
         if (!joueurs.any { it.id == loupId && it.estEnVie && it.roleInitial.estLoup }) return false
         val cible = joueurs.find { it.id == cibleId && it.estEnVie && !it.roleInitial.estLoup && it.camp != Camp.LOUPS } ?: return false
 
+        if (actionNuitEnCours.cibleSilenceId == cible.id) {
+            actionNuitEnCours.cibleSilenceId = null
+        }
         actionNuitEnCours.cibleLoupsId = cible.id
+        return true
+    }
+
+    fun actionFaireTaireJoueur(cibleId: String): Boolean {
+        if (phaseActuelle != PhaseJeu.NUIT_LOUPS || agentSurveillance.isGameOver) return false
+        val cible = joueurs.find { it.id == cibleId && it.estEnVie } ?: return false
+        if (cible.id == actionNuitEnCours.cibleLoupsId) return false
+
+        actionNuitEnCours.cibleSilenceId = cible.id
         return true
     }
 

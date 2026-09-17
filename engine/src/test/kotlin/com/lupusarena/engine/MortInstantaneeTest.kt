@@ -63,8 +63,10 @@ class MortInstantaneeTest {
         // Nuit : Voyante sonde
         superviseur.actionVoyante("v1", "l1")
 
-        // Loups attaquent David
+        // Loups attaquent David ET musèlent Alice
         superviseur.actionVoteLoup("j1")
+        superviseur.actionFaireTaireJoueur("l1", "v1")
+        assertTrue(superviseur.validerFinTourLoups())
 
         // Sorcière n'utilise pas la potion de vie et empoisonne Bob le loup
         superviseur.actionSorcierePoison("s1", "l1")

@@ -200,10 +200,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 else if (phase == GamePhase.nightWerewolves && (role.isEvil || widget.isAdmin)) ...[
                   _buildWerewolvesSection(me, selectedTarget),
                 ]
-                // 8.B LOUP NOIR
+                // 8.B LOUP NOIR (Unifié dans la section Loups-Garous)
                 else if (phase == GamePhase.nightBlackWolf &&
-                    (role == GameRole.blackWolf || widget.isAdmin)) ...[
-                  _buildBlackWolfSection(selectedTarget),
+                    (role.isEvil || widget.isAdmin)) ...[
+                  _buildWerewolvesSection(me, selectedTarget),
                 ]
                 // 9. SORCIÈRE
                 else if (phase == GamePhase.nightWitch && (role == GameRole.witch || widget.isAdmin)) ...[
@@ -695,7 +695,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Loups-Garous : [Dévorer (Nom)] + [Faire Taire (Nom)] + [Valider]
+  /// Module Loups-Garous : Double action obligatoire (Dévorer ET Museler) + [Valider l'Assaut]
   Widget _buildWerewolvesSection(PlayerModel me, PlayerModel? selectedTarget) {
     final effectiveVictimId = widget.room.nightVictimId ?? me.targetVoteId;
     final currentVoteTarget = effectiveVictimId != null
@@ -711,28 +711,19 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         silencedTargetId != null &&
         effectiveVictimId != silencedTargetId;
 
-    final String devourLabel;
-    if (selectedTarget != null) {
-      devourLabel = context.tr('devour_target', {'name': selectedTarget.name});
-    } else if (currentVoteTarget != null) {
-      devourLabel = context.tr('prey_target', {'name': currentVoteTarget.name});
-    } else {
-      devourLabel = context.tr('devour_select');
-    }
-
-    final String silenceLabel;
-    if (silencedTarget != null) {
-      silenceLabel = '🔇 ${silencedTarget.name}';
-    } else if (selectedTarget != null) {
-      silenceLabel = '🔇 Taire ${selectedTarget.name}';
-    } else {
-      silenceLabel = '🔇 Faire Taire';
-    }
-
     final isTargetWolf = selectedTarget != null &&
         (selectedTarget.role.isEvil ||
             selectedTarget.role.isWolfTeam ||
             selectedTarget.role == GameRole.whiteWerewolf);
+
+    final isSilencedWolf = silencedTarget != null &&
+        (silencedTarget.role.isEvil ||
+            silencedTarget.role.isWolfTeam ||
+            silencedTarget.role == GameRole.whiteWerewolf);
+
+    final canDevour = selectedTarget != null &&
+        selectedTarget.isAlive &&
+        !isTargetWolf;
 
     final canSilence = selectedTarget != null &&
         selectedTarget.isAlive &&
@@ -740,62 +731,140 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final canValidate = widget.isAdmin || isDoubleActionComplete;
 
+    final devourButtonText = selectedTarget != null
+        ? '🥩 Dévorer ${selectedTarget.name}'
+        : (currentVoteTarget != null ? '🥩 Proie : ${currentVoteTarget.name}' : '🥩 Choisir Proie');
+
+    final silenceButtonText = selectedTarget != null
+        ? '🔇 Museler ${selectedTarget.name}'
+        : (silencedTarget != null ? '🔇 Silence : ${silencedTarget.name}' : '🔇 Museler');
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Indicateur Double Action Obligatoire (Proie & Silence)
+        // 1. Synthèse Double Action : Deux emplacements obligatoires (Proie & Silence)
         Container(
           margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: isDoubleActionComplete
                 ? const Color(0x1F06D6A0)
-                : const Color(0x1F9333EA),
+                : const Color(0x221E1B4B),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isDoubleActionComplete
-                  ? LupusColors.poisonGreen.withValues(alpha: 0.5)
-                  : const Color(0xFF9333EA).withValues(alpha: 0.35),
+                  ? LupusColors.poisonGreen.withValues(alpha: 0.6)
+                  : const Color(0xFF9333EA).withValues(alpha: 0.4),
+              width: 1.2,
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(isDoubleActionComplete ? '✅' : '🐺',
-                      style: const TextStyle(fontSize: 12)),
-                  const SizedBox(width: 6),
                   Text(
                     isDoubleActionComplete
-                        ? 'Double action complète (Proie & Silence)'
-                        : 'Double action requise : Dévorer ET Faire Taire',
+                        ? '✅ ASSAUT PRÊT (2/2) : PROIE & SILENCE'
+                        : '🐺 DOUBLE OBLIGATION : PROIE & SILENCE',
                     style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
                       color: isDoubleActionComplete
                           ? LupusColors.poisonGreen
                           : const Color(0xFFFECDD3),
                     ),
                   ),
+                  if (selectedTarget != null && isTargetWolf)
+                    const Text(
+                      'Allié (Bluff Silence)',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFC084FC),
+                      ),
+                    ),
                 ],
               ),
-              if (selectedTarget != null && isTargetWolf && canSilence)
-                const Text(
-                  'Bluff Meute',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFC084FC),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  // Slot Proie
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: currentVoteTarget != null
+                            ? LupusColors.bloodRed.withValues(alpha: 0.25)
+                            : Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: currentVoteTarget != null
+                              ? LupusColors.bloodRed
+                              : Colors.white12,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        currentVoteTarget != null
+                            ? '🥩 Proie : ${currentVoteTarget.name}'
+                            : '🥩 Proie : Aucune',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: currentVoteTarget != null
+                              ? const Color(0xFFFFB4AB)
+                              : LupusColors.textMuted,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  // Slot Silence
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: silencedTarget != null
+                            ? const Color(0x339333EA)
+                            : Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: silencedTarget != null
+                              ? const Color(0xFFC084FC)
+                              : Colors.white12,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        silencedTarget != null
+                            ? '🔇 Silence : ${silencedTarget.name}${isSilencedWolf ? " (Bluff)" : ""}'
+                            : '🔇 Silence : Aucun',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: silencedTarget != null
+                              ? const Color(0xFFE9D5FF)
+                              : LupusColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
+        // 2. Boutons d'Action Distincts
         Row(
           children: [
-            // Bouton Dévorer (Nom)
+            // Bouton Dévorer
             Expanded(
               child: SizedBox(
                 height: 40,
@@ -806,14 +875,12 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  onPressed: (selectedTarget != null &&
-                          selectedTarget.isAlive &&
-                          !isTargetWolf)
+                  onPressed: canDevour
                       ? () => widget.onVote(selectedTarget.id)
                       : null,
                   icon: const Icon(Icons.pets_rounded, size: 14),
                   label: Text(
-                    devourLabel,
+                    devourButtonText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
@@ -823,7 +890,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
             ),
             const SizedBox(width: 6),
-            // Bouton Faire Taire (Nom) - Intimidation de la meute
+            // Bouton Faire Taire (Silence)
             Expanded(
               child: SizedBox(
                 height: 40,
@@ -832,9 +899,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     backgroundColor: const Color(0xFF311042),
                     foregroundColor: Colors.white,
                     side: BorderSide(
-                      color: canSilence || silencedTarget != null
-                          ? const Color(0xFF9333EA)
-                          : Colors.white12,
+                      color: canSilence ? const Color(0xFFC084FC) : Colors.white12,
                       width: 1.2,
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -845,7 +910,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       : null,
                   icon: const Icon(Icons.volume_off_rounded, size: 14, color: Color(0xFFC084FC)),
                   label: Text(
-                    silenceLabel,
+                    silenceButtonText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
@@ -855,23 +920,27 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
             ),
             const SizedBox(width: 6),
-            // Bouton [Valider]
+            // Bouton Valider l'Assaut
             SizedBox(
               height: 40,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0x992B1010),
+                  backgroundColor: canValidate ? const Color(0xFF7F1D1D) : const Color(0x992B1010),
                   foregroundColor: const Color(0xFFFECDD3),
-                  side: BorderSide(color: LupusColors.arcaneCrimson.withValues(alpha: 0.6)),
+                  side: BorderSide(
+                    color: canValidate
+                        ? LupusColors.arcaneCrimson
+                        : LupusColors.arcaneCrimson.withValues(alpha: 0.3),
+                  ),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 onPressed: canValidate ? widget.onNextPhase : null,
                 icon: const Icon(Icons.check_rounded, size: 14),
                 label: Text(
-                  context.tr('validate'),
+                  isDoubleActionComplete ? 'Valider (2/2)' : context.tr('validate'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
                 ),
               ),
             ),
@@ -1124,74 +1193,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Loup Noir : Réduire au silence un joueur vivant pour la journée suivante
-  Widget _buildBlackWolfSection(PlayerModel? selectedTarget) {
-    final currentTargetId = widget.room.blackWolfTargetId;
-    final currentTarget = (currentTargetId != null && currentTargetId.isNotEmpty)
-        ? widget.room.players[currentTargetId]
-        : null;
 
-    final String buttonText;
-    if (currentTarget != null) {
-      buttonText = '${context.tr("target_with_name", {"name": currentTarget.name})} 🔇';
-    } else if (selectedTarget == null) {
-      buttonText = context.tr('silence_select');
-    } else {
-      buttonText = context.tr('silence_target', {'name': selectedTarget.name});
-    }
-
-    final bool canSilence = selectedTarget != null &&
-        selectedTarget.isAlive;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 40,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF311042),
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFF9333EA), width: 1.2),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: canSilence
-                      ? () => widget.onBlackWolfSilence?.call(selectedTarget.id)
-                      : null,
-                  icon: const Icon(Icons.volume_off_rounded, size: 15, color: Color(0xFFC084FC)),
-                  label: Text(
-                    buttonText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              height: 40,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: LupusColors.textSecondary,
-                  side: const BorderSide(color: LupusColors.border),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: widget.onNextPhase,
-                child: Text(context.tr('pass'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 
   /// Module Chasseur au dernier souffle : Bouton direct [Tirer sur (Nom)] et [Passer]
   Widget _buildHunterSection(PlayerModel? selectedTarget) {

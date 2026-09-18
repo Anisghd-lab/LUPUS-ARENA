@@ -140,6 +140,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   DatabaseReference? _currentRoomRef;
   String? _lastAppliedVoiceChannel;
   GamePhase? _lastAppliedVoicePhase;
+  bool _isTransitioningPhase = false;
 
   GameNotifier()
       : super(
@@ -225,6 +226,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   /// Synchronise l'état atomiquement sur Firebase (rooms et games)
   Future<void> _syncState(Map<String, dynamic> updates) async {
     if (_currentRoomRef == null) return;
+
+    // Synchronisation stricte et bidirectionnelle phase <-> currentPhase pour éviter toute désynchronisation
+    if (updates.containsKey('phase')) {
+      final pName = updates['phase'].toString();
+      updates['currentPhase'] = pName == GamePhase.dayVoting.name
+          ? 'JOUR_VOTE'
+          : (pName == GamePhase.dayDebate.name
+              ? 'JOUR_DEBAT'
+              : (pName == GamePhase.captainSuccession.name
+                  ? 'CAPITAINE_SUCCESSION'
+                  : pName));
+    } else if (updates.containsKey('currentPhase')) {
+      final cp = GamePhase.fromString(updates['currentPhase']?.toString());
+      updates['phase'] = cp.name;
+    }
+
     try {
       await _currentRoomRef!.update(updates);
       if (state.room != null) {
@@ -1062,7 +1079,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> processNightTransitions() async {
     if (state.room == null) return;
+    if (_isTransitioningPhase) {
+      debugPrint('[processNightTransitions] Transition déjà en cours, appel ignoré.');
+      return;
+    }
 
+    _isTransitioningPhase = true;
     try {
       final room = state.room!;
       final current = room.phase;
@@ -1075,6 +1097,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         players: room.players,
         realRoles: realRoles,
       );
+
+      // GARDE MONOTONE STRICT : Interdiction absolue de reculer dans l'ordre des phases nocturnes
+      if (current.isNight && next.isNight && next.nightOrderIndex <= current.nightOrderIndex) {
+        debugPrint(
+          '[processNightTransitions] Violation de monotonie nocturne : tentative de passer de $current (${current.nightOrderIndex}) à $next (${next.nightOrderIndex}) - Transition annulée.',
+        );
+        return;
+      }
 
       if (next == GamePhase.morningAnnouncement) {
         await resolveMorningDeaths();
@@ -1105,11 +1135,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
           if (wolfVictimId != null) {
             updates['nightVictimId'] = wolfVictimId;
-            final victim = room.players[wolfVictimId];
-            final victimName = victim?.name ?? 'Un villageois';
-            logs.add(
-              '🐺 Les Loups-Garous ont choisi leur victime dans l\'ombre : $victimName.',
-            );
+            // CONFIDENTIALITÉ STRICTE : Ne JAMAIS divulguer l'identité de la victime dans le journal public avant l'Aube !
           }
 
           // Double action obligatoire : s'assurer qu'une cible de silence est définie
@@ -1121,9 +1147,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
               final autoSilenceTarget =
                   silenceCandidates[Random().nextInt(silenceCandidates.length)];
               updates['blackWolfTargetId'] = autoSilenceTarget.id;
-              logs.add(
-                '🐺 Les Loups ont désigné ${autoSilenceTarget.name} pour être réduit(e) au silence.',
-              );
+              // CONFIDENTIALITÉ STRICTE : Ne JAMAIS divulguer la cible du silence dans le journal public avant l'Aube !
             }
           }
         }
@@ -1138,6 +1162,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       try {
         await resolveMorningDeaths();
       } catch (_) {}
+    } finally {
+      _isTransitioningPhase = false;
     }
   }
 
@@ -2164,12 +2190,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return false;
     }
 
+    // Enregistrement confidentiel du sortilège de silence (divulgué publiquement à l'Aube)
     await _syncState({
       'blackWolfTargetId': targetPlayerId,
-      'logs': [
-        ...?state.room?.logs,
-        '🐺 Les Loups ont intimé le silence à ${target.name} pour la journée suivante.',
-      ],
     });
     if (state.room != null) {
       state = state.copyWith(
@@ -2568,6 +2591,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> nextPhase() async {
     if (state.room == null) return;
+    if (_isTransitioningPhase) {
+      debugPrint('[nextPhase] Transition déjà en cours, appel ignoré.');
+      return;
+    }
     final phase = state.room!.phase;
 
     final canAdvanceNight = phase.isNight &&
@@ -2592,7 +2619,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     if (!state.isHost && !state.isAdmin && !canAdvanceNight) return;
 
-    if (phase == GamePhase.nightWerewolves && !state.isAdmin) {
+    if (phase == GamePhase.nightWerewolves && !state.isAdmin && !state.isHost) {
       final victimId = _tallyWerewolfVotes() ?? state.room!.nightVictimId;
       final silenceId = state.room!.blackWolfTargetId;
       final livingCount = state.room!.alivePlayers.length;
@@ -2721,6 +2748,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final data = event.snapshot.value as Map<dynamic, dynamic>;
       final updatedRoom =
           GameRoom.fromMap(data, roomCode, state.currentUserId);
+
+      // GARDE MONOTONE STRICT : Empêcher tout retour en arrière de phase nocturne dans le même tour
+      if (state.room != null &&
+          state.room!.round == updatedRoom.round &&
+          state.room!.phase.isNight &&
+          updatedRoom.phase.isNight &&
+          updatedRoom.phase.nightOrderIndex < state.room!.phase.nightOrderIndex) {
+        debugPrint(
+          '[Monotonic Guard] Régression nocturne bloquée sur _roomSubscription : ${state.room!.phase.name} (${state.room!.phase.nightOrderIndex}) -> ${updatedRoom.phase.name} (${updatedRoom.phase.nightOrderIndex})',
+        );
+        final correctedRoom = updatedRoom.copyWith(phase: state.room!.phase);
+        state = state.copyWith(room: correctedRoom);
+        _applyVoiceRulesForPhase(correctedRoom);
+        return;
+      }
+
       state = state.copyWith(room: updatedRoom);
 
       _applyVoiceRulesForPhase(updatedRoom);
@@ -2743,6 +2786,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (rawPhase != null && state.room != null) {
         final parsed = GamePhase.fromString(rawPhase);
         if (state.room!.phase != parsed) {
+          // GARDE MONOTONE STRICT : Empêcher toute régression nocturne
+          if (state.room!.phase.isNight &&
+              parsed.isNight &&
+              parsed.nightOrderIndex < state.room!.phase.nightOrderIndex) {
+            debugPrint(
+              '[Monotonic Guard] Régression nocturne bloquée sur _currentPhaseSubscription : ${state.room!.phase.name} -> ${parsed.name}',
+            );
+            return;
+          }
           final updatedRoom = state.room!.copyWith(phase: parsed);
           state = state.copyWith(room: updatedRoom);
           _applyVoiceRulesForPhase(updatedRoom);

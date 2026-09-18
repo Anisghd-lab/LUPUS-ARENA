@@ -241,7 +241,11 @@ class GameRoom {
       'roomCode': roomCode,
       'hostId': hostId,
       'phase': phase.name,
-      'currentPhase': phase == GamePhase.dayVoting ? 'JOUR_VOTE' : (phase == GamePhase.dayDebate ? 'JOUR_DEBAT' : phase.name),
+      'currentPhase': phase == GamePhase.dayVoting
+          ? 'JOUR_VOTE'
+          : (phase == GamePhase.dayDebate
+              ? 'JOUR_DEBAT'
+              : (phase == GamePhase.captainSuccession ? 'CAPITAINE_SUCCESSION' : phase.name)),
       'round': round,
       'players': players.map((key, value) => MapEntry(key, value.toMap())),
       'captainId': captainId,
@@ -425,10 +429,30 @@ class GameRoom {
       }
     }
 
+    final rawCurrent = map['currentPhase']?.toString();
+    final rawPhase = map['phase']?.toString();
+    GamePhase resolvedPhase;
+    if (rawCurrent == 'JOUR_VOTE' || rawCurrent == 'JOUR_DEBAT' || rawCurrent == 'CAPITAINE_SUCCESSION') {
+      resolvedPhase = GamePhase.fromString(rawCurrent);
+    } else {
+      final p1 = rawPhase != null ? GamePhase.fromString(rawPhase) : null;
+      final p2 = rawCurrent != null ? GamePhase.fromString(rawCurrent) : null;
+      if (p1 != null && p2 != null) {
+        if (p1.isNight && p2.isNight) {
+          // Progression monotone : privilégier systématiquement la phase la plus avancée
+          resolvedPhase = p1.nightOrderIndex >= p2.nightOrderIndex ? p1 : p2;
+        } else {
+          resolvedPhase = p1 != GamePhase.lobby ? p1 : p2;
+        }
+      } else {
+        resolvedPhase = p1 ?? p2 ?? GamePhase.lobby;
+      }
+    }
+
     return GameRoom(
       roomCode: (map['roomCode'] ?? code).toString(),
       hostId: (map['hostId'] ?? '').toString(),
-      phase: GamePhase.fromString((map['currentPhase'] ?? map['phase'])?.toString()),
+      phase: resolvedPhase,
       round: (map['round'] is int)
           ? map['round'] as int
           : int.tryParse(map['round']?.toString() ?? '1') ?? 1,

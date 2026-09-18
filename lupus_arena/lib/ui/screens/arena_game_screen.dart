@@ -410,7 +410,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                 _buildStitchPhaseBanner(room, gameState, isMeEvil, myRole),
 
                 // MINI-TICKER : DERNIER ÉVÉNEMENT COMPACT (cliquable pour ouvrir les chroniques)
-                _buildMiniTicker(context, room.logs, room.roomCode),
+                _buildMiniTicker(context, room.logs, room.roomCode, room, gameState),
 
                 // SÉLECTEUR DE VUE : TABLE MYSTIQUE RADIALE vs GRILLE BENTO
                 _buildViewModeToggle(),
@@ -1382,18 +1382,45 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     );
   }
 
+  /// Filtrage confidentiel des logs selon le rôle et la phase :
+  /// Les villageois innocents ne doivent JAMAIS voir les actions occultes des Loups (proie, silence) durant la nuit.
+  List<String> _filterConfidentialLogs(
+    List<String> logs,
+    GameRoom room,
+    LupusGameState gameState,
+  ) {
+    final isEvilOrAdmin = gameState.myRole.isEvil || gameState.isAdmin;
+    if (isEvilOrAdmin || !room.phase.isNight) {
+      return logs;
+    }
+    return logs.where((log) {
+      final l = log.toLowerCase();
+      if (l.contains('🐺') ||
+          l.contains('silence') ||
+          l.contains('victime dans l\'ombre') ||
+          l.contains('réduit(e) au silence') ||
+          l.contains('intimé le silence')) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
   /// Mini-Ticker compact affichant uniquement le dernier log du village
   Widget _buildMiniTicker(
     BuildContext context,
     List<String> logs,
     String roomCode,
+    GameRoom room,
+    LupusGameState gameState,
   ) {
-    if (logs.isEmpty) return const SizedBox.shrink();
-    final latestLog = logs.last;
+    final filteredLogs = _filterConfidentialLogs(logs, room, gameState);
+    if (filteredLogs.isEmpty) return const SizedBox.shrink();
+    final latestLog = filteredLogs.last;
     final displayLog = _formatLogForDisplay(context, latestLog);
 
     return GestureDetector(
-      onTap: () => _openChroniclesBottomSheet(context, logs, roomCode),
+      onTap: () => _openChroniclesBottomSheet(context, filteredLogs, roomCode),
       child: Container(
         height: 26,
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
@@ -2463,6 +2490,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       _lastSeenLogCount = logs.length;
     });
 
-    VillageChroniclesScreen.show(context, logs, roomCode);
+    final gameState = ref.read(gameNotifierProvider);
+    final room = gameState.room;
+    final displayLogs = (room != null)
+        ? _filterConfidentialLogs(logs, room, gameState)
+        : logs;
+
+    VillageChroniclesScreen.show(context, displayLogs, roomCode);
   }
 }

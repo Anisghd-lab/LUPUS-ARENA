@@ -49,7 +49,8 @@ data class Joueur(
     var potionsVie: Int = 0,
     var potionsMort: Int = 0,
     var visionsRestantes: Int = 0,
-    var estCapitaine: Boolean = false            // Titre de Capitaine / Maire du village
+    var estCapitaine: Boolean = false,           // Titre de Capitaine / Maire du village
+    var causeMort: CauseMort? = null             // Cause de décès
 ) {
     /**
      * Constructeur secondaire pour compatibilité avec l'ancienne signature (id, nom, role).
@@ -63,7 +64,8 @@ data class Joueur(
         potionsVie: Int = 0,
         potionsMort: Int = 0,
         visionsRestantes: Int = 0,
-        estCapitaine: Boolean = false
+        estCapitaine: Boolean = false,
+        causeMort: CauseMort? = null
     ) : this(
         id = id,
         nom = nom,
@@ -75,7 +77,8 @@ data class Joueur(
         potionsVie = potionsVie,
         potionsMort = potionsMort,
         visionsRestantes = visionsRestantes,
-        estCapitaine = estCapitaine
+        estCapitaine = estCapitaine,
+        causeMort = causeMort
     )
 
     /**
@@ -164,4 +167,44 @@ data class MortInstantaneeEvent(
     val camp: Camp,
     val causeMort: CauseMort,
     val timestamp: Long = System.currentTimeMillis()
+)
+
+/**
+ * Événement de passation de l'écharpe de Capitaine (choix direct ou d'office).
+ */
+data class CapitaineSuccessionEvent(
+    val ancienCapitaineId: String,
+    val ancienCapitaineNom: String,
+    val nouveauCapitaineId: String,
+    val nouveauCapitaineNom: String,
+    val estPassationAutomatique: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+/**
+ * Fiche individuelle d'un joueur pour le tableau récapitulatif final.
+ */
+data class BilanJoueur(
+    val id: String,
+    val nom: String,
+    val roleInitial: Role,
+    val roleActif: Role,
+    val camp: Camp,
+    val estEnVie: Boolean,
+    val estCapitaine: Boolean,
+    val causeMort: CauseMort? = null
+)
+
+/**
+ * Bilan complet émis lors de la fin de partie (PhaseJeu.TERMINEE).
+ */
+data class BilanPartie(
+    val issue: IssuePartie,
+    val nbTours: Int,
+    val vainqueurCamp: Camp?,
+    val joueurs: List<BilanJoueur>,
+    val totalVivants: Int = joueurs.count { it.estEnVie },
+    val totalMorts: Int = joueurs.count { !it.estEnVie },
+    val survivantsVillage: Int = joueurs.count { it.estEnVie && it.camp == Camp.VILLAGE },
+    val survivantsLoups: Int = joueurs.count { it.estEnVie && it.camp == Camp.LOUPS }
 )

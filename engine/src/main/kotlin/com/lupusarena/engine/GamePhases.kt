@@ -9,6 +9,7 @@ enum class PhaseJeu {
     NUIT_LOUPS,
     NUIT_SORCIERE,
     AUBE_BILAN,
+    CAPITAINE_SUCCESSION,
     JOUR_DEBAT,
     JOUR_VOTE,
     CREPUSCULE_BILAN,

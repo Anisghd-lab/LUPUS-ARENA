@@ -422,4 +422,312 @@ class SuperviseurDeJeuTest {
         assertFalse(j2.estEnVie, "Bob le loup doit être exécuté avec la majorité des voix exprimées (2 contre 0).")
         assertTrue(j2.carteEstRevelee, "La carte de Bob doit être visible de tous.")
     }
+
+    // =========================================================================
+    // OPTION 1 : TESTS DE SUCCESSION DU CAPITAINE (TESTAMENT & PASSATION)
+    // =========================================================================
+
+    @Test
+    @DisplayName("Option 1 : Le Capitaine tué par les loups à l'aube transmet son écharpe manuellement")
+    fun testCapitaineMortNuitDeclencheSuccessionPuisDebat() {
+        val cap = Joueur("c1", "Capitaine Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true)
+        val loup = Joueur("l1", "Loup Larry", Role.LOUP_GAROU)
+        val alice = Joueur("a1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val david = Joueur("d1", "David", Role.VILLAGEOIS_SIMPLE)
+        val emma = Joueur("e1", "Emma", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(cap, loup, alice, david, emma), roomId = "room-cap-1")
+        sup.lancerPartie()
+
+        // Tour de nuit : Voyante absente -> NUIT_LOUPS
+        assertEquals(PhaseJeu.NUIT_LOUPS, sup.phaseActuelle)
+        sup.actionVoteLoup("c1") // Le loup attaque le Capitaine Charlie
+        sup.actionFaireTaireJoueur("d1") // Baillon sur David
+        sup.validerFinTourLoups()
+
+        // Pas de sorcière dans la partie -> Aube immédiate et détection de la mort du Capitaine
+        assertEquals(PhaseJeu.CAPITAINE_SUCCESSION, sup.phaseActuelle)
+        assertEquals("c1", sup.pendingCapitaineId)
+        assertFalse(cap.estEnVie, "Charlie le Capitaine doit être mort.")
+        assertTrue(cap.carteEstRevelee, "Sa carte doit être révélée.")
+
+        // Le Capitaine mourant désigne Alice comme successeur
+        val designationReussie = sup.designerSuccesseurCapitaine("c1", "a1")
+        assertTrue(designationReussie)
+
+        // Vérification du transfert immédiat des attributs
+        assertFalse(cap.estCapitaine, "L'ancien Capitaine ne doit plus avoir le titre.")
+        assertTrue(alice.estCapitaine, "Alice doit être la nouvelle Capitaine élue.")
+        assertNull(sup.pendingCapitaineId)
+
+        // Enchaînement automatique sans temps mort vers le débat
+        assertEquals(PhaseJeu.JOUR_DEBAT, sup.phaseActuelle)
+    }
+
+    @Test
+    @DisplayName("Option 1 : Expiration du timer de 10s transmet d'office l'écharpe au premier survivant")
+    fun testCapitaineMortExpirationTransmetDoffice() {
+        val cap = Joueur("c1", "Capitaine Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true)
+        val loup = Joueur("l1", "Loup Larry", Role.LOUP_GAROU)
+        val alice = Joueur("a1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val bob = Joueur("b1", "Bob", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(cap, loup, alice, bob), roomId = "room-cap-timeout")
+        sup.lancerDebatDuVillage()
+        sup.ouvrirVotesVillage()
+
+        // Le village vote contre le Capitaine Charlie
+        sup.enregistrerVote("l1", "c1")
+        sup.enregistrerVote("a1", "c1")
+        sup.enregistrerVote("b1", "c1")
+        sup.enregistrerVote("c1", "l1")
+
+        // Dépouillement automatique car 4/4 ont voté -> Charlie exécuté -> CAPITAINE_SUCCESSION
+        assertEquals(PhaseJeu.CAPITAINE_SUCCESSION, sup.phaseActuelle)
+        assertEquals("c1", sup.pendingCapitaineId)
+
+        // Le timer de 10s expire sans choix
+        val forcerReussi = sup.forcerSuccessionCapitaineSurExpiration()
+        assertTrue(forcerReussi)
+
+        // Premier survivant dans l'ordre de la table (loup l1 ou alice a1)
+        val nouveauCap = sup.joueurs.first { it.estEnVie && it.estCapitaine }
+        assertNotNull(nouveauCap)
+        assertNotEquals("c1", nouveauCap.id)
+        assertFalse(cap.estCapitaine)
+
+        // Enchaînement automatique vers la nuit suivante
+        assertEquals(PhaseJeu.NUIT_LOUPS, sup.phaseActuelle)
+        assertEquals(1, sup.tourNumero)
+    }
+
+    @Test
+    @DisplayName("Option 1 : Le successeur hérite du vote double (poids = 2) au tour suivant")
+    fun testNouveauCapitaineVoteDoubleAuTourSuivant() {
+        val cap = Joueur("c1", "Capitaine Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true)
+        val loup = Joueur("l1", "Loup Larry", Role.LOUP_GAROU)
+        val alice = Joueur("a1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val bob = Joueur("b1", "Bob", Role.VILLAGEOIS_SIMPLE)
+        val david = Joueur("d1", "David", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(cap, loup, alice, bob, david))
+        sup.lancerDebatDuVillage()
+        sup.ouvrirVotesVillage()
+
+        // Charlie exécuté
+        sup.enregistrerVote("l1", "c1")
+        sup.enregistrerVote("a1", "c1")
+        sup.enregistrerVote("b1", "c1")
+        sup.enregistrerVote("d1", "c1")
+        sup.enregistrerVote("c1", "l1")
+
+        // Charlie lègue son titre à Alice
+        sup.designerSuccesseurCapitaine("c1", "a1")
+        assertTrue(alice.estCapitaine)
+
+        // On passe la nuit
+        sup.actionVoteLoup("b1")
+        sup.actionFaireTaireJoueur("d1")
+        sup.validerFinTourLoups()
+        // Aube -> Bob meurt, reste Alice (Capitaine) et David vs Loup Larry (2 villageois vs 1 loup)
+        // Débat puis vote
+        sup.ouvrirVotesVillage()
+        assertEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+
+        // Alice (nouvelle Capitaine) vote contre Larry le Loup
+        sup.enregistrerVote("a1", "l1")
+        // David vote contre Larry
+        sup.enregistrerVote("d1", "l1")
+        // Larry vote contre Alice
+        sup.enregistrerVote("l1", "a1")
+
+        // Dépouillement : Alice a un vote poids 2 + David poids 1 (3 voix) -> Larry est exécuté !
+        assertFalse(loup.estEnVie, "Le vote double d'Alice nouvelle Capitaine doit faire pencher la balance (3 contre 1).")
+        assertEquals(PhaseJeu.TERMINEE, sup.phaseActuelle, "La mort du dernier loup doit mettre fin à la partie.")
+    }
+
+    // =========================================================================
+    // OPTION 2 : TESTS DE LA NUIT DE LA SORCIÈRE (NUIT_SORCIERE)
+    // =========================================================================
+
+    @Test
+    @DisplayName("Option 2 : Affichage de la victime des loups strictement réservé à la Sorcière active")
+    fun testSorciereConsultationVictimeSecrete() {
+        val sorciere = Joueur("s1", "Sorcière Sabrina", Role.SORCIERE, potionsVie = 1, potionsMort = 1)
+        val loup = Joueur("l1", "Loup Larry", Role.LOUP_GAROU)
+        val alice = Joueur("a1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val bob = Joueur("b1", "Bob", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(sorciere, loup, alice, bob))
+        sup.lancerPartie()
+
+        sup.actionVoteLoup("a1")
+        sup.actionFaireTaireJoueur("b1")
+        sup.validerFinTourLoups()
+
+        assertEquals(PhaseJeu.NUIT_SORCIERE, sup.phaseActuelle)
+
+        // La Sorcière interroge la victime des loups -> Alice trouvée
+        val victimeVueParSorciere = sup.obtenirVictimeDesLoupsPourSorciere("s1")
+        assertNotNull(victimeVueParSorciere)
+        assertEquals("a1", victimeVueParSorciere?.id)
+
+        // Un joueur non-sorcière interroge -> null
+        assertNull(sup.obtenirVictimeDesLoupsPourSorciere("l1"))
+        assertNull(sup.obtenirVictimeDesLoupsPourSorciere("b1"))
+    }
+
+    @Test
+    @DisplayName("Option 2 : Choix cumulatif (Vie + Mort) dans la même nuit et décrémentation stricte")
+    fun testSorciereCumulPotionVieEtMortMemeNuit() {
+        val sorciere = Joueur("s1", "Sorcière Sabrina", Role.SORCIERE, potionsVie = 1, potionsMort = 1)
+        val loup1 = Joueur("l1", "Loup 1", Role.LOUP_GAROU)
+        val loup2 = Joueur("l2", "Loup 2", Role.LOUP_GAROU)
+        val alice = Joueur("a1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val bob = Joueur("b1", "Bob", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(sorciere, loup1, loup2, alice, bob))
+        sup.lancerPartie()
+
+        sup.actionVoteLoup("a1") // Les loups attaquent Alice
+        sup.actionFaireTaireJoueur("b1")
+        sup.validerFinTourLoups()
+
+        assertEquals(PhaseJeu.NUIT_SORCIERE, sup.phaseActuelle)
+
+        // 1. La Sorcière sauve Alice SANS clôturer son tour
+        val sauvetage = sup.actionSorciereSauver("s1", cloturerTour = false)
+        assertTrue(sauvetage)
+        assertEquals(PhaseJeu.NUIT_SORCIERE, sup.phaseActuelle, "La sorcière doit rester dans sa phase pour utiliser son poison.")
+        assertEquals(0, sorciere.potionsVie)
+
+        // 2. La Sorcière empoisonne Loup 2 ET clôture son tour
+        val empoisonnement = sup.actionSorcierePoison("s1", "l2", cloturerTour = true)
+        assertTrue(empoisonnement)
+        assertEquals(0, sorciere.potionsMort)
+
+        // 3. Résolution composite à l'aube
+        assertTrue(alice.estEnVie, "Alice a été sauvée par la potion de vie.")
+        assertFalse(loup2.estEnVie, "Loup 2 a succombé au poison de la Sorcière.")
+        assertEquals(CauseMort.POISON_SORCIERE, loup2.causeMort)
+        assertTrue(loup2.carteEstRevelee)
+
+        // La sorcière n'a plus de potions : déchéance de rôle
+        assertEquals(Role.VILLAGEOIS_SIMPLE, sorciere.roleActif)
+        assertEquals(Role.SORCIERE, sorciere.roleInitial)
+    }
+
+    @Test
+    @DisplayName("Option 2 : Poison sans sauvetage -> annonce composite de 2 morts à l'aube")
+    fun testSorcierePoisonSansSauverDeuxMortsSimultanes() {
+        val sorciere = Joueur("s1", "Sorcière Sabrina", Role.SORCIERE, potionsVie = 1, potionsMort = 1)
+        val loup1 = Joueur("l1", "Loup 1", Role.LOUP_GAROU)
+        val loup2 = Joueur("l2", "Loup 2", Role.LOUP_GAROU)
+        val alice = Joueur("a1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val bob = Joueur("b1", "Bob", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(sorciere, loup1, loup2, alice, bob))
+        sup.lancerPartie()
+
+        sup.actionVoteLoup("a1")
+        sup.actionFaireTaireJoueur("b1")
+        sup.validerFinTourLoups()
+
+        // La Sorcière n'utilise pas sa potion de vie, mais utilise sa potion de mort sur loup2
+        sup.actionSorcierePoison("s1", "l2", cloturerTour = true)
+
+        // À l'aube : Alice (morsure loups) et Loup 2 (poison) doivent être tous deux morts
+        assertFalse(alice.estEnVie)
+        assertEquals(CauseMort.MORSURE_LOUPS, alice.causeMort)
+        assertFalse(loup2.estEnVie)
+        assertEquals(CauseMort.POISON_SORCIERE, loup2.causeMort)
+    }
+
+    // =========================================================================
+    // OPTION 3 : TESTS DE CONDITION D'ARRÊT & BILAN FINAL (ARBITRE & SUPERVISEUR)
+    // =========================================================================
+
+    @Test
+    @DisplayName("Option 3 : Victoire du Village dès l'élimination de tous les loups avec Bilan complet")
+    fun testVictoireVillageTermineeEtBilanComplet() {
+        val j1 = Joueur("j1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val j2 = Joueur("j2", "Bob", Role.LOUP_GAROU)
+        val j3 = Joueur("j3", "Charlie", Role.VOYANTE)
+        val j4 = Joueur("j4", "David", Role.VILLAGEOIS_SIMPLE)
+
+        var bilanRecu: BilanPartie? = null
+        val sup = SuperviseurDeJeu(mutableListOf(j1, j2, j3, j4), roomId = "room-victory-village").apply {
+            onBilanPartie = { bilan -> bilanRecu = bilan }
+        }
+
+        sup.lancerDebatDuVillage()
+        sup.ouvrirVotesVillage()
+
+        // Tout le monde vote contre Bob l'unique loup
+        sup.enregistrerVote("j1", "j2")
+        sup.enregistrerVote("j2", "j1")
+        sup.enregistrerVote("j3", "j2")
+        sup.enregistrerVote("j4", "j2")
+
+        assertEquals(PhaseJeu.TERMINEE, sup.phaseActuelle)
+        assertNotNull(sup.bilanPartie)
+        assertEquals(IssuePartie.VICTOIRE_VILLAGE, sup.bilanPartie?.issue)
+        assertEquals(Camp.VILLAGE, sup.bilanPartie?.vainqueurCamp)
+        assertEquals(3, sup.bilanPartie?.totalVivants)
+        assertEquals(1, sup.bilanPartie?.totalMorts)
+        assertEquals(3, sup.bilanPartie?.survivantsVillage)
+        assertEquals(0, sup.bilanPartie?.survivantsLoups)
+
+        // Vérification de la notification callback
+        assertEquals(sup.bilanPartie, bilanRecu)
+    }
+
+    @Test
+    @DisplayName("Option 3 : Victoire de la Meute par parité atteinte (nbLoups >= nbVillageois)")
+    fun testVictoireLoupsParPariteEtBilan() {
+        val loup1 = Joueur("l1", "Loup 1", Role.LOUP_GAROU)
+        val loup2 = Joueur("l2", "Loup 2", Role.LOUP_GAROU)
+        val v1 = Joueur("v1", "Villageois 1", Role.VILLAGEOIS_SIMPLE)
+        val v2 = Joueur("v2", "Villageois 2", Role.VILLAGEOIS_SIMPLE)
+        val v3 = Joueur("v3", "Villageois 3", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(loup1, loup2, v1, v2, v3), roomId = "room-victory-wolves")
+        sup.lancerDebatDuVillage()
+        sup.ouvrirVotesVillage()
+
+        // Le village vote contre v3 -> il reste 2 Loups et 2 Villageois -> Parité (2 >= 2) !
+        sup.enregistrerVote("l1", "v3")
+        sup.enregistrerVote("l2", "v3")
+        sup.enregistrerVote("v1", "v3")
+        sup.enregistrerVote("v2", "v3")
+        sup.enregistrerVote("v3", "l1")
+
+        assertEquals(PhaseJeu.TERMINEE, sup.phaseActuelle)
+        assertEquals(IssuePartie.VICTOIRE_LOUPS, sup.bilanPartie?.issue)
+        assertEquals(Camp.LOUPS, sup.bilanPartie?.vainqueurCamp)
+        assertEquals(2, sup.bilanPartie?.survivantsLoups)
+        assertEquals(2, sup.bilanPartie?.survivantsVillage)
+    }
+
+    @Test
+    @DisplayName("Option 3 : Parité 1v1 avec Sorcière armée de poison maintient la partie EN_COURS")
+    fun testParite1v1SorciereArmeeMaintientEnCours() {
+        val loup = Joueur("l1", "Loup", Role.LOUP_GAROU)
+        val sorciere = Joueur("s1", "Sorcière", Role.SORCIERE, potionsMort = 1)
+        val v1 = Joueur("v1", "Villageois", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(loup, sorciere, v1))
+        sup.lancerDebatDuVillage()
+        sup.ouvrirVotesVillage()
+
+        // v1 est éliminé au vote -> reste 1 Loup et 1 Sorcière avec poison
+        sup.enregistrerVote("l1", "v1")
+        sup.enregistrerVote("s1", "v1")
+        sup.enregistrerVote("v1", "l1")
+
+        // La partie ne doit PAS être terminée car la Sorcière peut encore abattre le Loup cette nuit !
+        assertNotEquals(PhaseJeu.TERMINEE, sup.phaseActuelle)
+        assertTrue(loup.estEnVie)
+        assertTrue(sorciere.estEnVie)
+    }
 }

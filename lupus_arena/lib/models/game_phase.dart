@@ -34,6 +34,13 @@ enum GamePhase {
     // Compatibilité rétroactive et synchronisation State Machine (Kotlin / Firebase)
     if (phase == 'JOUR_VOTE' || phase == 'dayVote' || phase == 'dayVoting') return GamePhase.dayVoting;
     if (phase == 'JOUR_DEBAT' || phase == 'dayDebate' || phase == 'dayDiscussion') return GamePhase.dayDebate;
+    if (phase == 'CAPITAINE_SUCCESSION' || phase == 'captainSuccession') return GamePhase.captainSuccession;
+    if (phase == 'NUIT_SORCIERE' || phase == 'nightWitch') return GamePhase.nightWitch;
+    if (phase == 'NUIT_VOYANTE' || phase == 'nightSeer') return GamePhase.nightSeer;
+    if (phase == 'NUIT_LOUPS' || phase == 'nightWerewolves') return GamePhase.nightWerewolves;
+    if (phase == 'AUBE_BILAN' || phase == 'morningAnnouncement') return GamePhase.morningAnnouncement;
+    if (phase == 'CREPUSCULE_BILAN' || phase == 'dayResolution') return GamePhase.dayResolution;
+    if (phase == 'TERMINEE' || phase == 'gameOver') return GamePhase.gameOver;
     if (phase == 'hunterTurn') return GamePhase.hunterDeathChoice;
 
     for (final p in GamePhase.values) {

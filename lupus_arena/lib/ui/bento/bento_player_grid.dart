@@ -87,7 +87,7 @@ class BentoPlayerGrid extends StatelessWidget {
             (currentSpeakerId != null && currentSpeakerId == player.id);
         final isSelected = selectedPlayerId == player.id;
         final votes = votesPerPlayer[player.id] ?? 0;
-        final isGodMode = isGodModeActive && isDevRoom;
+        final isGodMode = isGodModeActive || isDevRoom;
         final isMeWolfTeam = isMeEvil ||
             myRole.isEvil ||
             myRole.isWolfTeam ||

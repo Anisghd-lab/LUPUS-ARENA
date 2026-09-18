@@ -308,7 +308,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     final isNight = room.phase.isNight;
     final isGodModeActive = gameState.isGodModeActive;
     final isDevRoom = room.isDevRoom;
-    final isGodMode = isGodModeActive && isDevRoom;
+    final isGodMode = isGodModeActive || isDevRoom;
     final isMeEvil = myRole.isEvil || isGodMode;
     final revealRoles = room.phase == GamePhase.gameOver || isGodMode;
 
@@ -617,7 +617,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     final isMeAlive = gameState.isAlive as bool? ?? true;
     final isDevRoom = (room.isDevRoom as bool?) ?? false;
     final isGodModeActive = (gameState.isGodModeActive as bool?) ?? false;
-    final isGodMode = isGodModeActive && isDevRoom;
+    final isGodMode = isGodModeActive || isDevRoom;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

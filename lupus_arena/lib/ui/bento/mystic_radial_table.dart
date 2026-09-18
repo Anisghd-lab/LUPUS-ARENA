@@ -202,23 +202,22 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     required int totalPlayers,
     required bool isDoubleRing,
   }) {
-    // Rayon dynamique borné pour garantir une disposition harmonieuse sans écrasement
-    final double calculatedRadius = (tableSize / 2) - 30.0;
-    final double maxRadius = calculatedRadius.clamp(115.0, 240.0);
+    // Rayon large et imposant garantissant un espacement parfait (non responsive / fixe 380px)
+    final double maxRadius = (tableSize / 2) - 30.0;
 
     if (isDoubleRing) {
       final outerCount = (totalPlayers + 1) ~/ 2;
       final innerCount = totalPlayers ~/ 2;
-      const double innerFactor = 0.62;
+      const double innerFactor = 0.65;
       final double outerRadius = maxRadius;
       final double innerRadius = maxRadius * innerFactor;
 
       return _TableDimensions(
         radius: outerRadius,
         innerRadius: innerRadius,
-        avatarSize: 28.0,
-        nodeWidth: 34.0,
-        fontSize: 8.0,
+        avatarSize: 32.0,
+        nodeWidth: 38.0,
+        fontSize: 8.5,
         isDoubleRing: true,
         outerCount: outerCount,
         innerCount: innerCount,
@@ -232,18 +231,18 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     final double fontSize;
 
     if (totalPlayers <= 8) {
+      avatarSize = 50.0;
+      nodeWidth = 56.0;
+      fontSize = 12.0;
+    } else if (totalPlayers <= 12) {
       avatarSize = 44.0;
       nodeWidth = 50.0;
-      fontSize = 11.0;
-    } else if (totalPlayers <= 12) {
+      fontSize = 10.5;
+    } else {
+      // 13..16
       avatarSize = 38.0;
       nodeWidth = 44.0;
       fontSize = 9.5;
-    } else {
-      // 13..16
-      avatarSize = 32.0;
-      nodeWidth = 38.0;
-      fontSize = 8.5;
     }
 
     return _TableDimensions(
@@ -275,45 +274,30 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       }
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double screenWidth =
-            MediaQuery.maybeSizeOf(context)?.width ?? 360.0;
+    // Table circulaire large et imposante non écrasée (diamètre fixe 380px)
+    const double tableSize = 380.0;
+    const double center = tableSize / 2;
 
-        final double availableWidth =
-            constraints.maxWidth.isFinite && constraints.maxWidth > 0
-                ? constraints.maxWidth
-                : (screenWidth - 20).clamp(280.0, 480.0);
-        final double availableHeight =
-            constraints.maxHeight.isFinite && constraints.maxHeight > 0
-                ? constraints.maxHeight
-                : availableWidth;
+    final dimensions = _computeDimensions(
+      tableSize: tableSize,
+      totalPlayers: totalPlayers,
+      isDoubleRing: isDoubleRing,
+    );
 
-        // Dimensionnement adaptatif de la table
-        final double tableSize =
-            math.min(availableWidth, availableHeight).clamp(280.0, 480.0);
-        final double center = tableSize / 2;
-
-        final dimensions = _computeDimensions(
-          tableSize: tableSize,
-          totalPlayers: totalPlayers,
-          isDoubleRing: isDoubleRing,
-        );
-
-        return Center(
-          child: SizedBox(
-            width: tableSize,
-            height: tableSize,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // 1, 2, 3. Couche d'arrière-plan avec dégradé et anneaux runiques animés (Isolée)
-                _MysticRadialBackgroundLayer(
-                  tableSize: tableSize,
-                  isDoubleRing: isDoubleRing,
-                  innerRadiusFactor: dimensions.innerRadiusFactor,
-                  rotationAnimation: _rotationController,
-                ),
+    return Center(
+      child: SizedBox(
+        width: tableSize,
+        height: tableSize,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 1, 2, 3. Couche d'arrière-plan avec dégradé et anneaux runiques animés (Isolée)
+            _MysticRadialBackgroundLayer(
+              tableSize: tableSize,
+              isDoubleRing: isDoubleRing,
+              innerRadiusFactor: dimensions.innerRadiusFactor,
+              rotationAnimation: _rotationController,
+            ),
 
                 // 4. Carte d'état de cible OU Séquence cinématique 3D des défunts au centre (Isolée)
                 RepaintBoundary(
@@ -356,8 +340,6 @@ class _MysticRadialTableState extends State<MysticRadialTable>
             ),
           ),
         );
-      },
-    );
   }
 
   Widget _buildCenterTargetCard(
@@ -453,7 +435,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                 final isTargetMe = selectedPlayer.id == widget.currentUserId;
                 final isTargetDead = !selectedPlayer.isAlive;
                 final isTargetGodMode =
-                    widget.isGodModeActive && widget.isDevRoom;
+                    widget.isGodModeActive || widget.isDevRoom;
                 final isTargetWolf = (widget.isMeEvil ||
                         widget.myRole.isEvil ||
                         (widget.currentUserId != null &&
@@ -541,7 +523,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     final isVoiceActive = widget.speakingAgoraUids.contains(player.agoraUid);
     final hasFloor = widget.currentSpeakerId != null && widget.currentSpeakerId == player.id;
     final isSpeaking = (isVoiceActive || hasFloor) && player.isAlive;
-    final isGodMode = widget.isGodModeActive && widget.isDevRoom;
+    final isGodMode = widget.isGodModeActive || widget.isDevRoom;
     final isWolfPeer = (player.role.isEvil ||
             widget.wolfPlayerIds.contains(player.id)) &&
         (widget.isMeEvil ||

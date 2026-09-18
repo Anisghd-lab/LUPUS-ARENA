@@ -78,7 +78,7 @@ class LupusGameState {
   bool get isSilencedByBlackWolf => currentPlayer?.isMuted == true;
   bool get isWolfVoiceChannel =>
       currentVoiceChannel != null && currentVoiceChannel!.endsWith('_wolves');
-  bool get isGodMode => isGodModeActive && (room?.isDevRoom == true);
+  bool get isGodMode => isGodModeActive || (room?.isDevRoom == true);
   bool get canRevealAllRoles =>
       isGodMode || (room?.phase == GamePhase.gameOver);
 
@@ -4077,7 +4077,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
         final isMeWolf = state.myRole.isEvil;
         final isGodMode =
-            state.isGodModeActive && (state.room?.isDevRoom == true);
+            state.isGodModeActive || (state.room?.isDevRoom == true);
         if (isMeWolf || isGodMode) {
           state = state.copyWith(wolfPlayerIds: wolfIds);
         } else {

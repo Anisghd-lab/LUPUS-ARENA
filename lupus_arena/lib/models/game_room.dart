@@ -24,6 +24,8 @@ class GameRoom {
   final List<String> morningVictims;
   final String? pendingHunterId;
   final String? pendingCaptainId;
+  final Map<String, dynamic>? lastDeathFlip;
+  final List<Map<String, dynamic>> deathAnnouncementQueue;
 
   // Débat & Vote
   final String? currentSpeakerId;
@@ -61,6 +63,8 @@ class GameRoom {
     this.morningVictims = const [],
     this.pendingHunterId,
     this.pendingCaptainId,
+    this.lastDeathFlip,
+    this.deathAnnouncementQueue = const [],
     this.currentSpeakerId,
     this.debateQueue = const [],
     this.tiedPlayerIds = const [],
@@ -178,6 +182,8 @@ class GameRoom {
     List<String>? morningVictims,
     String? pendingHunterId,
     String? pendingCaptainId,
+    Map<String, dynamic>? lastDeathFlip,
+    List<Map<String, dynamic>>? deathAnnouncementQueue,
     String? currentSpeakerId,
     List<String>? debateQueue,
     List<String>? tiedPlayerIds,
@@ -212,6 +218,9 @@ class GameRoom {
       morningVictims: morningVictims ?? this.morningVictims,
       pendingHunterId: pendingHunterId,
       pendingCaptainId: pendingCaptainId,
+      lastDeathFlip: lastDeathFlip ?? this.lastDeathFlip,
+      deathAnnouncementQueue:
+          deathAnnouncementQueue ?? this.deathAnnouncementQueue,
       currentSpeakerId: currentSpeakerId,
       debateQueue: debateQueue ?? this.debateQueue,
       tiedPlayerIds: tiedPlayerIds ?? this.tiedPlayerIds,
@@ -247,6 +256,8 @@ class GameRoom {
       'morningVictims': morningVictims,
       'pendingHunterId': pendingHunterId,
       'pendingCaptainId': pendingCaptainId,
+      'lastDeathFlip': lastDeathFlip,
+      'deathAnnouncementQueue': deathAnnouncementQueue,
       'currentSpeakerId': currentSpeakerId,
       'debateQueue': debateQueue,
       'tiedPlayerIds': tiedPlayerIds,
@@ -317,6 +328,22 @@ class GameRoom {
     if (rawMorningVictims is List) {
       for (final item in rawMorningVictims) {
         if (item != null) parsedMorningVictims.add(item.toString());
+      }
+    }
+
+    final rawLastDeathFlip = map['lastDeathFlip'];
+    Map<String, dynamic>? parsedLastDeathFlip;
+    if (rawLastDeathFlip is Map) {
+      parsedLastDeathFlip = Map<String, dynamic>.from(rawLastDeathFlip);
+    }
+
+    final rawDeathQueue = map['deathAnnouncementQueue'];
+    final List<Map<String, dynamic>> parsedDeathQueue = [];
+    if (rawDeathQueue is List) {
+      for (final item in rawDeathQueue) {
+        if (item is Map) {
+          parsedDeathQueue.add(Map<String, dynamic>.from(item));
+        }
       }
     }
 
@@ -395,6 +422,8 @@ class GameRoom {
       morningVictims: parsedMorningVictims,
       pendingHunterId: map['pendingHunterId']?.toString(),
       pendingCaptainId: map['pendingCaptainId']?.toString(),
+      lastDeathFlip: parsedLastDeathFlip,
+      deathAnnouncementQueue: parsedDeathQueue,
       currentSpeakerId: map['currentSpeakerId']?.toString(),
       debateQueue: parsedDebateQueue,
       tiedPlayerIds: parsedTied,

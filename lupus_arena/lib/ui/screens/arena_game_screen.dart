@@ -16,6 +16,7 @@ import '../bento/bento_card.dart';
 import '../bento/bento_player_grid.dart';
 import '../bento/bento_voice_controls.dart';
 import '../bento/mystic_radial_table.dart';
+import '../bento/revealed_death_card_overlay.dart';
 import '../bento/role_card_image.dart';
 import '../theme/lupus_assets.dart';
 import '../theme/lupus_theme.dart';
@@ -117,11 +118,80 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   int? _lastTrackedRound;
   String? _lastTrackedSpeaker;
 
+  // File d'attente cinématique 3D d'annonce des morts (centre de la table mystique)
+  final List<DeathAnnouncementEvent> _deathQueue = [];
+  final Set<String> _processedDeathKeys = {};
+
   // Minute vocale collective à la victoire (60 secondes)
   Timer? _victoryVoiceTimer;
   final ValueNotifier<int> _victoryVoiceCountdownNotifier =
       ValueNotifier<int>(60);
   bool _victoryVoiceStarted = false;
+
+  void _checkAndQueueDeathAnnouncements(GameRoom room) {
+    bool hasNewDeaths = false;
+
+    // 1. Détection des défunts via deathAnnouncementQueue (file FIFO ordonnée)
+    if (room.deathAnnouncementQueue.isNotEmpty) {
+      for (final entry in room.deathAnnouncementQueue) {
+        final pid = (entry['joueurId'] ?? entry['playerId'] ?? '').toString();
+        final cause = (entry['cause'] ?? '').toString();
+        final ts = entry['timestamp'] ?? room.round;
+        final key = '${pid}_${cause}_$ts';
+        if (pid.isNotEmpty && !_processedDeathKeys.contains(key)) {
+          _processedDeathKeys.add(key);
+          _deathQueue.add(DeathAnnouncementEvent.fromMap(entry));
+          hasNewDeaths = true;
+        }
+      }
+    }
+
+    // 2. Détection du dernier mort révélé au vote ou la nuit (lastDeathFlip)
+    if (room.lastDeathFlip != null) {
+      final flip = room.lastDeathFlip!;
+      final pid = (flip['joueurId'] ?? flip['playerId'] ?? '').toString();
+      final cause = (flip['cause'] ?? '').toString();
+      final ts = flip['timestamp'] ?? room.round;
+      final key = '${pid}_${cause}_$ts';
+      if (pid.isNotEmpty && !_processedDeathKeys.contains(key)) {
+        _processedDeathKeys.add(key);
+        _deathQueue.add(DeathAnnouncementEvent.fromMap(flip));
+        hasNewDeaths = true;
+      }
+    }
+
+    // 3. Détection spécifique à l'aube (morningAnnouncement) via morningVictims
+    if (room.phase == GamePhase.morningAnnouncement && room.morningVictims.isNotEmpty) {
+      for (final victimId in room.morningVictims) {
+        final player = room.players[victimId];
+        if (player != null) {
+          final cause = (victimId == room.witchPoisonVictimId)
+              ? 'POISON_SORCIERE'
+              : 'MORSURE_LOUPS';
+          final key = '${victimId}_${cause}_dawn_${room.round}';
+          if (!_processedDeathKeys.contains(key)) {
+            _processedDeathKeys.add(key);
+            final role = (player.roleInitial != GameRole.simpleVillager)
+                ? player.roleInitial
+                : player.role;
+            _deathQueue.add(DeathAnnouncementEvent(
+              playerId: victimId,
+              playerName: player.name,
+              role: role,
+              cause: cause,
+            ));
+            hasNewDeaths = true;
+          }
+        }
+      }
+    }
+
+    if (hasNewDeaths && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -186,6 +256,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
 
     // Synchronisation réactive du décompte de phase lors des transitions
     if (room != null) {
+      if (room.phase == GamePhase.lobby) {
+        _deathQueue.clear();
+        _processedDeathKeys.clear();
+      } else {
+        _checkAndQueueDeathAnnouncements(room);
+      }
+
       if (room.phase == GamePhase.gameOver) {
         if (!_victoryVoiceStarted) {
           _victoryVoiceStarted = true;
@@ -388,6 +465,16 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                                   ? null
                                                   : id;
                                         });
+                                      },
+                                      deathQueue: _deathQueue.isNotEmpty
+                                          ? List<DeathAnnouncementEvent>.unmodifiable(_deathQueue)
+                                          : null,
+                                      onDeathSequenceCompleted: () {
+                                        if (mounted) {
+                                          setState(() {
+                                            _deathQueue.clear();
+                                          });
+                                        }
                                       },
                                     ),
                                   ),

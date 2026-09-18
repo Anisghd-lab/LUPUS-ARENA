@@ -78,6 +78,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/cards/
     - LOUP GAROU ENHANCED/
     - village_background.png
 

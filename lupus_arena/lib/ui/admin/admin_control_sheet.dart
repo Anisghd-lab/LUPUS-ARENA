@@ -30,7 +30,17 @@ class AdminControlSheet extends ConsumerStatefulWidget {
 }
 
 class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
-  int _selectedTab = 0; // 0: Dev View, 1: Phases, 2: Joueurs, 3: Audio
+  int _selectedTab = 0; // 0: Dev View, 1: Sandbox, 2: Phases, 3: Joueurs, 4: Audio
+
+  // Variables de sélection pour les actions rapides Sandbox
+  String? _selectedWolfVictimId;
+  String? _selectedSeerTargetId;
+  String? _selectedPoisonTargetId;
+  String? _selectedGuardTargetId;
+  String? _selectedCupid1Id;
+  String? _selectedCupid2Id;
+  String? _selectedHunterTargetId;
+  GameRole? _inspectedSeerResult;
 
   @override
   Widget build(BuildContext context) {
@@ -157,6 +167,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
   Widget _buildTabs() {
     final tabs = [
       {'icon': '👁️', 'label': 'Dev View'},
+      {'icon': '🎮', 'label': 'Sandbox'},
       {'icon': '⏳', 'label': 'Phases'},
       {'icon': '👥', 'label': 'Joueurs'},
       {'icon': '🎙️', 'label': 'Audio'},
@@ -198,7 +209,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                       Text(
                         tab['label']!,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight:
                               isSelected ? FontWeight.w800 : FontWeight.w500,
                           color: isSelected
@@ -222,14 +233,664 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
       case 0:
         return _buildGodView(room);
       case 1:
-        return _buildPhasesForcing(room);
+        return _buildSandboxTab(room);
       case 2:
-        return _buildPlayerManagement(room);
+        return _buildPhasesForcing(room);
       case 3:
+        return _buildPlayerManagement(room);
+      case 4:
         return _buildAudioControl(room, gameState);
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  // ==========================================
+  // --- 2. SIMULATION SANDBOX & POUVOIRS FORCÉS ---
+  // ==========================================
+  Widget _buildSandboxTab(GameRoom room) {
+    final notifier = ref.read(gameNotifierProvider.notifier);
+    final alivePlayers = room.alivePlayers;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1. Bouton Maître : Lever du jour immédiat
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF78350F), Color(0xFF451A03), Color(0xFF1E1405)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: LupusColors.arcaneGold, width: 1.5),
+            boxShadow: LupusTheme.glowGold(opacity: 0.35),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.wb_sunny_rounded, color: LupusColors.arcaneGold, size: 24),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'RÉSOLUTION INSTANTANÉE DU CYCLE',
+                          style: TextStyle(
+                            fontFamily: 'serif',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: LupusColors.arcaneGold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        Text(
+                          'Calcule les morts, protections et amours sans aucun timer réseau',
+                          style: TextStyle(fontSize: 10.5, color: LupusColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: LupusColors.arcaneGold,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 4,
+                ),
+                onPressed: () async {
+                  await notifier.devResolveNight();
+                  _showToast('🌅 Aube résolue instantanément !');
+                },
+                icon: const Icon(Icons.flash_on_rounded, size: 20),
+                label: const Text(
+                  '🌅 RÉSOUDRE L\'AUBE / LEVER DU JOUR',
+                  style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.9, fontSize: 12.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // 2. Actions forcées des rôles de Nuit
+        const Text(
+          'DÉCLENCHEURS DIRECTS DES POUVOIRS (GOD MODE)',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            color: LupusColors.arcaneGold,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Carte : Meute des Loups-Garous
+        BentoCard(
+          borderColor: LupusColors.bloodRed.withValues(alpha: 0.6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('🐺', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'PROIE DE LA MEUTE DES LOUPS',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      color: LupusColors.bloodRed,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (room.nightVictimId != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: LupusColors.bloodRed.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Cible: ${room.players[room.nightVictimId]?.name ?? room.nightVictimId}',
+                        style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                value: _selectedWolfVictimId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
+                dropdownColor: const Color(0xFF1E1405),
+                decoration: InputDecoration(
+                  labelText: 'Choisir la victime de la meute',
+                  labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
+                  filled: true,
+                  fillColor: const Color(0x66000000),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: alivePlayers.map((p) => DropdownMenuItem(
+                  value: p.id,
+                  child: Text('${p.name} (${p.role.displayNameFr})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                )).toList(),
+                onChanged: (val) => setState(() => _selectedWolfVictimId = val),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: LupusColors.bloodRed,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    final target = _selectedWolfVictimId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null);
+                    if (target != null) {
+                      notifier.devSetNightVictim(target);
+                      _showToast('🐺 Proie des loups fixée sur ${room.players[target]?.name}');
+                    }
+                  },
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text('FORCER LA VICTIME DES LOUPS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // Carte : Voyante (Sonde Immédiate)
+        BentoCard(
+          borderColor: LupusColors.arcanePurple.withValues(alpha: 0.6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('🔮', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'SONDE DE LA VOYANTE',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      color: LupusColors.arcanePurple,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_inspectedSeerResult != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: LupusColors.arcanePurple.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Rôle: ${_inspectedSeerResult!.displayNameFr}',
+                        style: const TextStyle(fontSize: 10, color: LupusColors.arcaneGold, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                value: _selectedSeerTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
+                dropdownColor: const Color(0xFF1E1405),
+                decoration: InputDecoration(
+                  labelText: 'Choisir le joueur à sonder',
+                  labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
+                  filled: true,
+                  fillColor: const Color(0x66000000),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: alivePlayers.map((p) => DropdownMenuItem(
+                  value: p.id,
+                  child: Text('${p.name} (Siège #${p.seatIndex >= 0 ? p.seatIndex : 0})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                )).toList(),
+                onChanged: (val) => setState(() => _selectedSeerTargetId = val),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () async {
+                    final target = _selectedSeerTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null);
+                    if (target != null) {
+                      final role = await notifier.devSeerInspect(target);
+                      setState(() => _inspectedSeerResult = role);
+                      _showToast('🔮 ${room.players[target]?.name} est [${role?.displayNameFr ?? "Inconnu"}] !');
+                    }
+                  },
+                  icon: const Icon(Icons.visibility_rounded, size: 16),
+                  label: const Text('SONDER INSTANTANÉMENT LE RÔLE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // Carte : Sorcière (Potions)
+        BentoCard(
+          borderColor: LupusColors.poisonGreen.withValues(alpha: 0.6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('🧪', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'POTIONS DE LA SORCIÈRE',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      color: LupusColors.poisonGreen,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF047857),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () {
+                        notifier.devWitchHeal();
+                        _showToast('✨ Potion de soin appliquée sur la victime des loups !');
+                      },
+                      icon: const Icon(Icons.healing_rounded, size: 16),
+                      label: const Text('SOIGNER PROIE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedPoisonTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
+                dropdownColor: const Color(0xFF1E1405),
+                decoration: InputDecoration(
+                  labelText: 'Choisir la cible à empoisonner',
+                  labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
+                  filled: true,
+                  fillColor: const Color(0x66000000),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: alivePlayers.map((p) => DropdownMenuItem(
+                  value: p.id,
+                  child: Text('${p.name} (${p.role.displayNameFr})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                )).toList(),
+                onChanged: (val) => setState(() => _selectedPoisonTargetId = val),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB91C1C),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    final target = _selectedPoisonTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null);
+                    if (target != null) {
+                      notifier.devWitchPoison(target);
+                      _showToast('☠️ Potion de poison versée sur ${room.players[target]?.name} !');
+                    }
+                  },
+                  icon: const Icon(Icons.science_rounded, size: 16),
+                  label: const Text('EMPOISONNER LE JOUEUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // Carte : Salvateur / Garde (Bouclier)
+        BentoCard(
+          borderColor: LupusColors.sunAmber.withValues(alpha: 0.6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('🛡️', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'BOUCLIER DU SALVATEUR / GARDE',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      color: LupusColors.sunAmber,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                value: _selectedGuardTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
+                dropdownColor: const Color(0xFF1E1405),
+                decoration: InputDecoration(
+                  labelText: 'Choisir le joueur à protéger',
+                  labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
+                  filled: true,
+                  fillColor: const Color(0x66000000),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: alivePlayers.map((p) => DropdownMenuItem(
+                  value: p.id,
+                  child: Text('${p.name} (${p.role.displayNameFr})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                )).toList(),
+                onChanged: (val) => setState(() => _selectedGuardTargetId = val),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD97706),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    final target = _selectedGuardTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null);
+                    if (target != null) {
+                      notifier.devGuardProtect(target);
+                      _showToast('🛡️ ${room.players[target]?.name} est protégé par le Salvateur !');
+                    }
+                  },
+                  icon: const Icon(Icons.shield_rounded, size: 16),
+                  label: const Text('ACTIVER LE BOUCLIER PROTECTEUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // Carte : Cupidon (Amoureux)
+        BentoCard(
+          borderColor: const Color(0xFFEC4899),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('💘', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'LIAISON DES AMOUREUX (CUPIDON)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      color: Color(0xFFEC4899),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedCupid1Id ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
+                      dropdownColor: const Color(0xFF1E1405),
+                      decoration: InputDecoration(
+                        labelText: 'Amoureux 1',
+                        labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 11),
+                        filled: true,
+                        fillColor: const Color(0x66000000),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      items: alivePlayers.map((p) => DropdownMenuItem(
+                        value: p.id,
+                        child: Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                      )).toList(),
+                      onChanged: (val) => setState(() => _selectedCupid1Id = val),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedCupid2Id ?? (alivePlayers.length > 1 ? alivePlayers[1].id : null),
+                      dropdownColor: const Color(0xFF1E1405),
+                      decoration: InputDecoration(
+                        labelText: 'Amoureux 2',
+                        labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 11),
+                        filled: true,
+                        fillColor: const Color(0x66000000),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      items: alivePlayers.map((p) => DropdownMenuItem(
+                        value: p.id,
+                        child: Text(p.name, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                      )).toList(),
+                      onChanged: (val) => setState(() => _selectedCupid2Id = val),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFDB2777),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    final p1 = _selectedCupid1Id ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null);
+                    final p2 = _selectedCupid2Id ?? (alivePlayers.length > 1 ? alivePlayers[1].id : null);
+                    if (p1 != null && p2 != null && p1 != p2) {
+                      notifier.devCupidLink(p1, p2);
+                      _showToast('💘 ${room.players[p1]?.name} et ${room.players[p2]?.name} sont liés !');
+                    }
+                  },
+                  icon: const Icon(Icons.favorite_rounded, size: 16),
+                  label: const Text('LIER PAR L\'AMOUR (MORT COMMUNE)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // Carte : Chasseur (Riposte)
+        BentoCard(
+          borderColor: const Color(0xFFF97316),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('🎯', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'TIR DU CHASSEUR (RIPOSTE)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      color: Color(0xFFF97316),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                value: _selectedHunterTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
+                dropdownColor: const Color(0xFF1E1405),
+                decoration: InputDecoration(
+                  labelText: 'Choisir la cible du tir',
+                  labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
+                  filled: true,
+                  fillColor: const Color(0x66000000),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: alivePlayers.map((p) => DropdownMenuItem(
+                  value: p.id,
+                  child: Text('${p.name} (${p.role.displayNameFr})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                )).toList(),
+                onChanged: (val) => setState(() => _selectedHunterTargetId = val),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEA580C),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    final target = _selectedHunterTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null);
+                    if (target != null) {
+                      notifier.devHunterShoot(target);
+                      _showToast('🎯 Tir du Chasseur exécuté sur ${room.players[target]?.name} !');
+                    }
+                  },
+                  icon: const Icon(Icons.crisis_alert_rounded, size: 16),
+                  label: const Text('DÉCLENCHER LE TIR DE RIPOSTE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // 3. Gestion individuelle directe des 12 Joueurs / Bots
+        const Text(
+          'ROSTER DU PLATEAU • CONTRÔLE INDIVIDUEL (12 JOUEURS)',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            color: LupusColors.arcaneGold,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        ...room.playerList.map((player) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xAA12172A),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: player.isAlive
+                    ? (player.role.isEvil ? LupusColors.bloodRed : LupusColors.arcanePurple.withValues(alpha: 0.5))
+                    : Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+            child: Row(
+              children: [
+                RoleCardImage(
+                  role: player.role,
+                  width: 38,
+                  height: 50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              player.name,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: player.isAlive ? Colors.white : LupusColors.textMuted,
+                                decoration: player.isAlive ? null : TextDecoration.lineThrough,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (player.isCaptain) const Text(' ⭐'),
+                          if (player.isLover) const Text(' 💖'),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${player.role.displayNameFr} • ${player.isAlive ? "VIVANT" : "MORT"}',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: player.isAlive ? player.role.accentColor : LupusColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Actions directes
+                IconButton(
+                  icon: Icon(
+                    player.isAlive ? Icons.dangerous_rounded : Icons.favorite_rounded,
+                    color: player.isAlive ? LupusColors.bloodRed : Colors.greenAccent,
+                    size: 20,
+                  ),
+                  tooltip: player.isAlive ? 'Éliminer (devKill)' : 'Ressusciter (devRevive)',
+                  onPressed: () {
+                    if (player.isAlive) {
+                      notifier.devKill(player.id, reason: 'décision du Maître du Jeu');
+                      _showToast('💀 ${player.name} a été éliminé(e) !');
+                    } else {
+                      notifier.devRevive(player.id);
+                      _showToast('✨ ${player.name} a été ressuscité(e) !');
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_note_rounded, color: LupusColors.arcaneGold, size: 22),
+                  tooltip: 'Changer rôle',
+                  onPressed: () => _showRoleSelector(player),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
   }
 
   // ==========================================
@@ -1560,7 +2221,104 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Carte : Créer un salon multijoueur réel (12 Joueurs)
+                  // Carte 1 : SIMULATION SANDBOX (12 JOUEURS AVEC 11 BOTS)
+                  BentoCard(
+                    borderColor: const Color(0xFFA855F7),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0x44581C87),
+                        Color(0x332E1065),
+                        Color(0x330F0B1E),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFA855F7).withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFA855F7)),
+                              ),
+                              child: const Icon(Icons.smart_toy_rounded,
+                                  color: Color(0xFFE9D5FF), size: 28),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '🎮 SIMULATION SANDBOX (12 JOUEURS)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 13,
+                                      color: Color(0xFFF3E8FF),
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    '1 Maître du Jeu + 11 Bots passifs avec contrôle total',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: LupusColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Initialise immédiatement un salon de 12 joueurs avec 11 bots de test. Vous permet de forcer chaque pouvoir de nuit et de tester toutes les règles canoniques sans aucune attente.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: LupusColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFA855F7),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              await ref
+                                  .read(gameNotifierProvider.notifier)
+                                  .startSandboxGame();
+                            },
+                            icon: const Icon(Icons.play_circle_fill_rounded, size: 22),
+                            label: const Text(
+                              'LANCER LA SIMULATION SANDBOX',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Carte 2 : Créer un salon multijoueur réel (12 Joueurs)
                   BentoCard(
                     borderColor: LupusColors.arcaneGold.withValues(alpha: 0.6),
                     gradient: const LinearGradient(

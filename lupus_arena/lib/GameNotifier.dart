@@ -4157,6 +4157,418 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   // ==========================================
+  // --- SIMULATION SANDBOX AVEC BOTS (DEV-MOD) ---
+  // ==========================================
+
+  /// Lancer directement une simulation Sandbox 12 joueurs avec des bots passifs
+  Future<bool> startSandboxGame({Map<String, GameRole>? customBotRoles}) async {
+    state = state.copyWith(
+      isLoading: true,
+      errorMessage: null,
+      isAdmin: true,
+      isGodModeActive: true,
+    );
+    try {
+      final roomCode = _generateRoomCode();
+      final myPlayer = PlayerModel(
+        id: state.currentUserId,
+        name: '${state.currentUserName} 👑 (Dev)',
+        avatarIndex: state.currentUserAvatar,
+        role: GameRole.seer,
+        initialRole: GameRole.seer,
+        isHost: true,
+        isReady: true,
+        isAlive: true,
+        isOnline: true,
+        agoraUid: state.agoraUid,
+        socketId: 'sock_${state.currentUserId}_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      final Map<String, PlayerModel> allPlayers = {
+        state.currentUserId: myPlayer,
+      };
+
+      // 11 profils de bots équilibrés
+      final botProfiles = [
+        {'name': 'Bot Alice', 'role': GameRole.simpleWerewolf, 'avatar': 1},
+        {'name': 'Bot Bob', 'role': GameRole.simpleWerewolf, 'avatar': 2},
+        {'name': 'Bot Charlie', 'role': GameRole.bigBadWolf, 'avatar': 3},
+        {'name': 'Bot David', 'role': GameRole.witch, 'avatar': 4},
+        {'name': 'Bot Emma', 'role': GameRole.hunter, 'avatar': 5},
+        {'name': 'Bot Gabriel', 'role': GameRole.defender, 'avatar': 6},
+        {'name': 'Bot Helena', 'role': GameRole.elder, 'avatar': 7},
+        {'name': 'Bot Bastien', 'role': GameRole.cupid, 'avatar': 8},
+        {'name': 'Bot Liam', 'role': GameRole.knightRustySword, 'avatar': 9},
+        {'name': 'Bot Zoe', 'role': GameRole.piedPiper, 'avatar': 10},
+        {'name': 'Bot Sam', 'role': GameRole.simpleVillager, 'avatar': 11},
+      ];
+
+      for (int i = 0; i < botProfiles.length; i++) {
+        final botId = 'bot_${i + 1}';
+        final profile = botProfiles[i];
+        final role = customBotRoles?[botId] ?? (profile['role'] as GameRole);
+        final name = profile['name'] as String;
+        final avatar = profile['avatar'] as int;
+        allPlayers[botId] = PlayerModel(
+          id: botId,
+          name: name,
+          avatarIndex: avatar,
+          role: role,
+          initialRole: role,
+          isHost: false,
+          isReady: true,
+          isAlive: true,
+          isOnline: true,
+          seatIndex: i + 1,
+          potionsVie: (role == GameRole.witch) ? 1 : 0,
+          potionsMort: (role == GameRole.witch) ? 1 : 0,
+          visionsRestantes: (role == GameRole.seer) ? 2 : 0,
+        );
+      }
+
+      final pool = <String, int>{};
+      for (final p in allPlayers.values) {
+        pool[p.role.id] = (pool[p.role.id] ?? 0) + 1;
+      }
+
+      final newRoom = GameRoom(
+        roomCode: roomCode,
+        hostId: state.currentUserId,
+        phase: GamePhase.nightWerewolves, // Démarre directement en Nuit
+        players: allPlayers,
+        rolePool: pool,
+        round: 1,
+        timerSeconds: 999, // Pas de pression de temps en Sandbox
+        logs: [
+          '🎮 [SANDBOX DEV] Simulation initialisée avec 12 joueurs (1 Dev + 11 Bots).',
+          '🌙 Nuit 1 : Vous pouvez forcer chaque pouvoir et résoudre l\'aube sans attente.',
+        ],
+      );
+
+      _currentRoomRef = _database.ref('rooms/$roomCode');
+      await _currentRoomRef!.set(newRoom.toMap());
+
+      for (final p in allPlayers.values) {
+        try {
+          await _database
+              .ref('rooms/$roomCode/secret_roles/${p.id}/roleId')
+              .set(p.role.id);
+        } catch (_) {}
+      }
+
+      _subscribeToRoom(roomCode);
+
+      await _voiceService.initialize();
+      await _voiceService.joinChannel(
+        channelId: 'lupus_$roomCode',
+        uid: state.agoraUid,
+        userAccount: state.currentUserId,
+      );
+
+      state = state.copyWith(
+        room: newRoom,
+        isLoading: false,
+        isAdmin: true,
+        isGodModeActive: true,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[startSandboxGame Error] $e');
+      state = state.copyWith(isLoading: false, errorMessage: 'Erreur sandbox: $e');
+      return false;
+    }
+  }
+
+  /// Remplit le salon actuel avec des bots pour atteindre 12 joueurs
+  Future<void> populateRoomWithBots() async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final currentCount = state.room!.players.length;
+    final needed = 12 - currentCount;
+    if (needed <= 0) return;
+
+    final defaultRoles = [
+      GameRole.simpleWerewolf,
+      GameRole.simpleWerewolf,
+      GameRole.witch,
+      GameRole.hunter,
+      GameRole.defender,
+      GameRole.cupid,
+      GameRole.elder,
+      GameRole.seer,
+      GameRole.bigBadWolf,
+      GameRole.piedPiper,
+      GameRole.simpleVillager,
+    ];
+
+    final updates = <String, dynamic>{};
+    for (int i = 0; i < needed; i++) {
+      final botIndex = currentCount + i;
+      final botId = 'bot_$botIndex';
+      final role = defaultRoles[i % defaultRoles.length];
+      final bot = PlayerModel(
+        id: botId,
+        name: 'Bot $botIndex',
+        avatarIndex: (botIndex % 12),
+        role: role,
+        initialRole: role,
+        isReady: true,
+        isAlive: true,
+        isOnline: true,
+        seatIndex: botIndex,
+      );
+      updates['players/$botId'] = bot.toMap();
+    }
+    updates['rolePool'] = generateDefaultRolePool(12);
+    updates['logs'] = [
+      ...?state.room?.logs,
+      '🤖 $needed bot(s) de test ont rejoint le salon (Total: 12 joueurs).',
+    ];
+    await _syncState(updates);
+  }
+
+  // ===================== CONTRÔLES GOD MODE (ACTIONS FORCÉES) =====================
+
+  /// God Mode : Forcer l'élimination directe avec gestion des mécaniques associées
+  Future<void> devKill(String playerId, {String reason = 'décision du Maître du Jeu'}) async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final target = state.room!.players[playerId];
+    if (target == null || !target.isAlive) return;
+
+    final realRoles = await _resolveRealRoles(state.room!);
+    final targetRole = realRoles[playerId] ?? target.role;
+    final ancientLives = state.room!.expandedRolesState.ancientLives[playerId] ??
+        (targetRole == GameRole.elder ? 2 : 1);
+
+    if (targetRole == GameRole.elder && ancientLives > 1 && reason.contains('loup')) {
+      final updatedLives = Map<String, int>.from(state.room!.expandedRolesState.ancientLives);
+      updatedLives[playerId] = ancientLives - 1;
+      await _syncState({
+        'expandedRolesState': state.room!.expandedRolesState.copyWith(ancientLives: updatedLives).toMap(),
+        'logs': [
+          ...?state.room?.logs,
+          '🛡️ [DEV RESISTANCE] ${target.name} (Ancien) survit à l\'assaut (1 vie restante).',
+        ],
+      });
+      return;
+    }
+
+    final logs = List<String>.from(state.room!.logs);
+    logs.insert(0, '💀 [DEV MORT] ${target.name} (${targetRole.displayNameFr}) est éliminé(e) -> Raison: $reason');
+
+    final updates = <String, dynamic>{
+      'players/$playerId/isAlive': false,
+      'players/$playerId/role': targetRole.id,
+      'lastDeathFlip': {
+        'action': 'FLIP_CARTE_MORT',
+        'joueurId': playerId,
+        'nom': target.name,
+        'role': targetRole.name,
+        'camp': targetRole.isEvil ? 'LOUPS' : 'VILLAGE',
+        'cause': reason.toUpperCase(),
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    };
+
+    final partnerDead = handleLoverDeath(playerId, state.room!.players, logs);
+    if (partnerDead != null) {
+      final pPartner = state.room!.players[partnerDead];
+      final partnerRole = realRoles[partnerDead] ?? pPartner?.role ?? GameRole.simpleVillager;
+      updates['players/$partnerDead/isAlive'] = false;
+      updates['players/$partnerDead/role'] = partnerRole.id;
+    }
+
+    if (targetRole == GameRole.hunter) {
+      updates['pendingHunterId'] = playerId;
+      logs.insert(0, '🎯 [DEV POUVOIR] Le Chasseur ${target.name} est tombé et peut tirer sa riposte.');
+    }
+
+    updates['logs'] = logs;
+    await _syncState(updates);
+
+    final simulated = state.room!.copyWith(
+      players: {
+        ...state.room!.players,
+        playerId: target.copyWith(isAlive: false),
+        if (partnerDead != null && state.room!.players[partnerDead] != null)
+          partnerDead: state.room!.players[partnerDead]!.copyWith(isAlive: false),
+      },
+    );
+    final win = checkWinConditions(simulated, realRoles);
+    if (win != null) {
+      await _syncState({'winner': win, 'phase': GamePhase.gameOver.name});
+    }
+  }
+
+  /// God Mode : Ressusciter un joueur
+  Future<void> devRevive(String playerId) async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final target = state.room!.players[playerId];
+    if (target == null) return;
+    final logs = List<String>.from(state.room!.logs);
+    logs.insert(0, '✨ [DEV RÉANIMATION] ${target.name} a été ressuscité(e) par le Maître du Jeu.');
+    await _syncState({
+      'players/$playerId/isAlive': true,
+      'logs': logs,
+    });
+  }
+
+  /// God Mode : Forcer le rôle d'un joueur
+  Future<void> devSetRole(String playerId, GameRole role) => adminForceRole(playerId, role);
+
+  /// God Mode : Forcer la proie des loups
+  Future<void> devSetNightVictim(String targetId) => adminSetNightVictim(targetId);
+
+  /// God Mode : Sonde de la Voyante instantanée
+  Future<GameRole?> devSeerInspect(String targetId) async {
+    if (_currentRoomRef == null || state.room == null) return null;
+    final target = state.room!.players[targetId];
+    if (target == null) return null;
+    final realRoles = await _resolveRealRoles(state.room!);
+    final role = realRoles[targetId] ?? target.role;
+    final logs = List<String>.from(state.room!.logs);
+    logs.insert(0, '🔮 [DEV VOYANTE] Sonde sur ${target.name} -> [${role.displayNameFr}].');
+    await _syncState({'logs': logs});
+    return role;
+  }
+
+  /// God Mode : Potion de vie de la Sorcière
+  Future<void> devWitchHeal() async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final logs = List<String>.from(state.room!.logs);
+    logs.insert(0, '✨ [DEV SORCIÈRE] Potion de vie appliquée sur la victime de la meute.');
+    await _syncState({'witchHealed': true, 'logs': logs});
+  }
+
+  /// God Mode : Potion de mort de la Sorcière
+  Future<void> devWitchPoison(String targetId) async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final target = state.room!.players[targetId];
+    final logs = List<String>.from(state.room!.logs);
+    logs.insert(0, '🧪 [DEV SORCIÈRE] Potion de mort versée sur ${target?.name ?? targetId}.');
+    await _syncState({'witchPoisonVictimId': targetId, 'logs': logs});
+  }
+
+  /// God Mode : Protection du Salvateur
+  Future<void> devGuardProtect(String targetId) async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final target = state.room!.players[targetId];
+    final logs = List<String>.from(state.room!.logs);
+    logs.insert(0, '🛡️ [DEV SALVATEUR] Bouclier protecteur déployé sur ${target?.name ?? targetId}.');
+    await _syncState({'currentProtectedPlayerId': targetId, 'logs': logs});
+  }
+
+  /// God Mode : Liaison des Amoureux par Cupidon
+  Future<void> devCupidLink(String p1Id, String p2Id) async {
+    if (_currentRoomRef == null || state.room == null || p1Id == p2Id) return;
+    final p1 = state.room!.players[p1Id];
+    final p2 = state.room!.players[p2Id];
+    final logs = List<String>.from(state.room!.logs);
+    logs.insert(0, '💘 [DEV CUPIDON] ${p1?.name ?? p1Id} et ${p2?.name ?? p2Id} sont liés par l\'amour.');
+    await _syncState({
+      'players/$p1Id/isLover': true,
+      'players/$p1Id/loverId': p2Id,
+      'players/$p2Id/isLover': true,
+      'players/$p2Id/loverId': p1Id,
+      'logs': logs,
+    });
+  }
+
+  /// God Mode : Tir du Chasseur
+  Future<void> devHunterShoot(String targetId) async {
+    await devKill(targetId, reason: 'tir de riposte du chasseur');
+  }
+
+  /// God Mode : Résolution instantanée de l'Aube / Lever du Jour
+  Future<void> devResolveNight() async {
+    if (_currentRoomRef == null || state.room == null) return;
+    final room = state.room!;
+    final updates = <String, dynamic>{};
+    final logs = List<String>.from(room.logs);
+    final realRoles = await _resolveRealRoles(room);
+    final List<String> effectiveDeaths = [];
+
+    // 1. Morsure des Loups
+    final wolfVictimId = room.nightVictimId ?? _tallyWerewolfVotes();
+    if (wolfVictimId != null) {
+      final isProtected = room.currentProtectedPlayerId == wolfVictimId;
+      final isHealed = room.witchHealed;
+
+      if (isProtected) {
+        logs.insert(0, '🛡️ [RÉSOLU] L\'attaque de la meute sur ${room.players[wolfVictimId]?.name} a été contrée par le bouclier du Salvateur !');
+      } else if (isHealed) {
+        logs.insert(0, '✨ [RÉSOLU] La potion de vie de la Sorcière a sauvé ${room.players[wolfVictimId]?.name} de la meute !');
+      } else {
+        final victimRole = realRoles[wolfVictimId] ?? room.players[wolfVictimId]?.role;
+        final ancientLives = room.expandedRolesState.ancientLives[wolfVictimId] ?? (victimRole == GameRole.elder ? 2 : 1);
+        if (victimRole == GameRole.elder && ancientLives > 1) {
+          final updatedLives = Map<String, int>.from(room.expandedRolesState.ancientLives);
+          updatedLives[wolfVictimId] = ancientLives - 1;
+          updates['expandedRolesState'] = room.expandedRolesState.copyWith(ancientLives: updatedLives).toMap();
+          logs.insert(0, '🛡️ [RÉSOLU] L\'Ancien (${room.players[wolfVictimId]?.name}) résiste à la morsure des loups (1 vie restante).');
+        } else {
+          effectiveDeaths.add(wolfVictimId);
+        }
+      }
+    }
+
+    // 2. Poison Sorcière
+    final poisonVictimId = room.witchPoisonVictimId;
+    if (poisonVictimId != null && !effectiveDeaths.contains(poisonVictimId)) {
+      effectiveDeaths.add(poisonVictimId);
+    }
+
+    // 3. Amoureux en chaîne
+    final allDeaths = <String>{...effectiveDeaths};
+    for (final deadId in effectiveDeaths) {
+      final partner = handleLoverDeath(deadId, room.players, logs);
+      if (partner != null) allDeaths.add(partner);
+    }
+
+    for (final id in allDeaths) {
+      updates['players/$id/isAlive'] = false;
+      final p = room.players[id];
+      final r = realRoles[id] ?? p?.role ?? GameRole.simpleVillager;
+      updates['players/$id/role'] = r.id;
+      final cause = (id == poisonVictimId) ? 'POISON_SORCIERE' : 'MORSURE_LOUPS';
+      updates['lastDeathFlip'] = {
+        'action': 'FLIP_CARTE_MORT',
+        'joueurId': id,
+        'nom': p?.name ?? id,
+        'role': r.name,
+        'camp': r.isEvil ? 'LOUPS' : 'VILLAGE',
+        'cause': cause,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+      logs.insert(0, '💀 ${p?.name ?? id} (${r.displayNameFr}) a succombé.');
+    }
+
+    updates['lastProtectedPlayerId'] = room.currentProtectedPlayerId;
+    updates['currentProtectedPlayerId'] = null;
+    updates['nightVictimId'] = null;
+    updates['witchHealed'] = false;
+    updates['witchPoisonVictimId'] = null;
+    updates['morningVictims'] = allDeaths.toList();
+    _resetAllVotes(updates);
+
+    logs.insert(0, '🌅 [DEV LEVER DU JOUR] L\'aube est résolue instantanément. ${allDeaths.isEmpty ? "Aucun mort." : "${allDeaths.length} trépassé(s)."}');
+
+    final simulated = room.copyWith(
+      players: room.players.map((k, v) => MapEntry(k, allDeaths.contains(k) ? v.copyWith(isAlive: false) : v)),
+    );
+    final win = checkWinConditions(simulated, realRoles);
+    if (win != null) {
+      updates['phase'] = GamePhase.gameOver.name;
+      updates['winner'] = win;
+      logs.insert(0, _formatVictoryMessage(win));
+    } else {
+      _routeToDayPhase(room, updates, logs);
+    }
+
+    updates['logs'] = logs;
+    await _syncState(updates);
+  }
+
+  // ==========================================
   // --- REPLAY & RÉINITIALISATION DE PARTIE ---
   // ==========================================
 

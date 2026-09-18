@@ -231,11 +231,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     state = state.copyWith(errorMessage: null);
   }
 
-  /// Synchronise l'état atomiquement sur Firebase (rooms et games)
+  /// ═══════════════════════════════════════════════════════════════════════════
+  /// ÉCRITURE FIREBASE ATOMIQUE — chemin canonique unique : rooms/$roomCode
+  /// Une seule requête multi-path par action, éliminant toute écriture miroir.
+  /// ═══════════════════════════════════════════════════════════════════════════
   Future<void> _syncState(Map<String, dynamic> updates) async {
     if (_currentRoomRef == null) return;
 
-    // Synchronisation stricte et bidirectionnelle phase <-> currentPhase pour éviter toute désynchronisation
+    // Synchronisation stricte phase <-> currentPhase
     if (updates.containsKey('phase')) {
       final pName = updates['phase'].toString();
       updates['currentPhase'] = pName == GamePhase.dayVoting.name
@@ -273,13 +276,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
 
     try {
+      // ── ÉCRITURE ATOMIQUE UNIQUE : rooms/$roomCode ──
+      // Suppression des miroirs games/$roomCode et rooms/$roomCode/state.
       await _currentRoomRef!.update(updates);
-      if (state.room != null) {
-        final roomCode = state.room!.roomCode;
-        await _database.ref('rooms/$roomCode').update(updates);
-        await _database.ref('games/$roomCode').update(updates);
-        await _database.ref('rooms/$roomCode/state').update(updates);
-      }
     } catch (e) {
       debugPrint('[Firebase Sync Error] $e');
     }
@@ -319,6 +318,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
+  /// Méthode utilitaire d'écriture multi-path atomique sur rooms/$roomCode
+  /// pour les opérations hors-_syncState (join, leave, status).
+  Future<void> _updateRoomState(
+    String roomCode,
+    Map<String, dynamic> updates,
+  ) async {
+    try {
+      await _database.ref('rooms/$roomCode').update(updates);
+    } catch (e) {
+      debugPrint('[_updateRoomState Error] $e');
+    }
+  }
+
   /// Créer un salon de jeu
   Future<bool> createRoom() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -349,8 +361,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
       _currentRoomRef = _database.ref('rooms/$roomCode');
       await _currentRoomRef!.set(newRoom.toMap());
-      await _database.ref('games/$roomCode').set(newRoom.toMap());
-      await _database.ref('rooms/$roomCode/state').set(newRoom.toMap());
 
       try {
         await _currentRoomRef!
@@ -524,8 +534,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
       _currentRoomRef = _database.ref('rooms/$roomCode');
       await _currentRoomRef!.set(newRoom.toMap());
-      await _database.ref('games/$roomCode').set(newRoom.toMap());
-      await _database.ref('rooms/$roomCode/state').set(newRoom.toMap());
 
       try {
         await _currentRoomRef!
@@ -627,7 +635,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     updates['players'] = newPlayers.map((k, v) => MapEntry(k, v.toMap()));
     updates['seatingOrder'] = newSeating;
     updates['rolePool'] = pool;
-    updates['config/rolePool'] = pool;
 
     await _syncState(updates);
     return true;
@@ -656,7 +663,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     updates['players'] = remainingPlayers.map((k, v) => MapEntry(k, v.toMap()));
     updates['seatingOrder'] = remainingSeating;
     updates['rolePool'] = pool;
-    updates['config/rolePool'] = pool;
 
     await _syncState(updates);
     return true;
@@ -811,8 +817,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             .set({'data': encryptedWolves});
       }
       await _database.ref('rooms/$roomCode').set(newRoom.toMap());
-      await _database.ref('games/$roomCode').set(newRoom.toMap());
-      await _database.ref('rooms/$roomCode/state').set(newRoom.toMap());
 
       await joinRoom(roomCode);
       return true;
@@ -841,17 +845,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      DatabaseReference ref = _database.ref('rooms/$cleanCode');
-      DataSnapshot snapshot = await ref.get();
-
-      if (!snapshot.exists || snapshot.value == null) {
-        final legacyRef = _database.ref('games/$cleanCode');
-        final legacySnap = await legacyRef.get();
-        if (legacySnap.exists && legacySnap.value != null) {
-          ref = legacyRef;
-          snapshot = legacySnap;
-        }
-      }
+      final DatabaseReference ref = _database.ref('rooms/$cleanCode');
+      final DataSnapshot snapshot = await ref.get();
 
       if (!snapshot.exists || snapshot.value == null) {
         state = state.copyWith(
@@ -897,26 +892,24 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           'lastReconnectedAt': ServerValue.timestamp,
         };
 
-        // Écriture stricte indexée par ID utilisateur : /rooms/{roomId}/players/{userId}
-        await ref.child('players/${state.currentUserId}').update(playerUpdates);
-        await _database.ref('rooms/$cleanCode/players/${state.currentUserId}').update(playerUpdates);
-        await _database.ref('games/$cleanCode/players/${state.currentUserId}').update(playerUpdates);
-
-        try {
-          await ref.child('players/${state.currentUserId}/isOnline').onDisconnect().set(false);
-          await ref.child('players/${state.currentUserId}/lastSeen').onDisconnect().set(ServerValue.timestamp);
-          await _database.ref('rooms/$cleanCode/players/${state.currentUserId}/isOnline').onDisconnect().set(false);
-          await _database.ref('rooms/$cleanCode/players/${state.currentUserId}/lastSeen').onDisconnect().set(ServerValue.timestamp);
-        } catch (_) {}
-
         final updatedLogs = [
           ...room.logs,
           '🔄 ${state.currentUserName} s\'est reconnecté(e) au salon.',
         ];
-        await ref.child('logs').set(updatedLogs);
-        await _database.ref('rooms/$cleanCode/logs').set(updatedLogs);
 
-        _currentRoomRef = ref;
+        // ── Écriture atomique unique (joueur + logs) : rooms/$cleanCode ──
+        await _updateRoomState(cleanCode, {
+          'players/${state.currentUserId}': playerUpdates,
+          'logs': updatedLogs,
+        });
+
+        try {
+          final playerRef = _database.ref('rooms/$cleanCode/players/${state.currentUserId}');
+          await playerRef.child('isOnline').onDisconnect().set(false);
+          await playerRef.child('lastSeen').onDisconnect().set(ServerValue.timestamp);
+        } catch (_) {}
+
+        _currentRoomRef = _database.ref('rooms/$cleanCode');
         _subscribeToRoom(cleanCode);
 
         await _voiceService.initialize();
@@ -968,26 +961,24 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final playerMap = player.toMap();
       playerMap['lastSeen'] = ServerValue.timestamp;
 
-      // Écriture stricte indexée par ID utilisateur : /rooms/{roomId}/players/{userId}
-      await ref.child('players/${state.currentUserId}').set(playerMap);
-      await _database.ref('rooms/$cleanCode/players/${state.currentUserId}').set(playerMap);
-      await _database.ref('games/$cleanCode/players/${state.currentUserId}').set(playerMap);
-
-      try {
-        await ref.child('players/${state.currentUserId}/isOnline').onDisconnect().set(false);
-        await ref.child('players/${state.currentUserId}/lastSeen').onDisconnect().set(ServerValue.timestamp);
-        await _database.ref('rooms/$cleanCode/players/${state.currentUserId}/isOnline').onDisconnect().set(false);
-        await _database.ref('rooms/$cleanCode/players/${state.currentUserId}/lastSeen').onDisconnect().set(ServerValue.timestamp);
-      } catch (_) {}
-
       final updatedLogs = [
         ...room.logs,
         '${state.currentUserName} a rejoint le village.',
       ];
-      await ref.child('logs').set(updatedLogs);
-      await _database.ref('rooms/$cleanCode/logs').set(updatedLogs);
 
-      _currentRoomRef = ref;
+      // ── Écriture atomique unique (joueur + logs) : rooms/$cleanCode ──
+      await _updateRoomState(cleanCode, {
+        'players/${state.currentUserId}': playerMap,
+        'logs': updatedLogs,
+      });
+
+      try {
+        final playerRef = _database.ref('rooms/$cleanCode/players/${state.currentUserId}');
+        await playerRef.child('isOnline').onDisconnect().set(false);
+        await playerRef.child('lastSeen').onDisconnect().set(ServerValue.timestamp);
+      } catch (_) {}
+
+      _currentRoomRef = _database.ref('rooms/$cleanCode');
       _subscribeToRoom(cleanCode);
 
       await _voiceService.initialize();
@@ -1202,10 +1193,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     final roomCode = state.room!.roomCode;
     try {
-      await _currentRoomRef!.child('rolePool').set(currentPool);
-      await _currentRoomRef!.child('config/rolePool').set(currentPool);
-      await _database.ref('rooms/$roomCode/config/rolePool').set(currentPool);
-      await _database.ref('rooms/$roomCode/state/rolePool').set(currentPool);
+      // ── Écriture atomique unique : rooms/$roomCode/rolePool ──
+      await _updateRoomState(roomCode, {'rolePool': currentPool});
     } catch (e) {
       debugPrint('[Firebase RolePool Sync Error] $e');
     }
@@ -4286,19 +4275,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final totalCount = state.room?.playerList.length ?? 0;
       final readyCount = readyList.length;
 
-      // 2. Mettre à jour Firebase et émettre replay_status_updated
+      // 2. Mettre à jour Firebase de manière atomique
       await roomRef.update({
         'replayReadyUserIds': readyList,
         'players/$effectiveUserId/isReadyReplay': true,
-      });
-
-      await roomRef.child('replay_status_updated').set({
-        'event': 'replay_status_updated',
-        'userId': effectiveUserId,
-        'readyCount': readyCount,
-        'totalCount': totalCount,
-        'readyUserIds': readyList,
-        'timestamp': ServerValue.timestamp,
+        'replay_status_updated': {
+          'event': 'replay_status_updated',
+          'userId': effectiveUserId,
+          'readyCount': readyCount,
+          'totalCount': totalCount,
+          'readyUserIds': readyList,
+          'timestamp': ServerValue.timestamp,
+        },
       });
 
       // Synchronisation optimiste locale
@@ -4346,18 +4334,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final totalCount = state.room?.playerList.length ?? 0;
       final readyCount = readyList.length;
 
+      // ── Mise à jour atomique unique : rooms/$effectiveRoomId ──
       await roomRef.update({
         'replayReadyUserIds': readyList,
         'players/$effectiveUserId/isReadyReplay': false,
-      });
-
-      await roomRef.child('replay_status_updated').set({
-        'event': 'replay_status_updated',
-        'userId': effectiveUserId,
-        'readyCount': readyCount,
-        'totalCount': totalCount,
-        'readyUserIds': readyList,
-        'timestamp': ServerValue.timestamp,
+        'replay_status_updated': {
+          'event': 'replay_status_updated',
+          'userId': effectiveUserId,
+          'readyCount': readyCount,
+          'totalCount': totalCount,
+          'readyUserIds': readyList,
+          'timestamp': ServerValue.timestamp,
+        },
       });
 
       // Synchronisation optimiste locale
@@ -4380,131 +4368,134 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
-  /// Réinitialisation et redistribution impérative des rôles :
-  /// - PV = 100, isAlive = true, isMuted = false
-  /// - Deck adapté mélangé via Fisher-Yates
-  /// - Rôle distinct et différent attribué à chaque joueur
-  /// - Émission de game_reset_to_lobby
+  /// Réinitialise la salle pour une nouvelle partie (Rejouer) avec nouvelle attribution des rôles
   Future<void> resetGameAndRedistributeRoles(String roomCode) async {
-    final roomRef = _database.ref('rooms/$roomCode');
-    final roomSnap = await roomRef.get();
-    if (!roomSnap.exists || roomSnap.value == null) return;
-
-    final roomData = roomSnap.value as Map<dynamic, dynamic>;
-    final currentRoom =
-        GameRoom.fromMap(roomData, roomCode, state.currentUserId);
-    final playersList = currentRoom.playerList;
-    final count = playersList.length;
-    if (count == 0) return;
-
-    // 1. Préparation du deck adapté au nombre de joueurs
-    final roleDeck = prepareReplayRoleDeck(count);
-
-    // 2. Mélange obligatoire via l'algorithme de Fisher-Yates
-    fisherYatesShuffle(roleDeck);
-
-    // 3. Attribution d'un rôle distinct et différent à chaque joueur
-    final Map<String, dynamic> updatedPlayers = {};
-    final Map<String, dynamic> secretRoles = {};
-    final List<String> wolfPlayerIds = [];
-
-    for (int i = 0; i < count; i++) {
-      final p = playersList[i];
-      final assignedRole = roleDeck[i];
-
-      if (assignedRole.isEvil) {
-        wolfPlayerIds.add(p.id);
-      }
-
-      secretRoles[p.id] = {
-        'roleId': assignedRole.id,
-        'roleName': assignedRole.displayName,
-        'assignedAt': ServerValue.timestamp,
-      };
-
-      final encryptedToken = RoleSecurityService.encryptRole(
-        assignedRole.id,
-        p.id,
-        roomCode,
-      );
-
-      // Réinitialisation canonique : PV = 100, isAlive = true, isMuted = false
-      final updatedP = p.copyWith(
-        role: currentRoom.isDevRoom ? assignedRole : GameRole.simpleVillager,
-        isAlive: true,
-        isMuted: false,
-        pv: 100,
-        isReady: false,
-        isReadyReplay: false,
-        targetVoteId: null,
-        isCaptain: false,
-        isLover: false,
-        loverId: null,
-        isCharmed: false,
-        isDoused: false,
-        hasUsedHealPotion: false,
-        hasUsedPoisonPotion: false,
-        encryptedRole: encryptedToken,
-      );
-
-      final pMap = updatedP.toMap();
-      if (!currentRoom.isDevRoom) {
-        pMap['role'] = 'masked';
-      }
-      updatedPlayers[p.id] = pMap;
-    }
-
     try {
-      // 4. Mettre à jour les rôles secrets et la meute
-      await _database.ref('rooms/$roomCode/secret_roles').set(secretRoles);
-      final encryptedWolves =
-          RoleSecurityService.encryptWolfRoster(wolfPlayerIds, roomCode);
-      await _database
-          .ref('rooms/$roomCode/wolf_pack')
-          .set({'data': encryptedWolves});
+      final roomRef = _database.ref('rooms/$roomCode');
+      final snapshot = await roomRef.get();
+      if (!snapshot.exists || snapshot.value == null) return;
 
-      // 5. Réinitialiser la salle au lobby
-      final Map<String, dynamic> roomResetUpdates = {
-        'phase': GamePhase.lobby.name,
+      final data = snapshot.value as Map<dynamic, dynamic>;
+      final playersData = data['players'] as Map<dynamic, dynamic>? ?? {};
+      final playerIds = playersData.keys.map((k) => k.toString()).toList();
+      final count = playerIds.length;
+
+      if (count < 4) return;
+
+      // 1. Génération et mélange aléatoire des rôles
+      final flatRoles = generateDefaultRolePool(count);
+      final List<GameRole> rolesList = [];
+      flatRoles.forEach((roleId, qty) {
+        final role = GameRole.fromId(roleId);
+        for (int i = 0; i < qty; i++) {
+          rolesList.add(role);
+        }
+      });
+      final secureRandom = Random.secure();
+      rolesList.shuffle(secureRandom);
+      rolesList.shuffle(secureRandom);
+
+      // 2. Nouveau placement aléatoire des sièges
+      final seatingOrder = List<String>.from(playerIds)..shuffle(secureRandom);
+
+      // 3. Préparation des rôles secrets et des joueurs réinitialisés
+      final Map<String, dynamic> secretRoles = {};
+      final List<String> wolfPlayerIds = [];
+      final Map<String, dynamic> updatedPlayers = {};
+
+      for (int i = 0; i < playerIds.length; i++) {
+        final pid = playerIds[i];
+        final assignedRole = rolesList[i];
+        final seatIdx = seatingOrder.indexOf(pid);
+
+        if (assignedRole.isEvil) {
+          wolfPlayerIds.add(pid);
+        }
+
+        secretRoles[pid] = {
+          'roleId': assignedRole.id,
+          'roleName': assignedRole.displayName,
+          'assignedAt': ServerValue.timestamp,
+        };
+
+        final existingMap = Map<String, dynamic>.from(
+          playersData[pid] as Map<dynamic, dynamic>? ?? {},
+        );
+
+        updatedPlayers[pid] = {
+          ...existingMap,
+          'role': 'masked',
+          'isAlive': true,
+          'isReady': true,
+          'isReadyReplay': false,
+          'targetVoteId': null,
+          'isCaptain': false,
+          'isLover': false,
+          'loverId': null,
+          'isCharmed': false,
+          'isDoused': false,
+          'hasUsedHealPotion': false,
+          'hasUsedPoisonPotion': false,
+          'seatIndex': seatIdx,
+        };
+      }
+
+      // 4. Écriture des rôles secrets et de la meute
+      await _database.ref('rooms/$roomCode/secret_roles').set(secretRoles);
+      if (wolfPlayerIds.isNotEmpty) {
+        final encryptedWolves =
+            RoleSecurityService.encryptWolfRoster(wolfPlayerIds, roomCode);
+        await _database
+            .ref('rooms/$roomCode/wolf_pack')
+            .set({'data': encryptedWolves});
+      }
+
+      // 5. Réinitialisation complète du salon avec événements atomiques intégrés
+      final initialLogs = [
+        '🔄 Nouvelle partie lancée ! Le village renaît de ses cendres.',
+        'La Nuit 1 tombe... Les rôles secrets ont été redistribués.',
+      ];
+
+      final roomResetUpdates = <String, dynamic>{
+        'phase': GamePhase.nightDefender.name,
+        'currentPhase': GamePhase.nightDefender.name,
         'round': 1,
         'winner': null,
-        'timerSeconds': 60,
         'players': updatedPlayers,
+        'seatingOrder': seatingOrder,
         'replayReadyUserIds': <String>[],
+        'logs': initialLogs,
+        'timerSeconds': 30,
         'captainId': null,
-        'lastProtectedPlayerId': null,
-        'currentProtectedPlayerId': null,
         'nightVictimId': null,
         'witchHealed': false,
         'witchPoisonVictimId': null,
-        'pyromaniacIgnited': false,
         'seerInspectedTargetId': null,
         'seerInspectedRole': null,
-        'blackWolfTargetId': null,
         'morningVictims': <String>[],
+        'blackWolfTargetId': null,
         'pendingHunterId': null,
         'pendingCaptainId': null,
         'currentSpeakerId': null,
         'debateQueue': <String>[],
         'tiedPlayerIds': <String>[],
         'isTieBreakActive': false,
+        // ── Événements atomiques inclus dans l'update unique ──
+        'game_reset_to_lobby': {
+          'event': 'game_reset_to_lobby',
+          'roomCode': roomCode,
+          'playerCount': count,
+          'timestamp': ServerValue.timestamp,
+        },
+        'events/last_event': {
+          'type': 'game_reset_to_lobby',
+          'roomCode': roomCode,
+          'timestamp': ServerValue.timestamp,
+        },
       };
 
+      // ── Écriture atomique unique de réinitialisation : rooms/$roomCode ──
       await roomRef.update(roomResetUpdates);
-
-      // 6. Émettre l'événement game_reset_to_lobby
-      await roomRef.child('game_reset_to_lobby').set({
-        'event': 'game_reset_to_lobby',
-        'roomCode': roomCode,
-        'playerCount': count,
-        'timestamp': ServerValue.timestamp,
-      });
-
-      await roomRef.child('events/last_event').set({
-        'type': 'game_reset_to_lobby',
-        'roomCode': roomCode,
-        'timestamp': ServerValue.timestamp,
-      });
 
       state = state.copyWith(isVictoryVoiceExpired: false);
     } catch (e) {
@@ -4519,81 +4510,62 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     try {
       if (currentRoom != null && roomCode != null) {
-        final roomRef = _currentRoomRef ?? _database.ref('rooms/$roomCode');
+        final canonicalRef = _database.ref('rooms/$roomCode');
 
-        // Annuler les déclencheurs onDisconnect
+        // ── Annuler les onDisconnect sur le chemin canonique uniquement ──
         try {
-          await roomRef.child('players/$userId/isOnline').onDisconnect().cancel();
-          await roomRef.child('players/$userId/lastSeen').onDisconnect().cancel();
-          await _database.ref('rooms/$roomCode/players/$userId/isOnline').onDisconnect().cancel();
-          await _database.ref('rooms/$roomCode/players/$userId/lastSeen').onDisconnect().cancel();
+          final playerRef = canonicalRef.child('players/$userId');
+          await playerRef.child('isOnline').onDisconnect().cancel();
+          await playerRef.child('lastSeen').onDisconnect().cancel();
         } catch (_) {}
 
         if (currentRoom.phase == GamePhase.lobby) {
           // --- SORTIE EN PHASE DE LOBBY ---
-          // 1. Supprimer le joueur de la table /rooms/{roomId}/players/{userId}
-          await roomRef.child('players/$userId').remove();
-          await _database.ref('rooms/$roomCode/players/$userId').remove();
-          await _database.ref('games/$roomCode/players/$userId').remove();
+          // ── Suppression canonique unique : rooms/$roomCode/players/$userId ──
+          await canonicalRef.child('players/$userId').remove();
 
-          // 2. Déterminer les joueurs restants
+          // Déterminer les joueurs restants
           final remainingPlayers = currentRoom.players.values
               .where((p) => p.id != userId)
               .toList();
 
           if (remainingPlayers.isEmpty) {
             // Salon vidé : suppression définitive
-            await roomRef.remove();
-            await _database.ref('rooms/$roomCode').remove();
-            await _database.ref('games/$roomCode').remove();
+            await canonicalRef.remove();
           } else if (currentRoom.hostId == userId) {
             // L'hôte quitte : passation de l'hôte au prochain joueur de la liste
             final nextHost = remainingPlayers.first;
-            final hostUpdates = <String, dynamic>{
-              'hostId': nextHost.id,
-              'players/${nextHost.id}/isHost': true,
-            };
-            await roomRef.update(hostUpdates);
-            await _database.ref('rooms/$roomCode').update(hostUpdates);
-            await _database.ref('games/$roomCode').update(hostUpdates);
-
             final updatedLogs = [
               ...currentRoom.logs,
               '🚪 ${state.currentUserName} a quitté le salon.',
               '👑 ${nextHost.name} est devenu le nouvel hôte du village.',
             ];
-            await roomRef.child('logs').set(updatedLogs);
-            await _database.ref('rooms/$roomCode/logs').set(updatedLogs);
-            await _database.ref('games/$roomCode/logs').set(updatedLogs);
+            // ── Écriture atomique unique (passation + logs) : rooms/$roomCode ──
+            await canonicalRef.update({
+              'hostId': nextHost.id,
+              'players/${nextHost.id}/isHost': true,
+              'logs': updatedLogs,
+            });
           } else {
             // Joueur normal quittant le lobby
             final updatedLogs = [
               ...currentRoom.logs,
               '🚪 ${state.currentUserName} a quitté le salon.',
             ];
-            await roomRef.child('logs').set(updatedLogs);
-            await _database.ref('rooms/$roomCode/logs').set(updatedLogs);
-            await _database.ref('games/$roomCode/logs').set(updatedLogs);
+            await canonicalRef.child('logs').set(updatedLogs);
           }
         } else {
           // --- SORTIE EN JEU (IN-GAME) ---
-          // Conserver l'emplacement du joueur, son rôle et son siège radial.
           // Passer isOnline = false et horodater lastSeen pour reprise ultérieure.
-          final statusUpdates = <String, dynamic>{
+          // ── Écriture atomique unique (statut + logs) : rooms/$roomCode ──
+          await canonicalRef.update({
             'players/$userId/isOnline': false,
             'players/$userId/lastSeen': ServerValue.timestamp,
-          };
-          await roomRef.update(statusUpdates);
-          await _database.ref('rooms/$roomCode').update(statusUpdates);
-          await _database.ref('games/$roomCode').update(statusUpdates);
-
-          final updatedLogs = [
-            ...currentRoom.logs,
-            '📡 ${state.currentUserName} s\'est déconnecté(e) (partie en cours).',
-          ];
-          await roomRef.child('logs').set(updatedLogs);
-          await _database.ref('rooms/$roomCode/logs').set(updatedLogs);
-          await _database.ref('games/$roomCode/logs').set(updatedLogs);
+            'logs': [
+              ...currentRoom.logs,
+              '📡 ${state.currentUserName} s\'est déconnecté(e) (partie en cours).',
+            ],
+          });
         }
       }
     } catch (e) {

@@ -44,8 +44,8 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
   Widget build(BuildContext context) {
     final room = widget.room;
     final witch = room.players[widget.currentUserId];
-    final hasHeal = witch != null && !witch.hasUsedHealPotion;
-    final hasPoison = witch != null && !witch.hasUsedPoisonPotion;
+    final hasHeal = witch != null && (witch.potionsVie > 0 || !witch.hasUsedHealPotion);
+    final hasPoison = witch != null && (witch.potionsMort > 0 || !witch.hasUsedPoisonPotion);
 
     final wolfVictim = room.nightVictimId != null ? room.players[room.nightVictimId] : null;
     final poisonVictim = room.witchPoisonVictimId != null ? room.players[room.witchPoisonVictimId] : null;

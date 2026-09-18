@@ -132,7 +132,11 @@ class ConditionalRoleDistributor {
       final updatedPlayer = oldPlayer.copyWith(
         role: assignedRole,
         roleInitial: assignedRole,
+        initialRole: assignedRole,
         estDechu: false,
+        potionsVie: (assignedRole == GameRole.witch) ? maxPotions : 0,
+        potionsMort: (assignedRole == GameRole.witch) ? maxPotions : 0,
+        visionsRestantes: (assignedRole == GameRole.seer) ? maxVisions : 0,
         isAlive: true,
         isSpeaking: false,
         isMuted: false,

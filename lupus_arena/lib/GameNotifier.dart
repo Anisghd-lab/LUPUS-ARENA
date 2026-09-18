@@ -15,8 +15,12 @@ import 'models/game_phase.dart';
 import 'models/game_room.dart';
 import 'models/player_model.dart';
 import 'services/expanded_roles_coordinator.dart';
+import 'services/game_phase_coordinator.dart';
+import 'services/role_action_dispatcher.dart';
 import 'services/role_security_service.dart';
+import 'services/room_presence_service.dart';
 import 'services/server_time_service.dart';
+import 'services/vote_coordinator.dart';
 
 /// URL spécifique de la Realtime Database configurée dans google-services.json
 const String kFirebaseDatabaseUrl =
@@ -137,6 +141,11 @@ class LupusGameState {
 /// Moteur de règles canoniques des Loups-Garous de Thiercelieux
 class GameNotifier extends StateNotifier<LupusGameState> {
   final AgoraVoiceService _voiceService = AgoraVoiceService();
+  final GamePhaseCoordinator _phaseCoordinator = const GamePhaseCoordinator();
+  final VoteCoordinator _voteCoordinator = const VoteCoordinator();
+  final RoleActionDispatcher _roleDispatcher = const RoleActionDispatcher();
+  late final RoomPresenceService _presenceService = RoomPresenceService(_database);
+
   StreamSubscription<DatabaseEvent>? _publicStateSubscription;
   StreamSubscription<DatabaseEvent>? _playersSubscription;
   StreamSubscription<DatabaseEvent>? _votesSubscription;
@@ -1500,70 +1509,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     required Map<String, PlayerModel> players,
     Map<String, GameRole>? realRoles,
   }) {
-    GameRole getRole(PlayerModel p) => realRoles?[p.id] ?? p.role;
-
-    bool hasAlive(GameRole role) =>
-        players.values.any((p) => p.isAlive && getRole(p) == role);
-
-    bool hasAliveWerewolves() =>
-        players.values.any((p) => p.isAlive && getRole(p).isEvil);
-
-    // ═══════════════════════════════════════════════════════════════
-    // RÈGLE CANONIQUE : La Sorcière est active tant qu'elle a AU MOINS
-    // une potion restante (vie OU mort). Scalant : max(1, N÷10) potions.
-    // Identique à GestionnaireSorciere.aEncoreDesPotions du moteur Kotlin.
-    // ═══════════════════════════════════════════════════════════════
-    bool hasActiveWitch() {
-      final witch = players.values.cast<PlayerModel?>().firstWhere(
-            (p) => p != null && p.isAlive && (getRole(p) == GameRole.witch || p.roleInitial == GameRole.witch),
-            orElse: () => null,
-          );
-      if (witch == null) return false;
-      // Stock réel des potions (scalant dès startGame via max(1, N÷10))
-      final hasVie = witch.potionsVie > 0 && !witch.hasUsedHealPotion;
-      final hasMort = witch.potionsMort > 0 && !witch.hasUsedPoisonPotion;
-      return hasVie || hasMort;
-    }
-
-    GamePhase findNext(int afterIndex) {
-      if (afterIndex < 1 && round == 1 && hasAlive(GameRole.thief)) {
-        return GamePhase.nightThief;
-      }
-      if (afterIndex < 2 && round == 1 && hasAlive(GameRole.cupid)) {
-        return GamePhase.nightCupid;
-      }
-      if (afterIndex < 3 && hasAlive(GameRole.defender)) {
-        return GamePhase.nightDefender;
-      }
-      if (afterIndex < 4 && hasAliveWerewolves()) {
-        return GamePhase.nightWerewolves;
-      }
-      // Voyante active UNIQUEMENT si elle a encore des visions restantes (quota scalant)
-      bool hasActiveSeer() {
-        final seer = players.values.cast<PlayerModel?>().firstWhere(
-          (p) => p != null && p.isAlive && (getRole(p) == GameRole.seer || p.roleInitial == GameRole.seer),
-          orElse: () => null,
-        );
-        return seer != null && seer.visionsRestantes > 0;
-      }
-      if (afterIndex < 6 && hasActiveSeer()) {
-        return GamePhase.nightSeer;
-      }
-      if (afterIndex < 7 && hasActiveWitch()) {
-        return GamePhase.nightWitch;
-      }
-      if (afterIndex < 8 && hasAlive(GameRole.piedPiper)) {
-        return GamePhase.nightPiper;
-      }
-      if (afterIndex < 9 && hasAlive(GameRole.pyromaniac)) {
-        return GamePhase.nightPyromaniac;
-      }
-      return GamePhase.morningAnnouncement;
-    }
-
-    final currentIndex = current.nightOrderIndex;
-    return findNext(currentIndex);
-  }
+    return _phaseCoordinator.getNextNightPhase(
+      current: current,
+      round: round,
+      players: players,
+      realRoles: realRoles,
+    );
   }
 
   Future<void> resolveMorningDeaths() async {
@@ -4835,6 +4786,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     _voiceService.dispose();
     super.dispose();
   }
+}
 }
 
 final gameNotifierProvider =

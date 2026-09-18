@@ -211,11 +211,20 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         _lastTrackedPhase = room.phase;
         _lastTrackedRound = room.round;
         _lastTrackedSpeaker = room.currentSpeakerId;
-        _countdownNotifier.value =
-            room.timerSeconds > 0 ? room.timerSeconds : 40;
+        _countdownNotifier.value = room.phase == GamePhase.dayVoting
+            ? (room.timerSeconds > 0 ? room.timerSeconds : 15)
+            : (room.timerSeconds > 0 ? room.timerSeconds : 40);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _startCountdown();
         });
+      }
+
+      // Dépouillement anticipé dès que tous les vivants ont voté pendant dayVoting
+      if (room.phase == GamePhase.dayVoting &&
+          room.alivePlayers.isNotEmpty &&
+          room.alivePlayers.every((p) => p.targetVoteId != null)) {
+        _phaseCountdownTimer?.cancel();
+        _countdownNotifier.value = 0;
       }
     }
 

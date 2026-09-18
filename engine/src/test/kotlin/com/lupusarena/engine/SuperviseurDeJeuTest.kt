@@ -264,4 +264,162 @@ class SuperviseurDeJeuTest {
         superviseur.agentSurveillance.evaluer()
         assertEquals(Role.VILLAGEOIS_SIMPLE, sorciere.role, "La Sorcière sans potion doit être Simple Villageoise.")
     }
+
+    @Test
+    @DisplayName("Transition automatique et sans temps mort vers JOUR_VOTE des la fin de la file d'orateurs")
+    fun testTransitionAutomatiqueFinDebatVersJourVote() {
+        val capitaine = Joueur("c1", "Capitaine Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true)
+        val villageois = Joueur("v1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val loup = Joueur("l1", "Bob", Role.LOUP_GAROU)
+        val sorciere = Joueur("s1", "David", Role.SORCIERE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(capitaine, villageois, loup, sorciere), roomId = "room-arena-123")
+
+        val phasesRecues = mutableListOf<PhaseJeu>()
+        val emissionsFirebase = mutableListOf<Pair<String, Any>>()
+
+        sup.onPhaseChanged = { phasesRecues.add(it) }
+        sup.onEmissionFirebase = { path, value -> emissionsFirebase.add(path to value) }
+
+        // Lancement du débat du village
+        sup.lancerDebatDuVillage()
+        assertEquals(PhaseJeu.JOUR_DEBAT, sup.phaseActuelle)
+
+        val debat = sup.gestionnaireDebat
+        assertNotNull(debat)
+
+        // Déroulement complet de la file d'orateurs :
+        // Le Capitaine ouvre, les autres parlent, le Capitaine clôture
+        while (debat?.orateurActuel != null) {
+            val orateur = debat.orateurActuel!!
+            sup.passerParoleManuelle(orateur.id)
+        }
+
+        // VÉRIFICATIONS :
+        // 1. Bascule automatique et instantanée vers JOUR_VOTE sans intervention manuelle de l'hôte
+        assertEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+        assertTrue(phasesRecues.contains(PhaseJeu.JOUR_VOTE))
+
+        // 2. Émission temps réel vers Firebase (/rooms/{roomId}/currentPhase = "JOUR_VOTE")
+        assertTrue(emissionsFirebase.any { it.first == "/rooms/room-arena-123/currentPhase" && it.second == "JOUR_VOTE" })
+
+        // 3. Table des votes réinitialisée et prête
+        assertTrue(sup.votesActuels.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Expiration du timer global de debat : bascule automatique vers JOUR_VOTE sans blocage")
+    fun testExpirationTimerDebatBasculeAutomatiqueVersJourVote() {
+        val villageois = Joueur("v1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val loup = Joueur("l1", "Bob", Role.LOUP_GAROU)
+        val voyante = Joueur("s1", "Charlie", Role.VOYANTE)
+        val sup = SuperviseurDeJeu(mutableListOf(villageois, loup, voyante), roomId = "room-timer-99")
+
+        val emissions = mutableListOf<Pair<String, Any>>()
+        sup.onEmissionFirebase = { path, value ->
+            emissions.add(path to value)
+        }
+
+        sup.lancerDebatDuVillage()
+        assertEquals(PhaseJeu.JOUR_DEBAT, sup.phaseActuelle)
+
+        // Expiration du temps alloué au débat
+        sup.forcerFinDebatSurExpirationTemps()
+
+        // Transition immédiate vers JOUR_VOTE
+        assertEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+        assertTrue(emissions.any { it.first == "/rooms/room-timer-99/currentPhase" && it.second == "JOUR_VOTE" })
+        assertTrue(emissions.any { it.first == "/rooms/room-timer-99/timerSeconds" && it.second == 15 })
+        assertTrue(sup.votesActuels.isEmpty())
+    }
+
+    @Test
+    @DisplayName("1. Depouillement anticipe : des que le 4e vivant sur 4 vote, execution immediate sans attendre la fin du chrono")
+    fun testDepouillementAnticipeDesQueTousOntVote() {
+        val j1 = Joueur("j1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val j2 = Joueur("j2", "Bob", Role.LOUP_GAROU)
+        val j3 = Joueur("j3", "Charlie", Role.VOYANTE)
+        val j4 = Joueur("j4", "David", Role.SORCIERE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(j1, j2, j3, j4))
+        sup.lancerDebatDuVillage()
+        sup.ouvrirVotesVillage()
+        assertEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+        assertEquals(4, sup.joueurs.count { it.estEnVie })
+
+        // 3 joueurs votent contre Bob le loup (le vote n'est pas encore complet)
+        sup.enregistrerVote("j1", "j2")
+        assertEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+        sup.enregistrerVote("j3", "j2")
+        assertEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+        sup.enregistrerVote("j4", "j2")
+        assertEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+
+        // Dès que le 4e joueur (j2) vote, le dépouillement et l'exécution se déclenchent immédiatement
+        sup.enregistrerVote("j2", "j1")
+
+        // La phase n'est plus JOUR_VOTE
+        assertNotEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+        // La victime (j2) meurt directement et sa carte est révélée
+        assertFalse(j2.estEnVie, "Bob (j2) doit succomber sur-le-champ.")
+        assertTrue(j2.carteEstRevelee, "La carte de Bob doit être révélée publiquement à tous les joueurs.")
+    }
+
+    @Test
+    @DisplayName("2. Elimination du joueur le plus designe : estEnVie == false et carte revelee")
+    fun testEliminationJoueurLePlusDesigne() {
+        val j1 = Joueur("j1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val j2 = Joueur("j2", "Bob", Role.LOUP_GAROU)
+        val j3 = Joueur("j3", "Charlie", Role.VOYANTE)
+        val j4 = Joueur("j4", "David", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(j1, j2, j3, j4))
+        sup.lancerDebatDuVillage()
+        sup.ouvrirVotesVillage()
+        assertEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+
+        var eventCarteCapture: RevelationCarteEvent? = null
+        sup.onDiffuserCarteRetournee = { eventCarteCapture = it }
+
+        // 3 voix contre David (j4), 1 voix contre Bob (j2)
+        sup.enregistrerVote("j1", "j4")
+        sup.enregistrerVote("j2", "j4")
+        sup.enregistrerVote("j3", "j4")
+        // 4e vote déclenche le dépouillement immédiat
+        sup.enregistrerVote("j4", "j2")
+
+        // David a reçu le plus de votes : éliminé et carte retournée
+        assertFalse(j4.estEnVie, "David (j4) doit être éliminé par le vote.")
+        assertTrue(j4.carteEstRevelee, "La carte de David doit être retournée.")
+        assertNotNull(eventCarteCapture)
+        assertEquals("j4", eventCarteCapture?.joueurId)
+        assertEquals(Role.VILLAGEOIS_SIMPLE, eventCarteCapture?.roleRevele)
+    }
+
+    @Test
+    @DisplayName("3. Expiration a 15s avec votes partiels : depouille les voix existantes et execute le joueur vise")
+    fun testExpiration15sAvecVotesPartiels() {
+        val j1 = Joueur("j1", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val j2 = Joueur("j2", "Bob", Role.LOUP_GAROU)
+        val j3 = Joueur("j3", "Charlie", Role.VOYANTE)
+        val j4 = Joueur("j4", "David", Role.VILLAGEOIS_SIMPLE)
+
+        val sup = SuperviseurDeJeu(mutableListOf(j1, j2, j3, j4))
+        sup.lancerDebatDuVillage()
+        sup.ouvrirVotesVillage()
+        assertEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+
+        // Seuls 2 joueurs sur 4 votent (j1 et j3 votent contre Bob j2)
+        sup.enregistrerVote("j1", "j2")
+        sup.enregistrerVote("j3", "j2")
+        // j2 et j4 ne votent pas avant le temps imparti
+
+        // Le chronomètre de 15s expire -> appel automatique
+        sup.forcerFinScrutinSurExpiration()
+
+        // Dépouillement des votes partiels et exécution immédiate
+        assertNotEquals(PhaseJeu.JOUR_VOTE, sup.phaseActuelle)
+        assertFalse(j2.estEnVie, "Bob le loup doit être exécuté avec la majorité des voix exprimées (2 contre 0).")
+        assertTrue(j2.carteEstRevelee, "La carte de Bob doit être visible de tous.")
+    }
 }

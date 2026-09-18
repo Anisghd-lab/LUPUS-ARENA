@@ -1259,6 +1259,44 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final isTieBreak = widget.room.phase == GamePhase.dayTieBreakVote;
     final isEligible = !isTieBreak || widget.room.tiedPlayerIds.contains(selectedTarget?.id);
     final currentVoteTargetId = me.targetVoteId;
+    final totalAlive = widget.room.alivePlayers.length;
+    final totalVoted = widget.room.alivePlayers.where((p) => p.targetVoteId != null).length;
+    final allVoted = totalAlive > 0 && totalVoted >= totalAlive;
+
+    if (allVoted) {
+      return Container(
+        height: 40,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: LupusColors.bloodRed.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: LupusColors.bloodRed.withOpacity(0.6)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(LupusColors.bloodRed),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Tous les votes sont enregistrés ($totalVoted/$totalAlive) • Dépouillement immédiat...',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     final String voteText;
     if (selectedTarget != null) {

@@ -9,7 +9,8 @@ data class ParticipantDebatUiState(
     val nom: String,
     val aLaParole: Boolean,
     val estMuteForce: Boolean,      // Active l'icône micro barré rouge / cadenas
-    val iconeMuteVisible: Boolean   // Visible dès que estReduitAuSilence == true
+    val iconeMuteVisible: Boolean,  // Visible dès que estReduitAuSilence == true
+    val estCapitaine: Boolean = false
 )
 
 /**
@@ -19,5 +20,7 @@ data class TourDeParoleUiState(
     val orateurActuelId: String?,
     val orateurActuelNom: String?,
     val tempsRestantSecondes: Int,
-    val participants: List<ParticipantDebatUiState>
+    val participants: List<ParticipantDebatUiState>,
+    val estTourCapitaineOuverture: Boolean = false,
+    val estTourCapitaineCloture: Boolean = false
 )

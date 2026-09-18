@@ -16,7 +16,8 @@ enum class Role(val nomAffiche: String, val campParDefaut: Camp = Camp.VILLAGE) 
     LOUP_BLANC("Loup Blanc", Camp.LOUPS),
     VILLAGEOIS_SIMPLE("Simple Villageois", Camp.VILLAGE),
     SORCIERE("Sorcière", Camp.VILLAGE),
-    VOYANTE("Voyante", Camp.VILLAGE);
+    VOYANTE("Voyante", Camp.VILLAGE),
+    CAPITAINE("Capitaine", Camp.VILLAGE);
 
     val estLoup: Boolean get() = this == LOUP_GAROU || this == LOUP_BLANC
     val estVillageois: Boolean get() = !estLoup
@@ -47,7 +48,8 @@ data class Joueur(
     var estReduitAuSilence: Boolean = false,     // Pouvoir de mutisme pour le jour suivant
     var potionsVie: Int = 0,
     var potionsMort: Int = 0,
-    var visionsRestantes: Int = 0
+    var visionsRestantes: Int = 0,
+    var estCapitaine: Boolean = false            // Titre de Capitaine / Maire du village
 ) {
     /**
      * Constructeur secondaire pour compatibilité avec l'ancienne signature (id, nom, role).
@@ -60,7 +62,8 @@ data class Joueur(
         estReduitAuSilence: Boolean = false,
         potionsVie: Int = 0,
         potionsMort: Int = 0,
-        visionsRestantes: Int = 0
+        visionsRestantes: Int = 0,
+        estCapitaine: Boolean = false
     ) : this(
         id = id,
         nom = nom,
@@ -71,7 +74,8 @@ data class Joueur(
         estReduitAuSilence = estReduitAuSilence,
         potionsVie = potionsVie,
         potionsMort = potionsMort,
-        visionsRestantes = visionsRestantes
+        visionsRestantes = visionsRestantes,
+        estCapitaine = estCapitaine
     )
 
     /**

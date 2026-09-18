@@ -7,7 +7,6 @@ class PlayerModel {
   final String name;
   final int avatarIndex;
   final GameRole role;
-  final GameRole? _roleInitial; // Rôle originel au début de la manche
   final bool estDechu; // Si le rôle spécial (Sorcière, Voyante) est devenu Simple Villageois
   final bool isAlive;
   final bool isHost;
@@ -42,7 +41,6 @@ class PlayerModel {
     required this.name,
     this.avatarIndex = 0,
     this.role = GameRole.simpleVillager,
-    GameRole? roleInitial,
     this.estDechu = false,
     this.isAlive = true,
     this.isHost = false,
@@ -71,11 +69,11 @@ class PlayerModel {
     this.potionsVie = 1,
     this.potionsMort = 1,
     this.visionsRestantes = 1,
-  }) : _roleInitial = roleInitial;
+  });
 
   /// Rôle initial de référence (préservé même si le rôle actif est déchu)
-  GameRole get roleInitial => _roleInitial ?? initialRole ?? role;
-  GameRole get trueOriginalRole => initialRole ?? _roleInitial ?? role;
+  GameRole get roleInitial => initialRole ?? role;
+  GameRole get trueOriginalRole => initialRole ?? role;
 
   PlayerModel copyWith({
     String? id,
@@ -118,7 +116,6 @@ class PlayerModel {
       name: name ?? this.name,
       avatarIndex: avatarIndex ?? this.avatarIndex,
       role: role ?? this.role,
-      roleInitial: roleInitial ?? _roleInitial,
       estDechu: estDechu ?? this.estDechu,
       isAlive: isAlive ?? this.isAlive,
       isHost: isHost ?? this.isHost,
@@ -143,7 +140,7 @@ class PlayerModel {
       pv: pv ?? this.pv,
       isReadyReplay: isReadyReplay ?? wantsRematch ?? this.isReadyReplay,
       wantsRematch: wantsRematch ?? isReadyReplay ?? this.wantsRematch,
-      initialRole: initialRole ?? this.initialRole,
+      initialRole: initialRole ?? roleInitial ?? this.initialRole,
       potionsVie: potionsVie ?? this.potionsVie,
       potionsMort: potionsMort ?? this.potionsMort,
       visionsRestantes: visionsRestantes ?? this.visionsRestantes,
@@ -164,7 +161,7 @@ class PlayerModel {
       );
       if (decrypted != null) return decrypted;
     }
-    return initialRole ?? _roleInitial ?? role;
+    return initialRole ?? role;
   }
 
   Map<String, dynamic> toMap() {
@@ -173,7 +170,7 @@ class PlayerModel {
       'name': name,
       'avatarIndex': avatarIndex,
       'role': role.name,
-      if (_roleInitial != null) 'roleInitial': _roleInitial!.name,
+      if (initialRole != null) 'roleInitial': initialRole!.name,
       if (initialRole != null) 'initialRole': initialRole!.name,
       'estDechu': estDechu,
       'isAlive': isAlive,
@@ -234,11 +231,9 @@ class PlayerModel {
       resolvedRole = GameRole.fromString(rawRole);
     }
 
-    final rawInitialRole = map['initialRole']?.toString();
+    final rawInitialRole = map['initialRole']?.toString() ?? map['roleInitial']?.toString();
     final GameRole? initialRole =
         rawInitialRole != null ? GameRole.fromString(rawInitialRole) : null;
-    final rawRoleInitial = map['roleInitial']?.toString();
-    final parsedRoleInitial = rawRoleInitial != null ? GameRole.fromString(rawRoleInitial) : initialRole;
     final isReadyReplayVal = map['isReadyReplay'] == true || map['wantsRematch'] == true;
 
     return PlayerModel(
@@ -248,9 +243,7 @@ class PlayerModel {
           ? map['avatarIndex'] as int
           : int.tryParse(map['avatarIndex']?.toString() ?? '0') ?? 0,
       role: resolvedRole,
-      roleInitial: parsedRoleInitial ?? resolvedRole,
-      initialRole: initialRole ?? parsedRoleInitial ?? resolvedRole,
-      estDechu: map['estDechu'] == true || (resolvedRole == GameRole.simpleVillager && (parsedRoleInitial != null && parsedRoleInitial != GameRole.simpleVillager)),
+      estDechu: map['estDechu'] == true || (resolvedRole == GameRole.simpleVillager && (initialRole != null && initialRole != GameRole.simpleVillager)),
       isAlive: map['isAlive'] != false,
       isHost: map['isHost'] == true,
       isReady: map['isReady'] == true,
@@ -282,6 +275,7 @@ class PlayerModel {
           : int.tryParse(map['pv']?.toString() ?? '100') ?? 100,
       isReadyReplay: isReadyReplayVal,
       wantsRematch: isReadyReplayVal,
+      initialRole: initialRole ?? resolvedRole,
       potionsVie: (map['potionsVie'] is int)
           ? map['potionsVie'] as int
           : int.tryParse(map['potionsVie']?.toString() ?? '1') ?? 1,

@@ -44,6 +44,11 @@ class GameRoom {
   final int timerSeconds;
   final List<String> logs;
 
+  // Horloge Serveur & Synchronisation Absolue (Firebase RTDB)
+  final int? phaseEndsAt; // Timestamp Epoch (ms) d'expiration de la phase courante
+  final int? phaseStartedAt; // Timestamp Epoch (ms) de début de la phase courante
+  final int? phaseDurationMs; // Durée totale allouée à la phase en millisecondes
+
   // Configuration du Deck de Rôles & Disposition des Sièges
   final Map<String, int> rolePool;
   final bool isDevRoom;
@@ -81,12 +86,29 @@ class GameRoom {
     this.isTieBreakActive = false,
     this.winner,
     this.timerSeconds = 60,
+    this.phaseEndsAt,
+    this.phaseStartedAt,
+    this.phaseDurationMs,
     this.logs = const [],
     this.rolePool = const {},
     this.isDevRoom = false,
     this.seatingOrder = const [],
     this.replayReadyUserIds = const [],
   });
+
+  /// Temps restant en millisecondes calculé de manière pure par rapport à l'heure serveur estimée
+  int remainingTimeMs(int currentServerEstimatedTime) {
+    if (phaseEndsAt == null) {
+      return timerSeconds * 1000;
+    }
+    final diff = phaseEndsAt! - currentServerEstimatedTime;
+    return diff > 0 ? diff : 0;
+  }
+
+  /// Temps restant en secondes calculé de manière pure
+  int remainingSeconds(int currentServerEstimatedTime) {
+    return (remainingTimeMs(currentServerEstimatedTime) / 1000.0).ceil();
+  }
 
   List<PlayerModel> get playerList {
     if (seatingOrder.isNotEmpty) {
@@ -206,6 +228,10 @@ class GameRoom {
     bool? isTieBreakActive,
     String? winner,
     int? timerSeconds,
+    int? phaseEndsAt,
+    int? phaseStartedAt,
+    int? phaseDurationMs,
+    bool clearPhaseEndsAt = false,
     List<String>? logs,
     Map<String, int>? rolePool,
     bool? isDevRoom,
@@ -250,6 +276,9 @@ class GameRoom {
       isTieBreakActive: isTieBreakActive ?? this.isTieBreakActive,
       winner: winner ?? this.winner,
       timerSeconds: timerSeconds ?? this.timerSeconds,
+      phaseEndsAt: clearPhaseEndsAt ? null : (phaseEndsAt ?? this.phaseEndsAt),
+      phaseStartedAt: phaseStartedAt ?? this.phaseStartedAt,
+      phaseDurationMs: phaseDurationMs ?? this.phaseDurationMs,
       logs: logs ?? this.logs,
       rolePool: rolePool ?? this.rolePool,
       isDevRoom: isDevRoom ?? this.isDevRoom,
@@ -295,6 +324,9 @@ class GameRoom {
       'isTieBreakActive': isTieBreakActive,
       'winner': winner,
       'timerSeconds': timerSeconds,
+      'phaseEndsAt': phaseEndsAt,
+      'phaseStartedAt': phaseStartedAt,
+      'phaseDurationMs': phaseDurationMs,
       'logs': logs,
       'rolePool': rolePool,
       'isDevRoom': isDevRoom,
@@ -528,6 +560,15 @@ class GameRoom {
       timerSeconds: (map['timerSeconds'] is int)
           ? map['timerSeconds'] as int
           : int.tryParse(map['timerSeconds']?.toString() ?? '60') ?? 60,
+      phaseEndsAt: (map['phaseEndsAt'] is num)
+          ? (map['phaseEndsAt'] as num).toInt()
+          : int.tryParse(map['phaseEndsAt']?.toString() ?? ''),
+      phaseStartedAt: (map['phaseStartedAt'] is num)
+          ? (map['phaseStartedAt'] as num).toInt()
+          : int.tryParse(map['phaseStartedAt']?.toString() ?? ''),
+      phaseDurationMs: (map['phaseDurationMs'] is num)
+          ? (map['phaseDurationMs'] as num).toInt()
+          : int.tryParse(map['phaseDurationMs']?.toString() ?? ''),
       logs: parsedLogs,
       rolePool: parsedRolePool,
       isDevRoom: isDevRoom,

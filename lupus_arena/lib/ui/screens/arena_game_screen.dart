@@ -18,6 +18,7 @@ import '../bento/bento_voice_controls.dart';
 import '../bento/mystic_radial_table.dart';
 import '../bento/revealed_death_card_overlay.dart';
 import '../bento/role_card_image.dart';
+import '../bento/server_countdown_timer.dart';
 import '../theme/lupus_assets.dart';
 import '../theme/lupus_theme.dart';
 import '../../services/app_translations.dart';
@@ -111,8 +112,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   // Gestion du journal et badge de notification des Chroniques
   int _lastSeenLogCount = 0;
 
-  // Gestion du chronomètre décomptant actif (découplé via ValueNotifier pour éliminer tout rebuild parent)
-  Timer? _phaseCountdownTimer;
+  // Notifier réactif du compte à rebours (alimenté de façon pure par ServerCountdownTimerBadge)
   final ValueNotifier<int> _countdownNotifier = ValueNotifier<int>(40);
   GamePhase? _lastTrackedPhase;
   int? _lastTrackedRound;
@@ -195,35 +195,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
 
   @override
   void dispose() {
-    _phaseCountdownTimer?.cancel();
     _countdownNotifier.dispose();
     _victoryVoiceTimer?.cancel();
     _victoryVoiceCountdownNotifier.dispose();
     super.dispose();
-  }
-
-  void _startCountdown() {
-    _phaseCountdownTimer?.cancel();
-    _phaseCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      if (_countdownNotifier.value > 0) {
-        _countdownNotifier.value--;
-      } else {
-        timer.cancel();
-        // Clôture du timer : l'hôte fait progresser automatiquement la phase
-        final currentGameState = ref.read(gameNotifierProvider);
-        final currentRoom = currentGameState.room;
-        if (currentGameState.isHost &&
-            currentRoom != null &&
-            currentRoom.phase != GamePhase.gameOver &&
-            currentRoom.phase != GamePhase.lobby) {
-          ref.read(gameNotifierProvider.notifier).nextPhase();
-        }
-      }
-    });
   }
 
   /// Déclenche un canal vocal ouvert à tous les joueurs (morts et vivants) pendant 60 secondes
@@ -288,21 +263,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         _lastTrackedPhase = room.phase;
         _lastTrackedRound = room.round;
         _lastTrackedSpeaker = room.currentSpeakerId;
-        _countdownNotifier.value = room.phase == GamePhase.dayVoting
-            ? (room.timerSeconds > 0 ? room.timerSeconds : 15)
-            : (room.phase == GamePhase.captainSuccession
-                ? (room.timerSeconds > 0 ? room.timerSeconds : 10)
-                : (room.timerSeconds > 0 ? room.timerSeconds : 40));
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _startCountdown();
-        });
       }
 
       // Dépouillement anticipé dès que tous les vivants ont voté pendant dayVoting
       if (room.phase == GamePhase.dayVoting &&
           room.alivePlayers.isNotEmpty &&
           room.alivePlayers.every((p) => p.targetVoteId != null)) {
-        _phaseCountdownTimer?.cancel();
         _countdownNotifier.value = 0;
       }
     }
@@ -401,6 +367,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                   context,
                   myRole,
                   isMeAlive,
+                  room,
                   _countdownNotifier,
                   isNight,
                   gameState,
@@ -994,12 +961,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     );
   }
 
-  /// Sous-barre Stitch : Bouton Mon Rôle compact & Minuteur de tour isolé
+  /// Sous-barre Stitch : Bouton Mon Rôle compact & Minuteur de tour réactif serveur
   Widget _buildStitchSubBar(
     BuildContext context,
     dynamic myRole,
     bool isMeAlive,
-    ValueListenable<int> countdownNotifier,
+    GameRoom room,
+    ValueNotifier<int> countdownNotifier,
     bool isNight,
     dynamic gameState,
   ) {
@@ -1051,10 +1019,21 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
             ),
           ),
 
-          // Minuteur de tour réactif isolé dans son RepaintBoundary avec ValueListenableBuilder
-          CountdownTimerBadge(
-            countdownListenable: countdownNotifier,
+          // Minuteur de tour réactif PURE fonction du temps serveur Firebase RTDB
+          ServerCountdownTimerBadge(
+            phaseEndsAt: room.phaseEndsAt,
+            fallbackSeconds: room.timerSeconds > 0 ? room.timerSeconds : (isNight ? 40 : 15),
             isNight: isNight,
+            onTick: (seconds) {
+              countdownNotifier.value = seconds;
+            },
+            onTimerExpired: () {
+              if (gameState.isHost &&
+                  room.phase != GamePhase.gameOver &&
+                  room.phase != GamePhase.lobby) {
+                ref.read(gameNotifierProvider.notifier).nextPhase();
+              }
+            },
           ),
         ],
       ),

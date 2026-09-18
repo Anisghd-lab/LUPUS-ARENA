@@ -520,6 +520,257 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
+  /// Remplit le salon actuel avec des Bots configurables et leurs rôles assignés
+  Future<bool> populateRoomWithBots({
+    int totalCount = 8,
+    Map<String, GameRole>? customRoleAssignments,
+  }) async {
+    if (state.room == null) return false;
+    final room = state.room!;
+    final botNames = [
+      'Arthur', 'Morgane', 'Gauvain', 'Lancelot', 'Merlin',
+      'Perceval', 'Bohort', 'Ygraine', 'Guenièvre', 'Tristan',
+      'Iseult', 'Viviane', 'Léodagan', 'Dagonet',
+    ];
+    final secureRandom = Random.secure();
+    botNames.shuffle(secureRandom);
+
+    final updates = <String, dynamic>{};
+    final currentPlayers = Map<String, PlayerModel>.from(room.players);
+
+    final hostPlayer = currentPlayers[state.currentUserId] ??
+        PlayerModel(
+          id: state.currentUserId,
+          name: state.currentUserName,
+          isHost: true,
+          isAlive: true,
+          isReady: true,
+        );
+
+    final newPlayers = <String, PlayerModel>{
+      state.currentUserId: hostPlayer,
+    };
+    final newSeating = <String>[state.currentUserId];
+
+    final botsNeeded = max(3, totalCount - 1);
+    for (int i = 1; i <= botsNeeded; i++) {
+      final botId = 'bot_$i';
+      final assignedRole = customRoleAssignments?[botId] ??
+          GameRole.simpleVillager;
+      final name = botNames[(i - 1) % botNames.length];
+      newPlayers[botId] = PlayerModel(
+        id: botId,
+        name: '$name (Bot)',
+        role: assignedRole,
+        initialRole: assignedRole,
+        avatarIndex: (i % 6),
+        isAlive: true,
+        isReady: true,
+        seatIndex: i,
+        agoraUid: 3000 + i,
+      );
+      newSeating.add(botId);
+    }
+
+    final pool = <String, int>{};
+    for (final p in newPlayers.values) {
+      pool[p.role.id] = (pool[p.role.id] ?? 0) + 1;
+    }
+
+    updates['players'] = newPlayers.map((k, v) => MapEntry(k, v.toMap()));
+    updates['seatingOrder'] = newSeating;
+    updates['rolePool'] = pool;
+    updates['config/rolePool'] = pool;
+
+    await _syncState(updates);
+    return true;
+  }
+
+  /// Retire tous les bots du salon actuel
+  Future<bool> removeBotsFromRoom() async {
+    if (state.room == null) return false;
+    final room = state.room!;
+    final updates = <String, dynamic>{};
+    final remainingPlayers = <String, PlayerModel>{};
+    final remainingSeating = <String>[];
+
+    for (final entry in room.players.entries) {
+      if (!entry.key.startsWith('bot_')) {
+        remainingPlayers[entry.key] = entry.value;
+        remainingSeating.add(entry.key);
+      }
+    }
+
+    final pool = <String, int>{};
+    for (final p in remainingPlayers.values) {
+      pool[p.role.id] = (pool[p.role.id] ?? 0) + 1;
+    }
+
+    updates['players'] = remainingPlayers.map((k, v) => MapEntry(k, v.toMap()));
+    updates['seatingOrder'] = remainingSeating;
+    updates['rolePool'] = pool;
+    updates['config/rolePool'] = pool;
+
+    await _syncState(updates);
+    return true;
+  }
+
+  /// Lance immédiatement une vraie partie Sandbox / Testeur avec rôles forcés
+  Future<bool> startSandboxGame({
+    required Map<String, GameRole> roleAssignments,
+    GameRole? hostRole,
+    List<GameRole>? thiefExtraCards,
+  }) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      unlockAdmin('03031994');
+      final secureRandom = Random.secure();
+      final roomCode = state.room?.roomCode ?? 'SBX${secureRandom.nextInt(900) + 100}';
+
+      final botNames = [
+        'Arthur', 'Morgane', 'Gauvain', 'Lancelot', 'Merlin',
+        'Perceval', 'Bohort', 'Ygraine', 'Guenièvre', 'Tristan',
+        'Iseult', 'Viviane', 'Léodagan', 'Dagonet',
+      ];
+      botNames.shuffle(secureRandom);
+
+      final Map<String, PlayerModel> players = {};
+      final Map<String, dynamic> secretRoles = {};
+      final List<String> wolfPlayerIds = [];
+      final List<String> seatingOrder = [];
+
+      // 1. Joueur local (Hôte / Admin)
+      final actualHostRole = hostRole ?? roleAssignments[state.currentUserId] ?? GameRole.seer;
+      seatingOrder.add(state.currentUserId);
+      if (actualHostRole.isEvil) {
+        wolfPlayerIds.add(state.currentUserId);
+      }
+      secretRoles[state.currentUserId] = {
+        'roleId': actualHostRole.id,
+        'roleName': actualHostRole.displayName,
+        'assignedAt': ServerValue.timestamp,
+      };
+
+      final totalJoueurs = roleAssignments.length;
+      final maxPotions = max(1, totalJoueurs ~/ 10);
+      final maxVisions = totalJoueurs <= 4 ? 1 : (totalJoueurs <= 9 ? 2 : 3);
+
+      players[state.currentUserId] = PlayerModel(
+        id: state.currentUserId,
+        name: '${state.currentUserName} [Admin]',
+        avatarIndex: state.currentUserAvatar,
+        role: actualHostRole,
+        initialRole: actualHostRole,
+        potionsVie: (actualHostRole == GameRole.witch) ? maxPotions : 0,
+        potionsMort: (actualHostRole == GameRole.witch) ? maxPotions : 0,
+        visionsRestantes: (actualHostRole == GameRole.seer) ? maxVisions : 0,
+        isCaptain: true,
+        isHost: true,
+        isReady: true,
+        isAlive: true,
+        seatIndex: 0,
+        agoraUid: state.agoraUid,
+      );
+
+      // 2. Bots assignés
+      int botIndex = 1;
+      roleAssignments.forEach((id, role) {
+        if (id == state.currentUserId) return;
+        final botId = id.startsWith('bot_') ? id : 'bot_$botIndex';
+        seatingOrder.add(botId);
+        if (role.isEvil) {
+          wolfPlayerIds.add(botId);
+        }
+        secretRoles[botId] = {
+          'roleId': role.id,
+          'roleName': role.displayName,
+          'assignedAt': ServerValue.timestamp,
+        };
+
+        final bName = botNames[(botIndex - 1) % botNames.length];
+        players[botId] = PlayerModel(
+          id: botId,
+          name: '$bName (Bot)',
+          avatarIndex: (botIndex % 6),
+          role: role,
+          initialRole: role,
+          potionsVie: (role == GameRole.witch) ? maxPotions : 0,
+          potionsMort: (role == GameRole.witch) ? maxPotions : 0,
+          visionsRestantes: (role == GameRole.seer) ? maxVisions : 0,
+          isCaptain: false,
+          isHost: false,
+          isReady: true,
+          isAlive: true,
+          seatIndex: seatingOrder.length - 1,
+          agoraUid: 3000 + botIndex,
+        );
+        botIndex++;
+      });
+
+      // Role Pool & Cartes Voleur
+      final pool = <String, int>{};
+      for (final p in players.values) {
+        pool[p.role.id] = (pool[p.role.id] ?? 0) + 1;
+      }
+
+      final thiefCards = thiefExtraCards ?? [
+        GameRole.simpleVillager,
+        GameRole.simpleWerewolf,
+      ];
+      if (players.values.any((p) => p.role == GameRole.thief)) {
+        for (final r in thiefCards) {
+          pool[r.id] = (pool[r.id] ?? 0) + 1;
+        }
+      }
+
+      // Première phase nocturne canonique
+      final firstPhase = _getNextNightPhase(
+        current: GamePhase.lobby,
+        round: 1,
+        players: players,
+      );
+
+      final newRoom = GameRoom(
+        roomCode: roomCode,
+        hostId: state.currentUserId,
+        phase: firstPhase,
+        round: 1,
+        players: players,
+        captainId: state.currentUserId,
+        rolePool: pool,
+        isDevRoom: true,
+        seatingOrder: seatingOrder,
+        thiefAvailableRoles: thiefCards,
+        logs: [
+          'Partie Sandbox Initialisée (${players.length} joueurs).',
+          'Rôles configurés manuellement par le Maître du Jeu.',
+          'La nuit tombe : ${firstPhase.titleFr}.',
+        ],
+      );
+
+      await _database.ref('rooms/$roomCode/secret_roles').set(secretRoles);
+      if (wolfPlayerIds.isNotEmpty) {
+        final encryptedWolves =
+            RoleSecurityService.encryptWolfRoster(wolfPlayerIds, roomCode);
+        await _database
+            .ref('rooms/$roomCode/wolf_pack')
+            .set({'data': encryptedWolves});
+      }
+      await _database.ref('rooms/$roomCode').set(newRoom.toMap());
+      await _database.ref('games/$roomCode').set(newRoom.toMap());
+      await _database.ref('rooms/$roomCode/state').set(newRoom.toMap());
+
+      await joinRoom(roomCode);
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Échec du lancement Sandbox : $e',
+      );
+      return false;
+    }
+  }
+
   /// Rejoindre un salon
   Future<bool> joinRoom(String code) async {
     final cleanCode = code.trim().toUpperCase();
@@ -1167,7 +1418,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
-  /// Ordre choisi : Salvateur -> Loups-Garous -> Loup Noir -> Voyante -> Sorcière
+  /// Séquence canonique stricte des nuits :
+  /// 1: Voleur (Nuit 1) -> 2: Cupidon (Nuit 1) -> 3: Salvateur -> 4: Loups-Garous ->
+  /// 5: Loup Noir -> 6: Voyante -> 7: Sorcière -> 8: Joueur de Flûte -> 9: Pyromane -> 10: Aube
   GamePhase _getNextNightPhase({
     required GamePhase current,
     required int round,
@@ -1191,75 +1444,37 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           (!witch.hasUsedHealPotion || !witch.hasUsedPoisonPotion);
     }
 
-    if (current == GamePhase.lobby || current == GamePhase.dayResolution) {
-      if (round == 1 && hasAlive(GameRole.thief)) return GamePhase.nightThief;
-      if (round == 1 && hasAlive(GameRole.cupid)) return GamePhase.nightCupid;
-      if (hasAlive(GameRole.defender)) return GamePhase.nightDefender;
-      if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
-      if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
-      if (hasActiveWitch()) return GamePhase.nightWitch;
-      if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
+    GamePhase findNext(int afterIndex) {
+      if (afterIndex < 1 && round == 1 && hasAlive(GameRole.thief)) {
+        return GamePhase.nightThief;
+      }
+      if (afterIndex < 2 && round == 1 && hasAlive(GameRole.cupid)) {
+        return GamePhase.nightCupid;
+      }
+      if (afterIndex < 3 && hasAlive(GameRole.defender)) {
+        return GamePhase.nightDefender;
+      }
+      if (afterIndex < 4 && hasAliveWerewolves()) {
+        return GamePhase.nightWerewolves;
+      }
+      if (afterIndex < 6 && hasAlive(GameRole.seer)) {
+        return GamePhase.nightSeer;
+      }
+      if (afterIndex < 7 && hasActiveWitch()) {
+        return GamePhase.nightWitch;
+      }
+      if (afterIndex < 8 && hasAlive(GameRole.piedPiper)) {
+        return GamePhase.nightPiper;
+      }
+      if (afterIndex < 9 && hasAlive(GameRole.pyromaniac)) {
+        return GamePhase.nightPyromaniac;
+      }
       return GamePhase.morningAnnouncement;
     }
 
-    if (current == GamePhase.nightThief) {
-      if (round == 1 && hasAlive(GameRole.cupid)) return GamePhase.nightCupid;
-      if (hasAlive(GameRole.defender)) return GamePhase.nightDefender;
-      if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
-      if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
-      if (hasActiveWitch()) return GamePhase.nightWitch;
-      if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
-      return GamePhase.morningAnnouncement;
-    }
-
-    if (current == GamePhase.nightCupid) {
-      if (hasAlive(GameRole.defender)) return GamePhase.nightDefender;
-      if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
-      if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
-      if (hasActiveWitch()) return GamePhase.nightWitch;
-      if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
-      return GamePhase.morningAnnouncement;
-    }
-
-    // 1. Salvateur
-    if (current == GamePhase.nightDefender) {
-      if (hasAliveWerewolves()) return GamePhase.nightWerewolves;
-      if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
-      if (hasActiveWitch()) return GamePhase.nightWitch;
-      if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
-      return GamePhase.morningAnnouncement;
-    }
-
-    // 2. Loups (Double action unifiée : Proie & Silence)
-    if (current == GamePhase.nightWerewolves) {
-      if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
-      if (hasActiveWitch()) return GamePhase.nightWitch;
-      if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
-      return GamePhase.morningAnnouncement;
-    }
-
-    // 2.B Loup Noir (Fallback de sécurité si phase résiduelle activée)
-    if (current == GamePhase.nightBlackWolf) {
-      if (hasAlive(GameRole.seer)) return GamePhase.nightSeer;
-      if (hasActiveWitch()) return GamePhase.nightWitch;
-      if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
-      return GamePhase.morningAnnouncement;
-    }
-
-    // 3. Voyante
-    if (current == GamePhase.nightSeer) {
-      if (hasActiveWitch()) return GamePhase.nightWitch;
-      if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
-      return GamePhase.morningAnnouncement;
-    }
-
-    // 4. Sorcière
-    if (current == GamePhase.nightWitch) {
-      if (hasAlive(GameRole.pyromaniac)) return GamePhase.nightPyromaniac;
-      return GamePhase.morningAnnouncement;
-    }
-
-    return GamePhase.morningAnnouncement;
+    final currentIndex = current.nightOrderIndex;
+    return findNext(currentIndex);
+  }
   }
 
   Future<void> resolveMorningDeaths() async {
@@ -1282,14 +1497,30 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         final isProtected = room.currentProtectedPlayerId == wolfVictimId;
         final isHealed = room.witchHealed;
 
-        if (!isProtected && !isHealed) {
-          effectiveDeaths.add(wolfVictimId);
-        } else if (isProtected) {
+        if (isProtected) {
           logs.add(
             '🛡️ Le Salvateur a veillé sur la cible des loups cette nuit !',
           );
         } else if (isHealed) {
           logs.add('✨ Une potion de guérison miraculeuse a sauvé la victime !');
+        } else if (room.infectedPlayerId == wolfVictimId && !room.vileFatherInfectionUsed) {
+          // L'Infect Père des Loups corrompt la victime au lieu de la tuer !
+          updates['players/$wolfVictimId/isInfected'] = true;
+          updates['vileFatherInfectionUsed'] = true;
+          updates['infectedPlayerId'] = null;
+          logs.add(
+            '🩸 POUVOIR DU LOUP INFECT : La victime a survécu mais a été infectée et rejoint la meute !',
+          );
+          try {
+            final wolfIds = room.alivePlayers
+                .where((p) => p.role.isEvil || p.isInfected || p.id == wolfVictimId)
+                .map((p) => p.id)
+                .toList();
+            updates['encryptedWolfRoster'] =
+                RoleSecurityService.encryptWolfRoster(wolfIds, room.roomCode);
+          } catch (_) {}
+        } else {
+          effectiveDeaths.add(wolfVictimId);
         }
       }
 
@@ -1915,9 +2146,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return 'village';
     }
 
-    // 4. Décompte des camps avec les vrais rôles
-    final aliveWolves = alive.where((p) => getRole(p).isEvil).length;
-    final aliveVillagers = alive.where((p) => !getRole(p).isEvil).length;
+    // 4. Décompte des camps avec les vrais rôles (y compris les infectés)
+    final aliveWolves = alive.where((p) => getRole(p).isEvil || p.isInfected).length;
+    final aliveVillagers = alive.where((p) => !getRole(p).isEvil && !p.isInfected).length;
 
     // Rôles solitaires hostiles pouvant encore l'emporter seuls
     final hasHostileSolo = alive.any((p) {
@@ -1995,6 +2226,215 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       ],
     });
     await processNightTransitions();
+  }
+
+  Future<void> thiefChooseRole(GameRole chosenRole) async {
+    if ((state.myRole != GameRole.thief && !state.isAdmin) ||
+        _currentRoomRef == null) {
+      return;
+    }
+    String thiefId = state.currentUserId;
+    if (state.isAdmin && state.myRole != GameRole.thief) {
+      final t = state.room?.alivePlayers.cast<PlayerModel?>().firstWhere(
+            (p) => p != null && p.role == GameRole.thief,
+            orElse: () => null,
+          );
+      if (t != null) thiefId = t.id;
+    }
+
+    final updates = <String, dynamic>{
+      'players/$thiefId/role': chosenRole.id,
+      'logs': [
+        ...?state.room?.logs,
+        'Le Voleur a choisi une nouvelle destinée parmi les cartes dissimulées...',
+      ],
+    };
+
+    if (chosenRole.isEvil) {
+      try {
+        final wolfIds = state.room?.alivePlayers
+            .where((p) => p.role.isEvil || p.id == thiefId)
+            .map((p) => p.id)
+            .toList() ?? [thiefId];
+        final encrypted = RoleSecurityService.encryptWolfRoster(
+            wolfIds, state.room!.roomCode);
+        updates['encryptedWolfRoster'] = encrypted;
+      } catch (_) {}
+    }
+
+    await _syncState(updates);
+    try {
+      await _database
+          .ref('rooms/${state.room!.roomCode}/secret_roles/$thiefId/roleId')
+          .set(chosenRole.id);
+    } catch (_) {}
+    await processNightTransitions();
+  }
+
+  Future<void> piperCharmPlayers(List<String> targetIds) async {
+    if ((state.myRole != GameRole.piedPiper && !state.isAdmin) ||
+        _currentRoomRef == null) {
+      return;
+    }
+    final updates = <String, dynamic>{};
+    final charmedList = List<String>.from(state.room?.charmedPlayerIds ?? []);
+    for (final id in targetIds) {
+      updates['players/$id/isCharmed'] = true;
+      if (!charmedList.contains(id)) {
+        charmedList.add(id);
+      }
+    }
+    updates['charmedPlayerIds'] = charmedList;
+    updates['logs'] = [
+      ...?state.room?.logs,
+      '🎵 Une mélodie ensorcelante résonne dans la nuit : de nouvelles âmes sont charmées.',
+    ];
+    await _syncState(updates);
+    await processNightTransitions();
+  }
+
+  Future<void> infectWolfInfect(String targetPlayerId) async {
+    if ((state.myRole != GameRole.vileFatherOfWolves && !state.isAdmin) ||
+        _currentRoomRef == null) {
+      return;
+    }
+    if (state.room?.vileFatherInfectionUsed == true) return;
+    await _syncState({
+      'infectedPlayerId': targetPlayerId,
+    });
+  }
+
+  Future<void> executeBotNightAction() async {
+    if (state.room == null || !state.isAdmin) return;
+    final room = state.room!;
+    final phase = room.phase;
+    final random = Random();
+
+    switch (phase) {
+      case GamePhase.nightThief:
+        final choices = room.thiefAvailableRoles;
+        if (choices.isNotEmpty) {
+          final choice = choices[random.nextInt(choices.length)];
+          await thiefChooseRole(choice);
+        } else {
+          await processNightTransitions();
+        }
+        break;
+
+      case GamePhase.nightCupid:
+        final alive = room.alivePlayers.toList();
+        if (alive.length >= 2) {
+          alive.shuffle(random);
+          await cupidBindLovers(alive[0].id, alive[1].id);
+        } else {
+          await processNightTransitions();
+        }
+        break;
+
+      case GamePhase.nightDefender:
+        final candidates = room.alivePlayers
+            .where((p) => p.id != room.lastProtectedPlayerId)
+            .toList();
+        if (candidates.isNotEmpty) {
+          final target = candidates[random.nextInt(candidates.length)];
+          await defenderProtect(target.id);
+        } else {
+          await processNightTransitions();
+        }
+        break;
+
+      case GamePhase.nightWerewolves:
+        final realRoles = await _resolveRealRoles(room);
+        final innocents = room.alivePlayers
+            .where((p) => !(realRoles[p.id] ?? p.role).isEvil)
+            .toList();
+        final victim = innocents.isNotEmpty
+            ? innocents[random.nextInt(innocents.length)]
+            : room.alivePlayers.first;
+
+        final updates = <String, dynamic>{
+          'nightVictimId': victim.id,
+        };
+
+        final hasBlackWolf = room.alivePlayers.any(
+          (p) => (realRoles[p.id] ?? p.role) == GameRole.blackWolf,
+        );
+        if (hasBlackWolf && room.alivePlayers.length >= 2) {
+          final silenceCandidates =
+              room.alivePlayers.where((p) => p.id != victim.id).toList();
+          if (silenceCandidates.isNotEmpty) {
+            final silenceTarget =
+                silenceCandidates[random.nextInt(silenceCandidates.length)];
+            updates['blackWolfTargetId'] = silenceTarget.id;
+          }
+        }
+
+        final hasInfectWolf = room.alivePlayers.any(
+          (p) => (realRoles[p.id] ?? p.role) == GameRole.vileFatherOfWolves,
+        );
+        if (hasInfectWolf && !room.vileFatherInfectionUsed && random.nextBool()) {
+          updates['infectedPlayerId'] = victim.id;
+        }
+
+        await _syncState(updates);
+        await processNightTransitions();
+        break;
+
+      case GamePhase.nightSeer:
+        final candidates = room.alivePlayers
+            .where((p) => p.id != state.currentUserId)
+            .toList();
+        if (candidates.isNotEmpty) {
+          final target = candidates[random.nextInt(candidates.length)];
+          await inspectPlayer(target.id);
+          await completeSeerTurn();
+        } else {
+          await processNightTransitions();
+        }
+        break;
+
+      case GamePhase.nightWitch:
+        final victimId = room.nightVictimId;
+        final witch = room.alivePlayers.firstWhere(
+          (p) => p.role == GameRole.witch,
+          orElse: () => room.alivePlayers.first,
+        );
+        if (victimId != null && witch.potionsVie > 0 && !room.witchHealed) {
+          if (random.nextDouble() < 0.7) {
+            await witchSaveVictim();
+          }
+        }
+        await processNightTransitions();
+        break;
+
+      case GamePhase.nightPiper:
+        final uncharmed = room.alivePlayers.where((p) => !p.isCharmed).toList();
+        if (uncharmed.isNotEmpty) {
+          uncharmed.shuffle(random);
+          final toCharm = uncharmed.take(2).map((p) => p.id).toList();
+          await piperCharmPlayers(toCharm);
+        } else {
+          await processNightTransitions();
+        }
+        break;
+
+      case GamePhase.nightPyromaniac:
+        final undoused = room.alivePlayers.where((p) => !p.isDoused).toList();
+        final dousedCount = room.alivePlayers.where((p) => p.isDoused).length;
+        if (dousedCount >= 2 && random.nextBool()) {
+          await pyromaniacIgnite();
+        } else if (undoused.isNotEmpty) {
+          final target = undoused[random.nextInt(undoused.length)];
+          await pyromaniacDouse(target.id);
+        } else {
+          await pyromaniacPass();
+        }
+        break;
+
+      default:
+        await nextPhase();
+        break;
+    }
   }
 
   Future<void> cupidBindLovers(String p1Id, String p2Id) async {
@@ -2614,6 +3054,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
                 (state.myRole == GameRole.thief || state.isAdmin)) ||
             (phase == GamePhase.nightPyromaniac &&
                 (state.myRole == GameRole.pyromaniac || state.isAdmin)) ||
+            (phase == GamePhase.nightPiper &&
+                (state.myRole == GameRole.piedPiper || state.isAdmin)) ||
             (phase == GamePhase.nightBlackWolf &&
                 (state.myRole == GameRole.blackWolf || state.isAdmin)));
 

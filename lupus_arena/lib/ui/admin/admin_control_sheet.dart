@@ -10,6 +10,7 @@ import '../bento/bento_card.dart';
 import '../bento/lupus_permission_dialog.dart';
 import '../bento/role_card_image.dart';
 import '../theme/lupus_theme.dart';
+import 'sandbox_bot_config_dialog.dart';
 
 /// Feuille de contrôle Maître du Jeu (God Mode / Debug Panel) stylisée Dark Medieval Modern
 /// Permet de visualiser tous les secrets de la partie et de forcer les états en direct sur Firebase.
@@ -1560,6 +1561,101 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Carte 0 : CONFIGURATION SANDBOX & BOTS SUR MESURE
+                  BentoCard(
+                    borderColor: LupusColors.arcaneGold,
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0x44B45309),
+                        Color(0x33422006),
+                        Color(0x221E1405),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: LupusColors.arcaneGold.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: LupusColors.arcaneGold, width: 1.2),
+                              ),
+                              child: const Text('🤖', style: TextStyle(fontSize: 22)),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'CONFIGURATION SANDBOX & BOTS',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 13.5,
+                                      color: LupusColors.arcaneGold,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Assignation précise de chaque rôle (Voleur, Infect, Flûte...)',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: LupusColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Configurez manuellement les rôles des Bots pour tester et contrôler chaque phase nocturne (Voleur, Cupidon, Loup Infect, Loup Noir, Voyante, Sorcière, Joueur de Flûte, Pyromane).',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: LupusColors.textSecondary,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: LupusColors.arcaneGold,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              SandboxBotConfigDialog.show(context);
+                            },
+                            icon: const Icon(Icons.tune_rounded, size: 18),
+                            label: const Text(
+                              'OUVRIR LA CONFIGURATION SANDBOX',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 11.5,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
                   // Carte 1 : SIMULATION TEST 15 JOUEURS
                   BentoCard(
                     borderColor: LupusColors.arcaneGold,

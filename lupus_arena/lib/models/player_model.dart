@@ -20,6 +20,7 @@ class PlayerModel {
   final bool isCaptain; // Capitaine / Maire élu (voix double)
   final bool isCharmed; // Envoûté par le Joueur de Flûte
   final bool isDoused; // Aspergé d'huile/essence par le Pyromane
+  final bool isInfected; // Transformé en Loup par l'Infect Père des Loups
   final bool hasUsedHealPotion;
   final bool hasUsedPoisonPotion;
   final int agoraUid;
@@ -51,6 +52,7 @@ class PlayerModel {
     this.isCaptain = false,
     this.isCharmed = false,
     this.isDoused = false,
+    this.isInfected = false,
     this.hasUsedHealPotion = false,
     this.hasUsedPoisonPotion = false,
     this.agoraUid = 0,
@@ -91,6 +93,7 @@ class PlayerModel {
     bool? isCaptain,
     bool? isCharmed,
     bool? isDoused,
+    bool? isInfected,
     bool? hasUsedHealPotion,
     bool? hasUsedPoisonPotion,
     int? agoraUid,
@@ -122,6 +125,7 @@ class PlayerModel {
       isCaptain: isCaptain ?? this.isCaptain,
       isCharmed: isCharmed ?? this.isCharmed,
       isDoused: isDoused ?? this.isDoused,
+      isInfected: isInfected ?? this.isInfected,
       hasUsedHealPotion: hasUsedHealPotion ?? this.hasUsedHealPotion,
       hasUsedPoisonPotion: hasUsedPoisonPotion ?? this.hasUsedPoisonPotion,
       agoraUid: agoraUid ?? this.agoraUid,
@@ -137,8 +141,8 @@ class PlayerModel {
     );
   }
 
-  /// Indique si le joueur fait partie du camp des loups (incluant le Loup Blanc)
-  bool get isWolf => role.isEvil || role == GameRole.whiteWerewolf;
+  /// Indique si le joueur fait partie du camp des loups (incluant le Loup Blanc et les Infectés)
+  bool get isWolf => role.isEvil || role == GameRole.whiteWerewolf || isInfected;
   bool get isWolfTeam => isWolf;
 
   /// Déchiffre et résout le rôle véritable du joueur de façon déterministe
@@ -173,6 +177,7 @@ class PlayerModel {
       'isCaptain': isCaptain,
       'isCharmed': isCharmed,
       'isDoused': isDoused,
+      'isInfected': isInfected,
       'hasUsedHealPotion': hasUsedHealPotion,
       'hasUsedPoisonPotion': hasUsedPoisonPotion,
       'agoraUid': agoraUid,
@@ -243,6 +248,7 @@ class PlayerModel {
       isCaptain: map['isCaptain'] == true,
       isCharmed: map['isCharmed'] == true,
       isDoused: map['isDoused'] == true,
+      isInfected: map['isInfected'] == true,
       hasUsedHealPotion: map['hasUsedHealPotion'] == true,
       hasUsedPoisonPotion: map['hasUsedPoisonPotion'] == true,
       agoraUid: (map['agoraUid'] is int)

@@ -28,6 +28,10 @@ class BentoActionPanel extends StatefulWidget {
   final ValueChanged<String>? onBlackWolfSilence;
   final void Function(String p1, String p2)? onCupidBind;
   final ValueChanged<String>? onThiefSteal;
+  final ValueChanged<GameRole>? onThiefChooseRole;
+  final ValueChanged<List<String>>? onPiperCharm;
+  final ValueChanged<String>? onInfect;
+  final VoidCallback? onExecuteBotNightAction;
   final ValueChanged<String>? onHunterShoot;
   final ValueChanged<String>? onCaptainPass;
   final ValueChanged<String>? onPyromaniacDouse;
@@ -65,6 +69,10 @@ class BentoActionPanel extends StatefulWidget {
     this.onBlackWolfSilence,
     this.onCupidBind,
     this.onThiefSteal,
+    this.onThiefChooseRole,
+    this.onPiperCharm,
+    this.onInfect,
+    this.onExecuteBotNightAction,
     this.onHunterShoot,
     this.onCaptainPass,
     this.onPyromaniacDouse,
@@ -166,6 +174,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   // Sélection des deux amoureux par Cupidon
   String? _cupidLover1Id;
   String? _cupidLover2Id;
+
+  // Sélection des deux cibles par le Joueur de Flûte
+  String? _piperTarget1Id;
+  String? _piperTarget2Id;
 
   // Sélection du successeur par le Capitaine défunt (Testament)
   String? _selectedCaptainSuccessorId;
@@ -275,6 +287,12 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // 0. BARRE DE CONTRÔLE GODMODE POUR LES TOURS DE BOTS
+                if (widget.isAdmin && phase.isNight) ...[
+                  _buildGodmodeBotControlBar(phase),
+                  const SizedBox(height: 6),
+                ],
+
                 // 1. CHASSEUR AU DERNIER SOUFFLE
                 if (phase == GamePhase.hunterDeathChoice &&
                     (widget.room.pendingHunterId == widget.currentUserId || widget.isAdmin)) ...[
@@ -344,6 +362,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 else if (phase == GamePhase.nightPyromaniac &&
                     (role == GameRole.pyromaniac || widget.isAdmin)) ...[
                   _buildPyromaniacSection(selectedTarget),
+                ]
+                // 9.C JOUEUR DE FLÛTE
+                else if (phase == GamePhase.nightPiper &&
+                    (role == GameRole.piedPiper || widget.isAdmin)) ...[
+                  _buildPiperSection(selectedTarget),
                 ]
                 // 10. ÉLECTION DU CAPITAINE
                 else if (phase == GamePhase.captainElection) ...[
@@ -858,6 +881,12 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         selectedTarget.isAlive &&
         selectedTarget.id != effectiveVictimId;
 
+    final hasInfectWolf = widget.room.alivePlayers.any(
+      (p) => p.role == GameRole.vileFatherOfWolves,
+    );
+    final canInfect = (hasInfectWolf || widget.isAdmin) && !widget.room.vileFatherInfectionUsed;
+    final isInfected = effectiveVictimId != null && widget.room.infectedPlayerId == effectiveVictimId;
+
     final canValidate = widget.isAdmin || isDoubleActionComplete;
 
     final devourButtonText = selectedTarget != null
@@ -920,53 +949,51 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  // Slot Proie
+                  // Emplacement 1 : Proie désignée
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                       decoration: BoxDecoration(
-                        color: currentVoteTarget != null
-                            ? LupusColors.bloodRed.withValues(alpha: 0.25)
-                            : Colors.white.withValues(alpha: 0.05),
+                        color: effectiveVictimId != null
+                            ? const Color(0x33B91C1C)
+                            : Colors.black26,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: currentVoteTarget != null
+                          color: effectiveVictimId != null
                               ? LupusColors.bloodRed
-                              : Colors.white12,
-                          width: 0.8,
+                              : Colors.white10,
                         ),
                       ),
                       child: Text(
-                        currentVoteTarget != null
-                            ? '🥩 Proie : ${currentVoteTarget.name}'
+                        effectiveVictimId != null
+                            ? '🥩 Proie : ${currentVoteTarget?.name ?? "Cible"}'
                             : '🥩 Proie : Aucune',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: currentVoteTarget != null
-                              ? const Color(0xFFFFB4AB)
+                          color: effectiveVictimId != null
+                              ? const Color(0xFFFECDD3)
                               : LupusColors.textMuted,
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 6),
-                  // Slot Silence
+                  // Emplacement 2 : Cible du silence
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                       decoration: BoxDecoration(
                         color: silencedTarget != null
-                            ? const Color(0x339333EA)
-                            : Colors.white.withValues(alpha: 0.05),
+                            ? const Color(0x33581C87)
+                            : Colors.black26,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
                           color: silencedTarget != null
                               ? const Color(0xFFC084FC)
-                              : Colors.white12,
-                          width: 0.8,
+                              : Colors.white10,
                         ),
                       ),
                       child: Text(
@@ -1075,6 +1102,39 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ),
           ],
         ),
+        // Option Loup Infect (Pouvoir Unique)
+        if (canInfect && effectiveVictimId != null) ...[
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 34,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: isInfected ? const Color(0x33DC2626) : Colors.transparent,
+                foregroundColor: isInfected ? const Color(0xFFF87171) : const Color(0xFFE2E8F0),
+                side: BorderSide(
+                  color: isInfected ? const Color(0xFFDC2626) : const Color(0x66DC2626),
+                  width: isInfected ? 1.5 : 1.0,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => widget.onInfect?.call(effectiveVictimId),
+              icon: Icon(
+                isInfected ? Icons.check_circle_rounded : Icons.pest_control_rounded,
+                size: 14,
+                color: isInfected ? const Color(0xFFF87171) : const Color(0xFFEF4444),
+              ),
+              label: Text(
+                isInfected ? '🩸 Proie infectée (Transformée en Loup à l\'Aube)' : '🩸 Infecter la proie au lieu de l\'exécuter (Infect Père des Loups)',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: isInfected ? FontWeight.w900 : FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1997,49 +2057,101 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Voleur (Nuit 1)
+  /// Module Voleur (Nuit 1) : Choix entre 2 cartes non attribuées ou rester Voleur
   Widget _buildThiefSection(PlayerModel? selectedTarget) {
-    return Row(
+    final available = widget.room.thiefAvailableRoles;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8338EC),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: (selectedTarget != null &&
-                      selectedTarget.isAlive &&
-                      selectedTarget.id != widget.currentUserId)
-                  ? () => widget.onThiefSteal?.call(selectedTarget.id)
-                  : null,
-              icon: const Icon(Icons.swap_horiz_rounded, size: 15),
-              label: Text(
-                selectedTarget != null
-                    ? context.tr('steal_target', {'name': selectedTarget.name})
-                    : context.tr('steal_select'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
-              ),
+        if (available.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x228338EC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF8338EC).withValues(alpha: 0.4)),
+            ),
+            child: const Text(
+              '🃏 Cartes disponibles au centre :',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFC084FC)),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          height: 40,
-          child: OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: LupusColors.textSecondary,
-              side: const BorderSide(color: LupusColors.border),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: widget.onNextPhase,
-            child: Text(context.tr('pass'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
+          Row(
+            children: available.map((role) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: SizedBox(
+                    height: 38,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: role.isEvil ? const Color(0xFF7F1D1D) : const Color(0xFF1E3A8A),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                      ),
+                      onPressed: () => widget.onThiefChooseRole?.call(role),
+                      icon: Icon(role.icon, size: 14),
+                      label: Text(
+                        role.displayNameFr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
+          const SizedBox(height: 6),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8338EC),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: (selectedTarget != null &&
+                          selectedTarget.isAlive &&
+                          selectedTarget.id != widget.currentUserId)
+                      ? () => widget.onThiefSteal?.call(selectedTarget.id)
+                      : null,
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 15),
+                  label: Text(
+                    selectedTarget != null
+                        ? context.tr('steal_target', {'name': selectedTarget.name})
+                        : context.tr('steal_select'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 40,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: LupusColors.textSecondary,
+                  side: const BorderSide(color: LupusColors.border),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: widget.onNextPhase,
+                child: const Text('Rester Voleur', style: TextStyle(fontSize: 10.5)),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -2198,6 +2310,273 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ),
             onPressed: widget.onPyromaniacPass,
             child: Text(context.tr('pass'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGodmodeBotControlBar(GamePhase phase) {
+    PlayerModel? activePlayer;
+    switch (phase) {
+      case GamePhase.nightThief:
+        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+              (p) => p != null && p.role == GameRole.thief,
+              orElse: () => null,
+            );
+        break;
+      case GamePhase.nightCupid:
+        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+              (p) => p != null && p.role == GameRole.cupid,
+              orElse: () => null,
+            );
+        break;
+      case GamePhase.nightDefender:
+        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+              (p) => p != null && p.role == GameRole.defender,
+              orElse: () => null,
+            );
+        break;
+      case GamePhase.nightWerewolves:
+      case GamePhase.nightBlackWolf:
+        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+              (p) => p != null && p.role.isEvil,
+              orElse: () => null,
+            );
+        break;
+      case GamePhase.nightSeer:
+        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+              (p) => p != null && p.role == GameRole.seer,
+              orElse: () => null,
+            );
+        break;
+      case GamePhase.nightWitch:
+        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+              (p) => p != null && p.role == GameRole.witch,
+              orElse: () => null,
+            );
+        break;
+      case GamePhase.nightPiper:
+        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+              (p) => p != null && p.role == GameRole.piedPiper,
+              orElse: () => null,
+            );
+        break;
+      case GamePhase.nightPyromaniac:
+        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+              (p) => p != null && p.role == GameRole.pyromaniac,
+              orElse: () => null,
+            );
+        break;
+      default:
+        break;
+    }
+
+    final isBot = activePlayer != null && activePlayer.id.startsWith('bot_');
+    final activeName = activePlayer?.name ?? 'Entité';
+    final activeRole = activePlayer?.role.displayNameFr ?? phase.titleFr;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1405),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: LupusColors.arcaneGold.withValues(alpha: 0.6), width: 1.2),
+        boxShadow: LupusTheme.glowGold(opacity: 0.25),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF422006),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Text('👑', style: TextStyle(fontSize: 12)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isBot ? '🎮 Contrôle du Bot : $activeName' : '👑 Contrôle Hôte : $activeName',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    color: LupusColors.arcaneGold,
+                  ),
+                ),
+                Text(
+                  'Rôle : $activeRole',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            height: 28,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: LupusColors.arcaneGold,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: widget.onExecuteBotNightAction,
+              icon: const Icon(Icons.smart_toy_rounded, size: 13),
+              label: const Text(
+                'Laisser l\'IA agir',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Module Joueur de Flûte : Envoûte 2 joueurs avec sa mélodie
+  Widget _buildPiperSection(PlayerModel? selectedTarget) {
+    final target1 = _piperTarget1Id != null ? widget.room.players[_piperTarget1Id] : null;
+    final target2 = _piperTarget2Id != null ? widget.room.players[_piperTarget2Id] : null;
+
+    final uncharmedLiving = widget.room.alivePlayers.where((p) => !p.isCharmed).toList();
+    final canCharm = (target1 != null && target2 != null && target1.id != target2.id) ||
+        (uncharmedLiving.length == 1 && target1 != null);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (selectedTarget != null &&
+                      selectedTarget.isAlive &&
+                      !selectedTarget.isCharmed &&
+                      selectedTarget.id != _piperTarget2Id) {
+                    setState(() => _piperTarget1Id = selectedTarget.id);
+                  }
+                },
+                child: Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  decoration: BoxDecoration(
+                    color: target1 != null
+                        ? const Color(0xFF06D6A0).withValues(alpha: 0.18)
+                        : Colors.black26,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: target1 != null
+                          ? const Color(0xFF06D6A0)
+                          : LupusColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.music_note_rounded, size: 14, color: Color(0xFF06D6A0)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          target1 != null ? target1.name : '1ère Cible',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: target1 != null ? FontWeight.w800 : FontWeight.w500,
+                            color: target1 != null ? const Color(0xFF06D6A0) : LupusColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (selectedTarget != null &&
+                      selectedTarget.isAlive &&
+                      !selectedTarget.isCharmed &&
+                      selectedTarget.id != _piperTarget1Id) {
+                    setState(() => _piperTarget2Id = selectedTarget.id);
+                  }
+                },
+                child: Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  decoration: BoxDecoration(
+                    color: target2 != null
+                        ? const Color(0xFF06D6A0).withValues(alpha: 0.18)
+                        : Colors.black26,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: target2 != null
+                          ? const Color(0xFF06D6A0)
+                          : LupusColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.music_note_rounded, size: 14, color: Color(0xFF06D6A0)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          target2 != null ? target2.name : '2ème Cible',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: target2 != null ? FontWeight.w800 : FontWeight.w500,
+                            color: target2 != null ? const Color(0xFF06D6A0) : LupusColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 38,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF06D6A0),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: canCharm
+                ? () {
+                    final targets = [
+                      if (target1 != null) target1.id,
+                      if (target2 != null) target2.id,
+                    ];
+                    widget.onPiperCharm?.call(targets);
+                  }
+                : null,
+            icon: const Icon(Icons.graphic_eq_rounded, size: 16),
+            label: const Text(
+              'Envoûter avec la Flûte',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5),
+            ),
           ),
         ),
       ],

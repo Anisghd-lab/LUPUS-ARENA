@@ -9,6 +9,7 @@ import '../../models/game_phase.dart';
 import '../../models/game_room.dart';
 import '../admin/admin_control_sheet.dart';
 import '../admin/admin_secret_dialog.dart';
+import '../admin/sandbox_bot_config_dialog.dart';
 import '../bento/bento_card.dart';
 import '../bento/bento_player_tile.dart';
 import '../bento/bento_voice_controls.dart';
@@ -237,38 +238,77 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ),
           ),
 
-          // 4. Indicateur / Badge Admin si le God Mode est activé (position fixe droite)
+          // 4. Indicateur / Badges Admin & Sandbox si le God Mode est activé (position fixe droite)
           if (gameState.isAdmin)
             Positioned(
               right: 18,
               top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
-              child: GestureDetector(
-                onTap: () => AdminControlSheet.show(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1405),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: LupusColors.arcaneGold, width: 1.5),
-                    boxShadow: LupusTheme.glowGold(opacity: 0.45),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('👑', style: TextStyle(fontSize: 14)),
-                      SizedBox(width: 6),
-                      Text(
-                        'GOD MODE',
-                        style: TextStyle(
-                          color: LupusColors.arcaneGold,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 10,
-                          letterSpacing: 0.8,
-                        ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () => SandboxBotConfigDialog.show(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: LupusColors.arcaneCyan, width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: LupusColors.arcaneCyan.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                          ),
+                        ],
                       ),
-                    ],
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('🤖', style: TextStyle(fontSize: 13)),
+                          SizedBox(width: 4),
+                          Text(
+                            'SANDBOX',
+                            style: TextStyle(
+                              color: LupusColors.arcaneCyan,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => AdminControlSheet.show(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1405),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: LupusColors.arcaneGold, width: 1.5),
+                        boxShadow: LupusTheme.glowGold(opacity: 0.45),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('👑', style: TextStyle(fontSize: 14)),
+                          SizedBox(width: 6),
+                          Text(
+                            'GOD MODE',
+                            style: TextStyle(
+                              color: LupusColors.arcaneGold,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -1268,6 +1308,73 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                 ),
 
                 const SizedBox(height: 14),
+
+                // Bouton Configuration Sandbox & Bots (Host / Godmode)
+                if (gameState.isHost || gameState.isAdmin) ...[
+                  InkWell(
+                    onTap: () => SandboxBotConfigDialog.show(context),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1E1405), Color(0xFF0F172A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: LupusColors.arcaneGold.withValues(alpha: 0.8),
+                          width: 1.3,
+                        ),
+                        boxShadow: LupusTheme.glowGold(opacity: 0.25),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: LupusColors.arcaneGold.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Text('🤖', style: TextStyle(fontSize: 18)),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'CONFIGURATION SANDBOX & BOTS',
+                                  style: TextStyle(
+                                    color: LupusColors.arcaneGold,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Injecter des bots et assigner manuellement leurs rôles',
+                                  style: TextStyle(
+                                    color: LupusColors.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.tune_rounded,
+                            color: LupusColors.arcaneGold,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
 
                 // Panneau Bento de composition du Deck de rôles (Deck Builder)
                 RoleSelectorBento(

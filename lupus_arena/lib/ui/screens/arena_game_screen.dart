@@ -559,6 +559,18 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           onThiefSteal: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
                               .thiefSteal(targetId),
+                          onThiefChooseRole: (role) => ref
+                              .read(gameNotifierProvider.notifier)
+                              .thiefChooseRole(role),
+                          onPiperCharm: (targets) => ref
+                              .read(gameNotifierProvider.notifier)
+                              .piperCharmPlayers(targets),
+                          onInfect: (victimId) => ref
+                              .read(gameNotifierProvider.notifier)
+                              .infectWolfInfect(victimId),
+                          onExecuteBotNightAction: () => ref
+                              .read(gameNotifierProvider.notifier)
+                              .executeBotNightAction(),
                           onHunterShoot: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
                               .hunterShoot(targetId),

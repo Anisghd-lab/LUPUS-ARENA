@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -40,7 +40,7 @@ jobs:
         working-directory: lupus_arena
 
       - name: Tests unitaires critiques de non-régression
-        run: flutter test test/werewolf_mechanics_test.dart
+        run: flutter test
         working-directory: lupus_arena
 
   build:
@@ -54,7 +54,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -78,32 +78,24 @@ jobs:
         run: dart run flutter_launcher_icons
         working-directory: lupus_arena
 
+      - name: Prepare Release Assets Directory
+        run: mkdir -p release_assets
+        working-directory: lupus_arena
+
       - name: Build Universal APK
         run: |
           mkdir -p build/app/outputs/symbols
           flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols --android-skip-build-dependency-validation
+          cp build/app/outputs/flutter-apk/app-release.apk release_assets/LupusArena.apk
         working-directory: lupus_arena
 
       - name: Build Split-per-ABI APKs (32-bit, 64-bit, x86_64)
         run: |
           flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/app/outputs/symbols --android-skip-build-dependency-validation
-          echo "=== Taille des APKs générés ==="
-          ls -lh build/app/outputs/flutter-apk/
-        working-directory: lupus_arena
-
-      - name: Prepare Named Release APKs
-        run: |
-          mkdir -p release_assets
-          # 1. APK Universel (Toutes architectures)
-          cp build/app/outputs/flutter-apk/app-release.apk release_assets/LupusArena.apk
-          # 2. APK ARM 64-bit (Smartphones récents)
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release_assets/LupusArena-arm64.apk
-          # 3. APK ARM 32-bit (Smartphones 32-bit)
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk release_assets/LupusArena-arm32.apk
-          # 4. APK x86_64 (Émulateurs / Chromebooks)
           cp build/app/outputs/flutter-apk/app-x86_64-release.apk release_assets/LupusArena-x86_64.apk
-
-          echo "=== Fichiers prêts pour la Release ==="
+          echo "=== Taille des APKs générés ==="
           ls -lh release_assets/
         working-directory: lupus_arena
 
@@ -119,7 +111,7 @@ jobs:
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
           else
-            RAW_VER=$(grep '^version:' lupus_arena/pubspec.yaml | awk '{print $2}')
+            RAW_VER=$(grep '^version:' lupus_arena/pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
             TAG="v$RAW_VER"
           fi
           echo "APP_VERSION=$TAG" >> $GITHUB_ENV
@@ -129,19 +121,20 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.APP_VERSION }}
-          name: "Release ${{ env.APP_VERSION }}"
+          name: "Lupus Arena ${{ env.APP_VERSION }}"
           body: |
-            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
+            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Refonte Moteur & Architecture)
 
-            Mise à jour majeure : Scrutin diurne 15s eager avec voix double du Capitaine, Succession du Capitaine (Testament 10s), Résolution composite de la Sorcière, Déduplication stricte Firebase & Agora, et Cinématique 3D de révélation des défunts au centre de la table.
+            Mise à jour majeure : Synchronisation serveur (`phaseEndsAt`), Intégration des 17 rôles manquants & Quotas scalants, Clean Architecture modulaire, Sharding d'écoute Firebase RTDB, Isolation graphique Skia/Impeller, Table Radiale Adaptative (4 à 30 joueurs) et Purge complète du dépôt.
 
-            #### 🌟 Points Forts & Nouveautés :
-            - **🗳️ Scrutin Diurne Eager (15s)** : Dépouillement immédiat dès que tous les vivants ont voté, application instantanée de la sentence et révélation publique du rôle d'origine. Poids = 2 pour le vote du Capitaine.
-            - **🎖️ Succession du Capitaine (Testament 10s)** : À sa mort, le Capitaine dispose d'une fenêtre d'agonie de 10s pour désigner son successeur via un panneau interactif dédié. Passation automatique d'office si le temps expire ou en cas de déconnexion.
-            - **🧪 Résolution Composite de la Sorcière** : Affichage exclusif de la victime de la meute à la Sorcière vivante. Choix combinables de Potion de Vie (sauver) et Potion de Mort (empoisonner). Décrémentation stricte et déchéance en Simple Villageois dès épuisement des 2 potions.
-            - **🔥 Architecture Firebase & Déduplication Agora Anti-Doublons** : Indexation stricte par ID utilisateur `/rooms/{roomId}/players/{userId}` éliminant les sessions fantômes et PushID aléatoires. Déconnexion préalable systématique du canal RTC Agora avant toute reconnexion pour éviter le rejet par les serveurs Agora.
-            - **🎴 Cinématique 3D de Révélation au Centre du Cercle** : Confinement strict de l'overlay au vide central de la table radiale (largeur <= 95px, hauteur <= 140px) préservant la visibilité des joueurs. Révélation séquentielle FIFO avec retournement 3D (0° à 180°), exposition statique de 2s et disparition fluide.
-            - **🧪 Suite Complète de Tests Automatisés** : Validation à 100% des mécaniques moteur Kotlin (`NouvellesFonctionnalitesReleaseTest`), de la déduplication client (`game_room_deduplication_test.dart`) et des widgets UI (`captain_succession_and_flip_card_test.dart`).
+            #### 🌟 Nouveautés & Optimisations v2.0.0 :
+            - **⏱️ Horloge Canonique Temps Serveur** : Minuteurs synchronisés via timestamp serveur absolu, éliminant tout décalage entre joueurs.
+            - **🎭 Moteur de Rôles Étendus & Quotas Scalants** : 30 cartes arbitrées avec masquage solitaire du Loup Blanc et quotas de potions / visions indexés sur l'effectif.
+            - **⚡ Firebase RTDB Shardé & Écritures Atomiques** : Unification sous `rooms/$roomCode` avec 5 écouteurs partitionnés et réduction de 60% de la bande passante.
+            - **🏛️ Clean Architecture Dart** : Décomposition du monolithe `GameNotifier` en coordinateurs spécialisés (`GamePhase`, `Vote`, `RoleAction`, `RoomPresence`).
+            - **🎨 Performance Graphique Skia/Impeller** : Isolation `RepaintBoundary` et extinction automatique de l'onde de choc vocale hors prise de parole.
+            - **📱 Table Radiale Adaptative Multi-Anneaux** : Double anneau concentrique avec interfoliage angulaire pour 16 à 30 joueurs et cibles tactiles minimales de 48x48 dp.
+            - **🎬 Cinématique des Défunts Dédupliquée** : Révélation 3D séquentielle minutée sans bouclage lors des événements temps réel.
 
             ---
             #### 📲 Binaires Téléchargeables :

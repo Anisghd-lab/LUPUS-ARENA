@@ -272,7 +272,7 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
 
     return Center(
       child: Container(
-        key: ValueKey('death_card_${event.key}'),
+        key: const Key('death_card_container'),
         constraints: const BoxConstraints(
           maxWidth: maxContainerWidth,
           maxHeight: maxContainerHeight,

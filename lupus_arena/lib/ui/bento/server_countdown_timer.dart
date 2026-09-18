@@ -52,6 +52,7 @@ class _ServerCountdownTimerBadgeState extends State<ServerCountdownTimerBadge> {
   }
 
   void _initStream() {
+    _lastDispatchedSecond = -1;
     _timeStream = ServerTimeService().streamRemainingSeconds(
       widget.phaseEndsAt,
       fallbackSeconds: widget.fallbackSeconds,
@@ -93,35 +94,35 @@ class _ServerCountdownTimerBadgeState extends State<ServerCountdownTimerBadge> {
 
           return AnimatedContainer(
             duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
               color: isUrgent
-                  ? const Color(0xE0280707)
+                  ? const Color(0xE0380B0B)
                   : const Color(0xE005070F),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: isUrgent
                     ? LupusColors.arcaneCrimson
-                    : LupusColors.arcaneGold.withValues(alpha: 0.4),
-                width: isUrgent ? 1.5 : 1.0,
+                    : LupusColors.arcaneGold.withValues(alpha: 0.5),
+                width: isUrgent ? 1.6 : 1.0,
               ),
               boxShadow: isUrgent
-                  ? LupusTheme.glowCrimson(opacity: 0.55)
-                  : LupusTheme.glowGold(opacity: 0.2),
+                  ? LupusTheme.glowCrimson(opacity: 0.6)
+                  : LupusTheme.glowGold(opacity: 0.25),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   isUrgent ? '⏳' : (widget.isNight ? '🌙' : '☀️'),
-                  style: const TextStyle(fontSize: 13),
+                  style: const TextStyle(fontSize: 14),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 7),
                 Text(
                   '${remainingSeconds}s',
                   style: TextStyle(
                     fontFamily: 'monospace',
-                    fontSize: 12.5,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.1,
                     color: isUrgent

@@ -1,20 +1,26 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../models/game_phase.dart';
 import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
+import 'server_countdown_timer.dart';
 
 /// Composant Bento affichant la phase actuelle du jeu, la manche et le décompte
 class BentoPhaseCard extends StatelessWidget {
   final GamePhase phase;
   final int round;
   final int timerSeconds;
+  final int? phaseEndsAt;
+  final ValueListenable<int>? countdownListenable;
 
   const BentoPhaseCard({
     super.key,
     required this.phase,
     required this.round,
-    required this.timerSeconds,
+    this.timerSeconds = 30,
+    this.phaseEndsAt,
+    this.countdownListenable,
   });
 
   @override
@@ -74,34 +80,20 @@ class BentoPhaseCard extends StatelessWidget {
                 ),
               ),
 
-              // Timer Circulaire ou Affichage Décompte
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: LupusColors.surfaceElevated,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: LupusColors.border),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.timer_outlined,
-                      size: 15,
-                      color: timerSeconds <= 10 ? LupusColors.bloodRed : LupusColors.textSecondary,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${timerSeconds}s',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: timerSeconds <= 10 ? LupusColors.bloodRed : LupusColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Timer Circulaire ou Affichage Décompte Réactif
+              if (phaseEndsAt != null)
+                ServerCountdownBuilder(
+                  phaseEndsAt: phaseEndsAt,
+                  fallbackSeconds: timerSeconds,
+                  builder: (context, seconds) => _buildTimerBadge(seconds),
+                )
+              else if (countdownListenable != null)
+                ValueListenableBuilder<int>(
+                  valueListenable: countdownListenable!,
+                  builder: (context, seconds, _) => _buildTimerBadge(seconds),
+                )
+              else
+                _buildTimerBadge(timerSeconds),
             ],
           ),
           const SizedBox(height: 12),
@@ -148,6 +140,39 @@ class BentoPhaseCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimerBadge(int seconds) {
+    final isUrgent = seconds <= 10;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: isUrgent ? const Color(0x33DC2626) : LupusColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isUrgent ? LupusColors.bloodRed : LupusColors.border,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isUrgent ? Icons.hourglass_bottom_rounded : Icons.timer_outlined,
+            size: 15,
+            color: isUrgent ? LupusColors.bloodRed : LupusColors.textSecondary,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            '${seconds}s',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isUrgent ? LupusColors.bloodRed : LupusColors.textPrimary,
+            ),
           ),
         ],
       ),

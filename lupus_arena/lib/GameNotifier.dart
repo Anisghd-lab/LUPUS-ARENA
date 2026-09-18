@@ -262,12 +262,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final durationMs = durationSec * 1000;
       final currentServerTime = ServerTimeService().currentServerEstimatedTime;
 
-      if (!updates.containsKey('phaseEndsAt')) {
-        updates['phaseEndsAt'] = currentServerTime + durationMs;
-      }
-      if (!updates.containsKey('phaseStartedAt')) {
-        updates['phaseStartedAt'] = currentServerTime;
-      }
+      updates['phaseEndsAt'] = currentServerTime + durationMs;
+      updates['phaseStartedAt'] = currentServerTime;
       updates['phaseDurationMs'] = durationMs;
     }
 
@@ -3241,10 +3237,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     if (!state.isHost && !state.isAdmin) return;
     if (room.phase == GamePhase.lobby || room.phase == GamePhase.gameOver) return;
-    if (room.phaseEndsAt == null) return;
 
     final currentServerTime = ServerTimeService().currentServerEstimatedTime;
-    final remainingMs = room.phaseEndsAt! - currentServerTime;
+    final targetEndsAt = room.phaseEndsAt ??
+        (currentServerTime +
+            (room.timerSeconds > 0 ? room.timerSeconds : 30) * 1000);
+    final remainingMs = targetEndsAt - currentServerTime;
 
     if (remainingMs <= 0) {
       debugPrint(

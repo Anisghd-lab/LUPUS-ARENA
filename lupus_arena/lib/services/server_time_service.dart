@@ -71,12 +71,19 @@ class ServerTimeService {
   /// Flux réactif générant les secondes restantes à chaque tick de 500ms
   /// Garanti sans effet de bord, indépendant de tout rebuild de l'arbre widget.
   Stream<int> streamRemainingSeconds(int? phaseEndsAt, {int fallbackSeconds = 30}) async* {
+    final startServerTime = currentServerEstimatedTime;
+    final effectiveTargetMs = phaseEndsAt ?? (startServerTime + fallbackSeconds * 1000);
+
     int lastValue = calculateRemainingSeconds(phaseEndsAt, fallbackSeconds: fallbackSeconds);
     yield lastValue;
 
     while (true) {
       await Future.delayed(const Duration(milliseconds: 500));
-      final current = calculateRemainingSeconds(phaseEndsAt, fallbackSeconds: fallbackSeconds);
+      final now = currentServerEstimatedTime;
+      final target = phaseEndsAt ?? effectiveTargetMs;
+      final remainingMs = max(0, target - now);
+      final current = (remainingMs / 1000.0).ceil();
+
       if (current != lastValue) {
         lastValue = current;
         yield current;

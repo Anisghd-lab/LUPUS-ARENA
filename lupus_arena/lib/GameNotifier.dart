@@ -305,9 +305,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'nightVictimId',
       'witchHealed',
       'witchPoisonVictimId',
+      'pyromaniacIgnited',
       'blackWolfTargetId',
       'isTieBreakActive',
       'winner',
+      'morningVictims',
+      'deathAnnouncementQueue',
+      'lastDeathFlip',
     ];
     for (final k in publicKeys) {
       if (updates.containsKey(k)) {
@@ -323,10 +327,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       debugPrint('[Firebase Sync Error] $e');
     }
 
-    if (state.room != null &&
-        (updates.containsKey('phase') ||
-            updates.containsKey('timerSeconds') ||
-            updates.containsKey('currentSpeakerId'))) {
+    if (state.room != null) {
       final updatedPhase = updates.containsKey('phase')
           ? GamePhase.values.firstWhere(
               (p) => p.name == updates['phase'],
@@ -334,11 +335,69 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             )
           : state.room!.phase;
       final updatedTimer = updates.containsKey('timerSeconds')
-          ? (updates['timerSeconds'] as int)
+          ? (updates['timerSeconds'] is num ? (updates['timerSeconds'] as num).toInt() : state.room!.timerSeconds)
           : state.room!.timerSeconds;
+
+      // Appliquer les mises à jour directes sur les joueurs (isAlive, role, isCaptain, etc.)
+      final updatedPlayers = Map<String, PlayerModel>.from(state.room!.players);
+      for (final entry in updates.entries) {
+        if (entry.key.startsWith('players/')) {
+          final parts = entry.key.split('/');
+          if (parts.length >= 3) {
+            final pid = parts[1];
+            final field = parts[2];
+            final p = updatedPlayers[pid];
+            if (p != null) {
+              if (field == 'isAlive') {
+                updatedPlayers[pid] = p.copyWith(isAlive: entry.value == true);
+              } else if (field == 'role') {
+                updatedPlayers[pid] = p.copyWith(role: GameRole.fromId(entry.value.toString()));
+              } else if (field == 'isCaptain') {
+                updatedPlayers[pid] = p.copyWith(isCaptain: entry.value == true);
+              } else if (field == 'isMuted') {
+                updatedPlayers[pid] = p.copyWith(isMuted: entry.value == true);
+              } else if (field == 'isDoused') {
+                updatedPlayers[pid] = p.copyWith(isDoused: entry.value == true);
+              } else if (field == 'isInfected') {
+                updatedPlayers[pid] = p.copyWith(isInfected: entry.value == true);
+              } else if (field == 'potionsVie') {
+                updatedPlayers[pid] = p.copyWith(potionsVie: entry.value as int? ?? p.potionsVie);
+              } else if (field == 'potionsMort') {
+                updatedPlayers[pid] = p.copyWith(potionsMort: entry.value as int? ?? p.potionsMort);
+              } else if (field == 'hasUsedPoisonPotion') {
+                updatedPlayers[pid] = p.copyWith(hasUsedPoisonPotion: entry.value == true);
+              } else if (field == 'hasUsedHealPotion') {
+                updatedPlayers[pid] = p.copyWith(hasUsedHealPotion: entry.value == true);
+              }
+            }
+          }
+        }
+      }
+
+      final rawMorningVictims = updates['morningVictims'];
+      final List<String> parsedMorningVictims = rawMorningVictims is List
+          ? List<String>.from(rawMorningVictims.map((e) => e.toString()))
+          : state.room!.morningVictims;
+
+      final rawDeathQueue = updates['deathAnnouncementQueue'];
+      final List<Map<String, dynamic>> parsedDeathQueue = rawDeathQueue is List
+          ? List<Map<String, dynamic>>.from(rawDeathQueue.map((e) => Map<String, dynamic>.from(e as Map)))
+          : state.room!.deathAnnouncementQueue;
+
+      final rawLastFlip = updates['lastDeathFlip'];
+      final Map<String, dynamic>? parsedLastFlip = rawLastFlip is Map
+          ? Map<String, dynamic>.from(rawLastFlip)
+          : state.room!.lastDeathFlip;
+
+      final rawLogs = updates['logs'];
+      final List<String> parsedLogs = rawLogs is List
+          ? List<String>.from(rawLogs.map((e) => e.toString()))
+          : state.room!.logs;
+
       final provisionalRoom = state.room!.copyWith(
         phase: updatedPhase,
         timerSeconds: updatedTimer,
+        players: updatedPlayers,
         phaseEndsAt: updates.containsKey('phaseEndsAt')
             ? (updates['phaseEndsAt'] as int?)
             : state.room!.phaseEndsAt,
@@ -351,6 +410,31 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         currentSpeakerId: updates.containsKey('currentSpeakerId')
             ? updates['currentSpeakerId'] as String?
             : state.room!.currentSpeakerId,
+        captainId: updates.containsKey('captainId')
+            ? updates['captainId'] as String?
+            : state.room!.captainId,
+        pendingHunterId: updates.containsKey('pendingHunterId')
+            ? updates['pendingHunterId'] as String?
+            : state.room!.pendingHunterId,
+        pendingCaptainId: updates.containsKey('pendingCaptainId')
+            ? updates['pendingCaptainId'] as String?
+            : state.room!.pendingCaptainId,
+        nightVictimId: updates.containsKey('nightVictimId')
+            ? updates['nightVictimId'] as String?
+            : state.room!.nightVictimId,
+        witchHealed: updates.containsKey('witchHealed')
+            ? updates['witchHealed'] == true
+            : state.room!.witchHealed,
+        witchPoisonVictimId: updates.containsKey('witchPoisonVictimId')
+            ? updates['witchPoisonVictimId'] as String?
+            : state.room!.witchPoisonVictimId,
+        pyromaniacIgnited: updates.containsKey('pyromaniacIgnited')
+            ? updates['pyromaniacIgnited'] == true
+            : state.room!.pyromaniacIgnited,
+        morningVictims: parsedMorningVictims,
+        deathAnnouncementQueue: parsedDeathQueue,
+        lastDeathFlip: parsedLastFlip,
+        logs: parsedLogs,
       );
       state = state.copyWith(room: provisionalRoom);
       _applyVoiceRulesForPhase(provisionalRoom);
@@ -1522,8 +1606,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (state.room == null) return;
 
     final room = state.room!;
-    if (room.phase == GamePhase.morningAnnouncement ||
-        room.phase == GamePhase.dayDebate ||
+    if (room.phase == GamePhase.dayDebate ||
+        room.phase == GamePhase.dayVoting ||
+        room.phase == GamePhase.dayResolution ||
         room.phase == GamePhase.gameOver) {
       return;
     }
@@ -1533,10 +1618,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final List<String> effectiveDeaths = [];
 
       // 1. Victime des Loups
-      final wolfVictimId = room.nightVictimId ?? _tallyWerewolfVotes();
+      final wolfVictimId = room.nightVictimId ?? state.room?.nightVictimId ?? _tallyWerewolfVotes();
       if (wolfVictimId != null) {
         final isProtected = room.currentProtectedPlayerId == wolfVictimId;
-        final isHealed = room.witchHealed;
+        final isHealed = room.witchHealed || (state.room?.witchHealed == true);
 
         if (isProtected) {
           logs.add(
@@ -1575,9 +1660,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
 
       // 2. Victime du poison
-      if (room.witchPoisonVictimId != null &&
-          !effectiveDeaths.contains(room.witchPoisonVictimId)) {
-        effectiveDeaths.add(room.witchPoisonVictimId!);
+      final poisonVictimId = room.witchPoisonVictimId ?? state.room?.witchPoisonVictimId;
+      if (poisonVictimId != null &&
+          !effectiveDeaths.contains(poisonVictimId)) {
+        effectiveDeaths.add(poisonVictimId);
       }
 
       // 2b. Pyromane
@@ -1624,7 +1710,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             }
           } catch (_) {}
           updates['players/$id/role'] = revealedRole.id;
-          final cause = (id == room.witchPoisonVictimId)
+          final cause = (id == poisonVictimId)
               ? 'POISON_SORCIERE'
               : 'MORSURE_LOUPS';
           final deathEntry = {
@@ -3720,6 +3806,29 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         return;
       }
 
+      final rawMorningVictims = data['morningVictims'];
+      final List<String> parsedMorningVictims = [];
+      if (rawMorningVictims is List) {
+        for (final v in rawMorningVictims) {
+          if (v != null) parsedMorningVictims.add(v.toString());
+        }
+      }
+
+      final rawDeathQueue = data['deathAnnouncementQueue'];
+      final List<Map<String, dynamic>> parsedDeathQueue = [];
+      if (rawDeathQueue is List) {
+        for (final item in rawDeathQueue) {
+          if (item is Map) {
+            parsedDeathQueue.add(Map<String, dynamic>.from(item));
+          }
+        }
+      }
+
+      final rawLastFlip = data['lastDeathFlip'];
+      final Map<String, dynamic>? parsedLastFlip = (rawLastFlip is Map)
+          ? Map<String, dynamic>.from(rawLastFlip)
+          : null;
+
       final updatedRoom = state.room!.copyWith(
         phase: parsedPhase,
         round: data['round'] is int ? data['round'] as int : state.room!.round,
@@ -3747,10 +3856,20 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         witchHealed: data['witchHealed'] == true,
         witchPoisonVictimId: data['witchPoisonVictimId']?.toString() ??
             state.room!.witchPoisonVictimId,
+        pyromaniacIgnited: data['pyromaniacIgnited'] == true,
         blackWolfTargetId:
             data['blackWolfTargetId']?.toString() ?? state.room!.blackWolfTargetId,
         winner: data['winner']?.toString() ?? state.room!.winner,
         isTieBreakActive: data['isTieBreakActive'] == true,
+        morningVictims: data.containsKey('morningVictims')
+            ? parsedMorningVictims
+            : state.room!.morningVictims,
+        deathAnnouncementQueue: data.containsKey('deathAnnouncementQueue')
+            ? parsedDeathQueue
+            : state.room!.deathAnnouncementQueue,
+        lastDeathFlip: data.containsKey('lastDeathFlip')
+            ? parsedLastFlip
+            : state.room!.lastDeathFlip,
       );
 
       state = state.copyWith(room: updatedRoom);
@@ -3796,6 +3915,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             );
           }
         });
+      } else if (rawPlayers is List) {
+        for (int i = 0; i < rawPlayers.length; i++) {
+          final val = rawPlayers[i];
+          if (val is Map) {
+            final pid = (val['id'] ?? '$i').toString();
+            parsedPlayers[pid] = PlayerModel.fromMap(
+              val,
+              pid,
+              state.currentUserId,
+              roomCode,
+            );
+          }
+        }
       }
 
       final updatedRoom = state.room!.copyWith(players: parsedPlayers);

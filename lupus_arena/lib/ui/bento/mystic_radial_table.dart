@@ -202,7 +202,9 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     required int totalPlayers,
     required bool isDoubleRing,
   }) {
-    final double maxRadius = (tableSize / 2) - 28.0;
+    // Rayon dynamique borné pour garantir une disposition harmonieuse sans écrasement
+    final double calculatedRadius = (tableSize / 2) - 30.0;
+    final double maxRadius = calculatedRadius.clamp(115.0, 240.0);
 
     if (isDoubleRing) {
       final outerCount = (totalPlayers + 1) ~/ 2;
@@ -333,6 +335,9 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                             child: _buildCenterTargetCard(
                               selectedPlayer,
                               isCompact: isDoubleRing,
+                              maxRadius: isDoubleRing
+                                  ? dimensions.innerRadius
+                                  : dimensions.radius,
                             ),
                           ),
                   ),
@@ -358,14 +363,18 @@ class _MysticRadialTableState extends State<MysticRadialTable>
   Widget _buildCenterTargetCard(
     PlayerModel? selectedPlayer, {
     bool isCompact = false,
+    double maxRadius = 140.0,
   }) {
-    final double cardWidth = isCompact ? 104.0 : 126.0;
+    final double baseWidth = isCompact ? 104.0 : 126.0;
+    // Borner la boîte centrale pour qu'elle ne dépasse jamais 88% du rayon effectif
+    final double cardWidth = math.min(baseWidth, maxRadius * 0.88);
     final double hPadding = isCompact ? 6.0 : 8.0;
     final double vPadding = isCompact ? 6.0 : 10.0;
     final double nameFontSize = isCompact ? 10.0 : 11.5;
     final double badgeFontSize = isCompact ? 7.5 : 8.5;
 
     return Container(
+      constraints: BoxConstraints(maxWidth: cardWidth),
       width: cardWidth,
       padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: vPadding),
       decoration: BoxDecoration(

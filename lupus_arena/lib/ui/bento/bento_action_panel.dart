@@ -245,54 +245,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       color: LupusColors.textMuted.withValues(alpha: 0.8),
                     ),
                   ),
-                  if (widget.countdownListenable != null) ...[
-                    const SizedBox(width: 8),
-                    ValueListenableBuilder<int>(
-                      valueListenable: widget.countdownListenable!,
-                      builder: (context, seconds, _) {
-                        final isUrgent = seconds <= 10;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1.5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isUrgent
-                                ? const Color(0x44DC2626)
-                                : const Color(0x2A1E1B4B),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: isUrgent
-                                  ? LupusColors.arcaneCrimson
-                                  : LupusColors.arcaneGold.withValues(alpha: 0.5),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                isUrgent ? '⏳' : '⏱️',
-                                style: const TextStyle(fontSize: 9),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${seconds}s',
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: isUrgent
-                                      ? const Color(0xFFFFA4A4)
-                                      : LupusColors.arcaneGold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
                 ],
               ),
               if (selectedTarget != null)

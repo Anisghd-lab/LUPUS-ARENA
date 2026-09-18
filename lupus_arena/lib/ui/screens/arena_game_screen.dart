@@ -1094,53 +1094,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
               color: Color(0xFFC7D2FE),
             ),
           ),
-          const SizedBox(height: 4),
-
-          // Badge central immersif du temps restant visible par TOUS les joueurs
-          ValueListenableBuilder<int>(
-            valueListenable: _countdownNotifier,
-            builder: (context, seconds, _) {
-              final isUrgent = seconds <= 10;
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2.5),
-                decoration: BoxDecoration(
-                  color: isUrgent
-                      ? const Color(0x66450A0A)
-                      : const Color(0x331E1B4B),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isUrgent
-                        ? LupusColors.arcaneCrimson
-                        : LupusColors.arcanePurple.withValues(alpha: 0.4),
-                    width: isUrgent ? 1.2 : 0.8,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isUrgent
-                          ? Icons.hourglass_bottom_rounded
-                          : (phase.isNight ? Icons.nightlight_round : Icons.wb_sunny_rounded),
-                      size: 11,
-                      color: isUrgent ? const Color(0xFFFFA4A4) : const Color(0xFFC7D2FE),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      'Temps restant : ${seconds}s',
-                      style: TextStyle(
-                        fontFamily: 'serif',
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: isUrgent ? const Color(0xFFFFA4A4) : const Color(0xFFE0E7FF),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
 
           // Alerte Notification Canal Privé des Loups-Garous (sans overflow)
           if (phase == GamePhase.nightWerewolves) ...[

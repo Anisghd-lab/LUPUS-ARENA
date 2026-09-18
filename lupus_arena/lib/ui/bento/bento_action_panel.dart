@@ -34,6 +34,8 @@ class BentoActionPanel extends StatefulWidget {
   final VoidCallback? onPyromaniacPass;
   final bool isAdmin;
   final VoidCallback? onPassDebate;
+  final ValueListenable<int>? countdownListenable;
+  final ValueChanged<String>? onSelectTarget;
 
   const BentoActionPanel({
     super.key,
@@ -60,6 +62,8 @@ class BentoActionPanel extends StatefulWidget {
     this.onPyromaniacIgnite,
     this.onPyromaniacPass,
     this.onPassDebate,
+    this.countdownListenable,
+    this.onSelectTarget,
   });
 
   @override
@@ -71,6 +75,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   String? _cupidLover1Id;
   String? _cupidLover2Id;
 
+  // Sélection du successeur par le Capitaine défunt (Testament)
+  String? _selectedCaptainSuccessorId;
+
   @override
   void didUpdateWidget(covariant BentoActionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -79,6 +86,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         oldWidget.room.round != widget.room.round) {
       _cupidLover1Id = null;
       _cupidLover2Id = null;
+      _selectedCaptainSuccessorId = null;
     }
   }
 
@@ -90,6 +98,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final isAlive = me.isAlive;
     final role = me.role;
     final phase = widget.room.phase;
+    final isDyingCaptain = (widget.room.pendingCaptainId == widget.currentUserId) ||
+        (me.isCaptain && !isAlive) ||
+        (widget.room.captainId == widget.currentUserId && !isAlive);
     final selectedTarget = widget.selectedTargetId != null
         ? widget.room.players[widget.selectedTargetId]
         : null;
@@ -109,34 +120,40 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 context.tr('strategic_actions'),
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                  color: isAlive ? LupusColors.textSecondary : LupusColors.textMuted,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: LupusColors.textMuted.withValues(alpha: 0.8),
                 ),
               ),
               if (selectedTarget != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(
-                    color: LupusColors.surfaceLight,
+                    color: LupusColors.arcaneGold.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: LupusColors.arcaneGold.withValues(alpha: 0.5),
-                      width: 1,
+                      color: LupusColors.arcaneGold.withValues(alpha: 0.3),
+                      width: 0.5,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.gps_fixed_rounded,
-                          size: 11, color: LupusColors.arcaneGold),
+                      Container(
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: LupusColors.arcaneGold,
+                        ),
+                      ),
                       const SizedBox(width: 4),
                       Text(
-                        context.tr('target_label', {'name': selectedTarget.name}),
+                        selectedTarget.name,
                         style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: LupusColors.textPrimary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: LupusColors.arcaneGold,
                         ),
                       ),
                     ],
@@ -158,10 +175,13 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     (widget.room.pendingHunterId == widget.currentUserId || widget.isAdmin)) ...[
                   _buildHunterSection(selectedTarget),
                 ]
-                // 2. CAPITAINE DÉFUNT QUI TRANSMET SON ÉCHARPE
-                else if (phase == GamePhase.captainSuccession &&
-                    (widget.room.pendingCaptainId == widget.currentUserId || widget.isAdmin)) ...[
-                  _buildCaptainSuccessionSection(selectedTarget),
+                // 2. CAPITAINE DÉFUNT (TESTAMENT) OU SPECTATEUR / VILLAGE
+                else if (phase == GamePhase.captainSuccession) ...[
+                  if (isDyingCaptain || widget.isAdmin) ...[
+                    _buildCaptainSuccessionSection(selectedTarget),
+                  ] else ...[
+                    _buildCaptainSuccessionSpectatorSection(),
+                  ],
                 ]
                 // 3. JOUEUR ÉLIMINÉ SANS ACTION PARTICULIÈRE
                 else if (!isAlive && !widget.isAdmin) ...[
@@ -1353,58 +1373,417 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Capitaine (Succession) : Bouton direct [Nommer (Nom)] et [D'office]
+  /// Module Capitaine (Testament du Capitaine) : Vue dédiée pour le Capitaine mourant
   Widget _buildCaptainSuccessionSection(PlayerModel? selectedTarget) {
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LupusColors.sunAmber,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: (selectedTarget != null &&
-                      selectedTarget.isAlive &&
-                      selectedTarget.id != widget.currentUserId)
-                  ? () => widget.onCaptainPass?.call(selectedTarget.id)
-                  : null,
-              icon: const Icon(Icons.military_tech_rounded, size: 15),
-              label: Text(
-                selectedTarget != null
-                    ? context.tr('name_captain_target', {'name': selectedTarget.name})
-                    : context.tr('name_captain_select'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+    final countdownListenable = widget.countdownListenable ??
+        ValueNotifier<int>(widget.room.timerSeconds > 0 ? widget.room.timerSeconds : 10);
+
+    return ValueListenableBuilder<int>(
+      valueListenable: countdownListenable,
+      builder: (context, countdown, _) {
+        if (countdown <= 0) {
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0x33450A0A),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: LupusColors.arcaneCrimson.withValues(alpha: 0.4),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          height: 40,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0x33450A0A),
-              foregroundColor: LupusColors.textMuted,
-              side: BorderSide(color: LupusColors.border.withValues(alpha: 0.5)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(LupusColors.arcaneCrimson),
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  "Temps expiré — Transmission d'office du titre...",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFFFA4A4),
+                  ),
+                ),
+              ],
             ),
-            onPressed: widget.onNextPhase,
-            icon: const Icon(Icons.casino_outlined, size: 14),
-            label: const Text(
-              "D'office",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+          );
+        }
+
+        final effectiveSuccessorId =
+            _selectedCaptainSuccessorId ?? selectedTarget?.id;
+        final effectiveSuccessor = effectiveSuccessorId != null
+            ? widget.room.players[effectiveSuccessorId]
+            : null;
+        final isValidSuccessor = effectiveSuccessor != null &&
+            effectiveSuccessor.isAlive &&
+            effectiveSuccessor.id != widget.currentUserId;
+
+        final survivors = widget.room.alivePlayers
+            .where((p) => p.id != widget.currentUserId)
+            .toList();
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // En-tête : « Testament du Capitaine » + Compte à rebours circulaire de 10s
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0x332A1D05),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: LupusColors.arcaneGold.withValues(alpha: 0.4),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: LupusColors.arcaneGold.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.history_edu_rounded,
+                      size: 16,
+                      color: LupusColors.arcaneGold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Testament du Capitaine',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: LupusColors.arcaneGold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Text(
+                          "Désignez l'héritier de l'écharpe parmi les survivants",
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: LupusColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Compte à rebours circulaire de 10 secondes
+                  SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          value: (countdown / 10.0).clamp(0.0, 1.0),
+                          strokeWidth: 2.5,
+                          backgroundColor: Colors.white12,
+                          valueColor: AlwaysStoppedAnimation(
+                            countdown <= 3
+                                ? LupusColors.arcaneCrimson
+                                : LupusColors.arcaneGold,
+                          ),
+                        ),
+                        Text(
+                          '$countdown',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                            color: countdown <= 3
+                                ? const Color(0xFFFFA4A4)
+                                : LupusColors.arcaneGold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 6),
+
+            // Liste interactive des survivants
+            if (survivors.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: Text(
+                  'Aucun survivant disponible.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: LupusColors.textMuted),
+                ),
+              )
+            else
+              SizedBox(
+                height: 44,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: survivors.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (context, i) {
+                    final survivor = survivors[i];
+                    final isChosen = survivor.id == effectiveSuccessorId;
+                    return InkWell(
+                      onTap: () {
+                        setState(() => _selectedCaptainSuccessorId = survivor.id);
+                        widget.onSelectTarget?.call(survivor.id);
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isChosen
+                              ? LupusColors.arcaneGold.withValues(alpha: 0.22)
+                              : const Color(0x440F172A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isChosen
+                                ? LupusColors.arcaneGold
+                                : LupusColors.border.withValues(alpha: 0.4),
+                            width: isChosen ? 1.4 : 0.8,
+                          ),
+                          boxShadow: isChosen
+                              ? [
+                                  BoxShadow(
+                                    color: LupusColors.arcaneGold.withValues(alpha: 0.35),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundColor: isChosen
+                                  ? LupusColors.arcaneGold
+                                  : const Color(0xFF2E3856),
+                              child: Text(
+                                survivor.name.isNotEmpty
+                                    ? survivor.name[0].toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  color: isChosen ? Colors.black : Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              survivor.name,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isChosen ? FontWeight.w900 : FontWeight.w700,
+                                color: isChosen ? Colors.white : LupusColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 6),
+
+            // Bouton doré : « Léguer l'écharpe à [Nom] »
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isValidSuccessor
+                            ? LupusColors.arcaneGold
+                            : const Color(0x333F2E05),
+                        foregroundColor: isValidSuccessor
+                            ? Colors.black
+                            : LupusColors.textMuted,
+                        disabledBackgroundColor: const Color(0x223F2E05),
+                        disabledForegroundColor: LupusColors.textMuted,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: isValidSuccessor ? 3 : 0,
+                      ),
+                      onPressed: isValidSuccessor
+                          ? () => widget.onCaptainPass?.call(effectiveSuccessor.id)
+                          : null,
+                      icon: Icon(
+                        Icons.military_tech_rounded,
+                        size: 16,
+                        color: isValidSuccessor ? Colors.black : LupusColors.textMuted,
+                      ),
+                      label: Text(
+                        isValidSuccessor
+                            ? "Léguer l'écharpe à ${effectiveSuccessor.name}"
+                            : "Choisir un survivant...",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          color: isValidSuccessor ? Colors.black : LupusColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 40,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0x33450A0A),
+                      foregroundColor: LupusColors.textMuted,
+                      side: BorderSide(
+                        color: LupusColors.border.withValues(alpha: 0.5),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: widget.onNextPhase,
+                    icon: const Icon(Icons.casino_outlined, size: 14),
+                    label: const Text(
+                      "D'office",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Module Spectateur / Village : Bandeau immersif non interactif avec compte à rebours synchronisé de 10s
+  Widget _buildCaptainSuccessionSpectatorSection() {
+    final countdownListenable = widget.countdownListenable ??
+        ValueNotifier<int>(widget.room.timerSeconds > 0 ? widget.room.timerSeconds : 10);
+
+    return ValueListenableBuilder<int>(
+      valueListenable: countdownListenable,
+      builder: (context, countdown, _) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xE60D111F),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: LupusColors.arcaneGold.withValues(alpha: 0.35),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: LupusColors.arcaneGold.withValues(alpha: 0.12),
+                blurRadius: 10,
+                spreadRadius: 1,
+              ),
+            ],
           ),
-        ),
-      ],
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: LupusColors.arcaneGold.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: LupusColors.arcaneGold.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.military_tech_outlined,
+                  size: 18,
+                  color: LupusColors.arcaneGold,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Le Capitaine agonisant choisit son successeur...',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Le village retient son souffle devant ses dernières volontés.',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: LupusColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Compte à rebours synchronisé de 10s
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: (countdown / 10.0).clamp(0.0, 1.0),
+                      strokeWidth: 2.5,
+                      backgroundColor: Colors.white10,
+                      valueColor: AlwaysStoppedAnimation(
+                        countdown <= 3
+                            ? LupusColors.arcaneCrimson
+                            : LupusColors.arcaneGold,
+                      ),
+                    ),
+                    Text(
+                      '$countdown',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: countdown <= 3
+                            ? const Color(0xFFFFA4A4)
+                            : LupusColors.arcaneGold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

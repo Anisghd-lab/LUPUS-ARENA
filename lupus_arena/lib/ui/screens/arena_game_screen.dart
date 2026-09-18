@@ -564,7 +564,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                               .hunterShoot(targetId),
                           onCaptainPass: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
-                              .captainPassBadge(targetId),
+                              .designateCaptainSuccessor(targetId),
                           onPyromaniacDouse: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
                               .pyromaniacDouse(targetId),
@@ -580,6 +580,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           onPassDebate: () => ref
                               .read(gameNotifierProvider.notifier)
                               .passTurnDebate(),
+                          countdownListenable: _countdownNotifier,
+                          onSelectTarget: (id) =>
+                              setState(() => _selectedPlayerId = id),
                         ),
                         const SizedBox(height: 6),
 

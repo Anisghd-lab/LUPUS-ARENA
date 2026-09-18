@@ -2065,6 +2065,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     BuildContext context,
     GameRoom room,
     LupusGameState gameState,
+  ) {
     return GameOverScreen(
       room: room,
       gameState: gameState,

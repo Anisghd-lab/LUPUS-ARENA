@@ -7,7 +7,7 @@ class PlayerModel {
   final String name;
   final int avatarIndex;
   final GameRole role;
-  final GameRole? roleInitial; // Rôle originel au début de la manche
+  final GameRole? _roleInitial; // Rôle originel au début de la manche
   final bool estDechu; // Si le rôle spécial (Sorcière, Voyante) est devenu Simple Villageois
   final bool isAlive;
   final bool isHost;
@@ -42,7 +42,7 @@ class PlayerModel {
     required this.name,
     this.avatarIndex = 0,
     this.role = GameRole.simpleVillager,
-    this.roleInitial,
+    GameRole? roleInitial,
     this.estDechu = false,
     this.isAlive = true,
     this.isHost = false,
@@ -71,10 +71,11 @@ class PlayerModel {
     this.potionsVie = 1,
     this.potionsMort = 1,
     this.visionsRestantes = 1,
-  });
+  }) : _roleInitial = roleInitial;
 
   /// Rôle initial de référence (préservé même si le rôle actif est déchu)
-  GameRole get trueOriginalRole => initialRole ?? roleInitial ?? role;
+  GameRole get roleInitial => _roleInitial ?? initialRole ?? role;
+  GameRole get trueOriginalRole => initialRole ?? _roleInitial ?? role;
 
   PlayerModel copyWith({
     String? id,
@@ -117,7 +118,7 @@ class PlayerModel {
       name: name ?? this.name,
       avatarIndex: avatarIndex ?? this.avatarIndex,
       role: role ?? this.role,
-      roleInitial: roleInitial ?? this.roleInitial,
+      roleInitial: roleInitial ?? _roleInitial,
       estDechu: estDechu ?? this.estDechu,
       isAlive: isAlive ?? this.isAlive,
       isHost: isHost ?? this.isHost,
@@ -163,7 +164,7 @@ class PlayerModel {
       );
       if (decrypted != null) return decrypted;
     }
-    return initialRole ?? roleInitial ?? role;
+    return initialRole ?? _roleInitial ?? role;
   }
 
   Map<String, dynamic> toMap() {
@@ -172,7 +173,7 @@ class PlayerModel {
       'name': name,
       'avatarIndex': avatarIndex,
       'role': role.name,
-      if (roleInitial != null) 'roleInitial': roleInitial!.name,
+      if (_roleInitial != null) 'roleInitial': _roleInitial!.name,
       if (initialRole != null) 'initialRole': initialRole!.name,
       'estDechu': estDechu,
       'isAlive': isAlive,

@@ -4,10 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../AgoraVoiceService.dart';
 import '../../GameNotifier.dart';
-import '../../models/game_role.dart';
 import '../../models/game_room.dart';
 import '../../models/player_model.dart';
-import '../../services/app_translations.dart';
 import '../bento/bento_card.dart';
 import '../bento/role_card_image.dart';
 import '../theme/lupus_theme.dart';
@@ -54,7 +52,6 @@ class _GameOverScreenState extends ConsumerState<GameOverScreen>
   int _secondsRemaining = 60;
   late AnimationController _bannerAnimController;
   late Animation<double> _bannerScaleAnimation;
-  late Animation<double> _bannerGlowAnimation;
 
   @override
   void initState() {
@@ -69,13 +66,6 @@ class _GameOverScreenState extends ConsumerState<GameOverScreen>
     _bannerScaleAnimation = CurvedAnimation(
       parent: _bannerAnimController,
       curve: Curves.easeOutBack,
-    );
-
-    _bannerGlowAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _bannerAnimController,
-        curve: Curves.easeInOut,
-      ),
     );
 
     _bannerAnimController.forward();
@@ -320,7 +310,7 @@ class _GameOverScreenState extends ConsumerState<GameOverScreen>
     } else if (w == 'abominablesectarian' || w == 'sectleader') {
       return role == GameRole.sectLeader;
     } else if (w == 'village' || w == 'villagers') {
-      return !role.isEvil && !role.defaultTeam.isSolo;
+      return !role.isEvil && role.defaultTeam != Team.solo;
     }
     return false;
   }

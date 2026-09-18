@@ -150,9 +150,16 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
         role: GameRole.fromString(ev.roleOriginal?.toString()),
         cause: ev.causeMort?.toString() ?? 'VOTE_VILLAGE',
       );
-      _pendingQueue.add(deathEvent);
+      if (deathEvent.playerId.isNotEmpty) {
+        _pendingQueue.add(deathEvent);
+      }
     } else {
-      _pendingQueue.addAll(widget.queue);
+      final seenIds = <String>{};
+      for (final ev in widget.queue) {
+        if (ev.playerId.isNotEmpty && seenIds.add(ev.playerId)) {
+          _pendingQueue.add(ev);
+        }
+      }
     }
 
     // 1. Retournement 3D (0° -> 180°) en 700ms avec courbe fluide
@@ -199,11 +206,11 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
     super.didUpdateWidget(oldWidget);
     // Filtrage strict : Ne JAMAIS réinjecter les défunts déjà joués ou en cours de lecture
     for (final ev in widget.queue) {
-      final key = ev.key;
-      final isAlreadyHandled = _playedKeys.contains(key) ||
-          _pendingQueue.any((e) => e.key == key) ||
-          (_currentEvent?.key == key);
-      if (!isAlreadyHandled) {
+      final isAlreadyHandled = _playedKeys.contains(ev.key) ||
+          _playedKeys.contains(ev.playerId) ||
+          _pendingQueue.any((e) => e.playerId == ev.playerId) ||
+          (_currentEvent?.playerId == ev.playerId);
+      if (!isAlreadyHandled && ev.playerId.isNotEmpty) {
         _pendingQueue.add(ev);
       }
     }
@@ -226,6 +233,7 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
 
     final nextEvent = _pendingQueue.removeAt(0);
     _playedKeys.add(nextEvent.key);
+    _playedKeys.add(nextEvent.playerId);
 
     setState(() {
       _currentEvent = nextEvent;

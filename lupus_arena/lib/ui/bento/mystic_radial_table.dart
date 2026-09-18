@@ -309,7 +309,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                             widget.deathQueue!.isNotEmpty)
                         ? RevealedDeathCardOverlay(
                             key: ValueKey(widget.deathQueue!
-                                .map((e) => e.key)
+                                .map((e) => e.playerId)
                                 .join('_')),
                             queue: widget.deathQueue!,
                             onSequenceCompleted: widget.onDeathSequenceCompleted,

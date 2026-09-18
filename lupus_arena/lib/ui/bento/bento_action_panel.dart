@@ -292,27 +292,47 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 0. BARRE DE CONTRÔLE GODMODE POUR LES TOURS DE BOTS
-                if (widget.isAdmin && phase.isNight) ...[
-                  _buildGodmodeBotControlBar(phase),
-                  const SizedBox(height: 6),
-                ],
-
                 // 1. CHASSEUR AU DERNIER SOUFFLE
-                if (phase == GamePhase.hunterDeathChoice &&
-                    (widget.room.pendingHunterId == widget.currentUserId || widget.isAdmin)) ...[
-                  _buildHunterSection(selectedTarget),
+                if (phase == GamePhase.hunterDeathChoice) ...[
+                  if (widget.room.pendingHunterId == widget.currentUserId) ...[
+                    _buildHunterSection(selectedTarget),
+                  ] else if (widget.room.pendingHunterId != null && widget.room.pendingHunterId!.startsWith('bot_')) ...[
+                    _buildBotActivityBanner(
+                      widget.room.players[widget.room.pendingHunterId!] ?? me,
+                      '🤖 Le Chasseur Bot ajuste son ultime tir...',
+                    ),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: LupusColors.textMuted.withValues(alpha: 0.2)),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'Le Chasseur désigne sa dernière cible...',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: LupusColors.textMuted, fontSize: 11),
+                      ),
+                    ),
+                  ],
                 ]
                 // 2. CAPITAINE DÉFUNT (TESTAMENT) OU SPECTATEUR / VILLAGE
                 else if (phase == GamePhase.captainSuccession) ...[
-                  if (isDyingCaptain || widget.isAdmin) ...[
+                  if (isDyingCaptain) ...[
                     _buildCaptainSuccessionSection(selectedTarget),
+                  ] else if ((widget.room.pendingCaptainId ?? widget.room.captainId)?.startsWith('bot_') == true) ...[
+                    _buildBotActivityBanner(
+                      widget.room.players[widget.room.pendingCaptainId ?? widget.room.captainId ?? ''] ?? me,
+                      '🤖 Le Capitaine Bot transmet son brassard...',
+                    ),
                   ] else ...[
                     _buildCaptainSuccessionSpectatorSection(),
                   ],
                 ]
                 // 3. JOUEUR ÉLIMINÉ SANS ACTION PARTICULIÈRE
-                else if (!isAlive && !widget.isAdmin) ...[
+                else if (!isAlive) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                     decoration: BoxDecoration(
@@ -329,49 +349,74 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   ),
                 ]
                 // 4. VOLEUR (NUIT 1)
-                else if (phase == GamePhase.nightThief && (role == GameRole.thief || widget.isAdmin)) ...[
-                  _buildThiefSection(selectedTarget),
+                else if (phase == GamePhase.nightThief) ...[
+                  if (role == GameRole.thief) ...[
+                    _buildThiefSection(selectedTarget),
+                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
+                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
+                  ],
                 ]
                 // 5. CUPIDON (NUIT 1)
-                else if (phase == GamePhase.nightCupid && (role == GameRole.cupid || widget.isAdmin)) ...[
-                  _buildCupidSection(selectedTarget),
+                else if (phase == GamePhase.nightCupid) ...[
+                  if (role == GameRole.cupid) ...[
+                    _buildCupidSection(selectedTarget),
+                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
+                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
+                  ],
                 ]
                 // 6. VOYANTE
-                else if (phase == GamePhase.nightSeer && (role == GameRole.seer || widget.isAdmin)) ...[
-                  _buildSeerSection(selectedTarget),
+                else if (phase == GamePhase.nightSeer) ...[
+                  if (role == GameRole.seer) ...[
+                    _buildSeerSection(selectedTarget),
+                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
+                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
+                  ],
                 ]
                 // 7. SALVATEUR
-                else if (phase == GamePhase.nightDefender && (role == GameRole.defender || widget.isAdmin)) ...[
-                  _buildDefenderSection(selectedTarget),
+                else if (phase == GamePhase.nightDefender) ...[
+                  if (role == GameRole.defender) ...[
+                    _buildDefenderSection(selectedTarget),
+                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
+                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
+                  ],
                 ]
-                // 8. LOUPS-GAROUS
-                else if (phase == GamePhase.nightWerewolves && (role.isEvil || widget.isAdmin)) ...[
-                  _buildWerewolvesSection(me, selectedTarget),
-                ]
-                // 8.B LOUP NOIR (Unifié dans la section Loups-Garous)
-                else if (phase == GamePhase.nightBlackWolf &&
-                    (role.isEvil || widget.isAdmin)) ...[
-                  _buildWerewolvesSection(me, selectedTarget),
+                // 8. LOUPS-GAROUS & LOUP NOIR
+                else if (phase == GamePhase.nightWerewolves || phase == GamePhase.nightBlackWolf) ...[
+                  if (role.isEvil) ...[
+                    _buildWerewolvesSection(me, selectedTarget),
+                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
+                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
+                  ],
                 ]
                 // 9. SORCIÈRE
-                else if (phase == GamePhase.nightWitch && (role == GameRole.witch || widget.isAdmin)) ...[
-                  _buildWitchSection(
-                    widget.room.playerList.firstWhere(
-                      (p) => p.role == GameRole.witch,
-                      orElse: () => me,
+                else if (phase == GamePhase.nightWitch) ...[
+                  if (role == GameRole.witch) ...[
+                    _buildWitchSection(
+                      widget.room.playerList.firstWhere(
+                        (p) => p.role == GameRole.witch,
+                        orElse: () => me,
+                      ),
+                      selectedTarget,
                     ),
-                    selectedTarget,
-                  ),
+                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
+                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
+                  ],
                 ]
                 // 9.B PYROMANE
-                else if (phase == GamePhase.nightPyromaniac &&
-                    (role == GameRole.pyromaniac || widget.isAdmin)) ...[
-                  _buildPyromaniacSection(selectedTarget),
+                else if (phase == GamePhase.nightPyromaniac) ...[
+                  if (role == GameRole.pyromaniac) ...[
+                    _buildPyromaniacSection(selectedTarget),
+                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
+                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
+                  ],
                 ]
                 // 9.C JOUEUR DE FLÛTE
-                else if (phase == GamePhase.nightPiper &&
-                    (role == GameRole.piedPiper || widget.isAdmin)) ...[
-                  _buildPiperSection(selectedTarget),
+                else if (phase == GamePhase.nightPiper) ...[
+                  if (role == GameRole.piedPiper) ...[
+                    _buildPiperSection(selectedTarget),
+                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
+                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
+                  ],
                 ]
                 // 10. ÉLECTION DU CAPITAINE
                 else if (phase == GamePhase.captainElection) ...[
@@ -2321,130 +2366,87 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  Widget _buildGodmodeBotControlBar(GamePhase phase) {
-    PlayerModel? activePlayer;
+  PlayerModel? _getActiveNightPlayer(GamePhase phase) {
     switch (phase) {
       case GamePhase.nightThief:
-        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
               (p) => p != null && p.role == GameRole.thief,
               orElse: () => null,
             );
-        break;
       case GamePhase.nightCupid:
-        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
               (p) => p != null && p.role == GameRole.cupid,
               orElse: () => null,
             );
-        break;
       case GamePhase.nightDefender:
-        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
               (p) => p != null && p.role == GameRole.defender,
               orElse: () => null,
             );
-        break;
       case GamePhase.nightWerewolves:
       case GamePhase.nightBlackWolf:
-        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
               (p) => p != null && p.role.isEvil,
               orElse: () => null,
             );
-        break;
       case GamePhase.nightSeer:
-        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
               (p) => p != null && p.role == GameRole.seer,
               orElse: () => null,
             );
-        break;
       case GamePhase.nightWitch:
-        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
               (p) => p != null && p.role == GameRole.witch,
               orElse: () => null,
             );
-        break;
       case GamePhase.nightPiper:
-        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
               (p) => p != null && p.role == GameRole.piedPiper,
               orElse: () => null,
             );
-        break;
       case GamePhase.nightPyromaniac:
-        activePlayer = widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
+        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
               (p) => p != null && p.role == GameRole.pyromaniac,
               orElse: () => null,
             );
-        break;
       default:
-        break;
+        return null;
     }
+  }
 
-    final isBot = activePlayer != null && activePlayer.id.startsWith('bot_');
-    final activeName = activePlayer?.name ?? 'Entité';
-    final activeRole = activePlayer?.role.displayNameFr ?? phase.titleFr;
+  Widget _buildBotActivityBanner(PlayerModel bot, [String? customAction]) {
+    final roleName = bot.role.displayNameFr;
+    final text = customAction ?? '🤖 ${bot.name} ($roleName) agit sous le contrôle de l\'IA...';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1405),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: LupusColors.arcaneGold.withValues(alpha: 0.6), width: 1.2),
-        boxShadow: LupusTheme.glowGold(opacity: 0.25),
+        border: Border.all(color: LupusColors.arcaneGold.withValues(alpha: 0.4), width: 1.0),
+        boxShadow: LupusTheme.glowGold(opacity: 0.15),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF422006),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text('👑', style: TextStyle(fontSize: 12)),
-          ),
+          const Icon(Icons.smart_toy_rounded, color: LupusColors.arcaneGold, size: 16),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isBot ? '🎮 Contrôle du Bot : $activeName' : '👑 Contrôle Hôte : $activeName',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w900,
-                    color: LupusColors.arcaneGold,
-                  ),
-                ),
-                Text(
-                  'Rôle : $activeRole',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 6),
-          SizedBox(
-            height: 28,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LupusColors.arcaneGold,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: widget.onExecuteBotNightAction,
-              icon: const Icon(Icons.smart_toy_rounded, size: 13),
-              label: const Text(
-                'Laisser l\'IA agir',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
-              ),
-            ),
+          const SizedBox(width: 8),
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 2, color: LupusColors.arcaneGold),
           ),
         ],
       ),

@@ -132,46 +132,38 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   void _checkAndQueueDeathAnnouncements(GameRoom room) {
     bool hasNewDeaths = false;
 
-    // 1. Détection des défunts via deathAnnouncementQueue (file FIFO ordonnée)
+    // 1. Source PRIORITAIRE : deathAnnouncementQueue (file ordonnée des défunts)
     if (room.deathAnnouncementQueue.isNotEmpty) {
       for (final entry in room.deathAnnouncementQueue) {
         final pid = (entry['joueurId'] ?? entry['playerId'] ?? '').toString();
+        if (pid.isEmpty) continue;
         final cause = (entry['cause'] ?? '').toString();
-        final ts = entry['timestamp'] ?? room.round;
-        final key = '${pid}_${cause}_$ts';
-        if (pid.isNotEmpty && !_processedDeathKeys.contains(key)) {
+        final key = '${pid}_${cause}_${room.round}';
+        if (!_processedDeathKeys.contains(key) &&
+            !_processedDeathKeys.contains('${pid}_${room.round}') &&
+            !_deathQueue.any((e) => e.playerId == pid)) {
           _processedDeathKeys.add(key);
+          _processedDeathKeys.add('${pid}_${room.round}');
           _deathQueue.add(DeathAnnouncementEvent.fromMap(entry));
           hasNewDeaths = true;
         }
       }
     }
-
-    // 2. Détection du dernier mort révélé au vote ou la nuit (lastDeathFlip)
-    if (room.lastDeathFlip != null) {
-      final flip = room.lastDeathFlip!;
-      final pid = (flip['joueurId'] ?? flip['playerId'] ?? '').toString();
-      final cause = (flip['cause'] ?? '').toString();
-      final ts = flip['timestamp'] ?? room.round;
-      final key = '${pid}_${cause}_$ts';
-      if (pid.isNotEmpty && !_processedDeathKeys.contains(key)) {
-        _processedDeathKeys.add(key);
-        _deathQueue.add(DeathAnnouncementEvent.fromMap(flip));
-        hasNewDeaths = true;
-      }
-    }
-
-    // 3. Détection spécifique à l'aube (morningAnnouncement) via morningVictims
-    if (room.phase == GamePhase.morningAnnouncement && room.morningVictims.isNotEmpty) {
+    // 2. Source SECONDAIRE : morningVictims (uniquement si deathAnnouncementQueue est vide)
+    else if (room.phase == GamePhase.morningAnnouncement && room.morningVictims.isNotEmpty) {
       for (final victimId in room.morningVictims) {
+        if (victimId.isEmpty) continue;
         final player = room.players[victimId];
         if (player != null) {
           final cause = (victimId == room.witchPoisonVictimId)
               ? 'POISON_SORCIERE'
               : 'MORSURE_LOUPS';
-          final key = '${victimId}_${cause}_dawn_${room.round}';
-          if (!_processedDeathKeys.contains(key)) {
+          final key = '${victimId}_${cause}_${room.round}';
+          if (!_processedDeathKeys.contains(key) &&
+              !_processedDeathKeys.contains('${victimId}_${room.round}') &&
+              !_deathQueue.any((e) => e.playerId == victimId)) {
             _processedDeathKeys.add(key);
+            _processedDeathKeys.add('${victimId}_${room.round}');
             final role = (player.roleInitial != GameRole.simpleVillager)
                 ? player.roleInitial
                 : player.role;
@@ -183,6 +175,23 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
             ));
             hasNewDeaths = true;
           }
+        }
+      }
+    }
+    // 3. Source TERTIAIRE : lastDeathFlip (pour les éliminations unitaires isolées)
+    else if (room.lastDeathFlip != null) {
+      final flip = room.lastDeathFlip!;
+      final pid = (flip['joueurId'] ?? flip['playerId'] ?? '').toString();
+      if (pid.isNotEmpty) {
+        final cause = (flip['cause'] ?? '').toString();
+        final key = '${pid}_${cause}_${room.round}';
+        if (!_processedDeathKeys.contains(key) &&
+            !_processedDeathKeys.contains('${pid}_${room.round}') &&
+            !_deathQueue.any((e) => e.playerId == pid)) {
+          _processedDeathKeys.add(key);
+          _processedDeathKeys.add('${pid}_${room.round}');
+          _deathQueue.add(DeathAnnouncementEvent.fromMap(flip));
+          hasNewDeaths = true;
         }
       }
     }

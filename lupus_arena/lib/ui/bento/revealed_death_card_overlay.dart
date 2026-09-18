@@ -344,14 +344,14 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
           width: width,
           height: height,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) {
+          errorBuilder: (context, error, stackTrace) {
             // Fallback 1 : FOND officiel de LOUP GAROU ENHANCED
             return Image.asset(
               'LOUP GAROU ENHANCED/FOND.jpg',
               width: width,
               height: height,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) {
+              errorBuilder: (ctx, err, st) {
                 // Fallback 2 : Sceau arcanique procédural
                 return Container(
                   width: width,
@@ -368,7 +368,7 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
                       'assets/images/lupus_seal.png',
                       width: 42,
                       height: 42,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (c, e, s) => const Icon(
                         Icons.shield_moon_rounded,
                         color: LupusColors.arcanePurple,
                         size: 36,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
+import 'revealed_death_card_overlay.dart';
 
 /// Table mystique circulaire inspirée directement du design Stitch (Screen 2: Table de Nuit Ultime).
 /// Dispose les joueurs (jusqu'à 16) de façon radiale et symétrique autour d'un sceau arcanique
@@ -26,6 +27,8 @@ class MysticRadialTable extends StatefulWidget {
   final String? centerActionTitle;
   final String? centerActionSubtitle;
   final String? captainTargetVoteId;
+  final List<DeathAnnouncementEvent>? deathQueue;
+  final VoidCallback? onDeathSequenceCompleted;
 
   const MysticRadialTable({
     super.key,
@@ -46,6 +49,8 @@ class MysticRadialTable extends StatefulWidget {
     this.centerActionTitle,
     this.centerActionSubtitle,
     this.captainTargetVoteId,
+    this.deathQueue,
+    this.onDeathSequenceCompleted,
   });
 
   @override
@@ -163,8 +168,15 @@ class _MysticRadialTableState extends State<MysticRadialTable>
               ),
             ),
 
-            // 4. Carte d'état de cible au centre de la table mystique
-            _buildCenterTargetCard(selectedPlayer),
+            // 4. Carte d'état de cible OU Séquence cinématique 3D des défunts au centre
+            if (widget.deathQueue != null && widget.deathQueue!.isNotEmpty)
+              RevealedDeathCardOverlay(
+                key: ValueKey(widget.deathQueue!.map((e) => e.playerId).join('_')),
+                queue: widget.deathQueue!,
+                onSequenceCompleted: widget.onDeathSequenceCompleted,
+              )
+            else
+              _buildCenterTargetCard(selectedPlayer),
 
             // 5. Noeuds radiaux des joueurs disposés à 360°
             for (int i = 0; i < totalPlayers; i++)

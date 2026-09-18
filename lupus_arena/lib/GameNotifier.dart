@@ -1218,6 +1218,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         }
       }
 
+      final List<Map<String, dynamic>> deathQueueList = [];
       for (final id in allDeaths) {
         updates['players/$id/isAlive'] = false;
         final player = room.players[id];
@@ -1235,7 +1236,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           final cause = (id == room.witchPoisonVictimId)
               ? 'POISON_SORCIERE'
               : 'MORSURE_LOUPS';
-          updates['lastDeathFlip'] = {
+          final deathEntry = {
             'action': 'FLIP_CARTE_MORT',
             'joueurId': id,
             'nom': player.name,
@@ -1244,10 +1245,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             'cause': cause,
             'timestamp': DateTime.now().millisecondsSinceEpoch,
           };
+          updates['lastDeathFlip'] = deathEntry;
+          deathQueueList.add(deathEntry);
           logs.add(
             '💀 ${player.name} (${revealedRole.displayNameFr}) a succombé.',
           );
         }
+      }
+      if (deathQueueList.isNotEmpty) {
+        updates['deathAnnouncementQueue'] = deathQueueList;
       }
 
       if (allDeaths.isEmpty) {
@@ -1587,7 +1593,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     updates['players/$condemnedId/isAlive'] = false;
     updates['players/$condemnedId/role'] = condemnedRealRole.id;
-    updates['lastDeathFlip'] = {
+    final voteDeathEntry = {
       'action': 'FLIP_CARTE_MORT',
       'joueurId': condemnedId,
       'nom': condemned.name,
@@ -1596,6 +1602,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'cause': 'VOTE_VILLAGE',
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     };
+    updates['lastDeathFlip'] = voteDeathEntry;
+    final List<Map<String, dynamic>> voteDeathQueue = [voteDeathEntry];
     logs.add(
       '🔥 Le village a jeté ${condemned.name} aux flammes du bûcher ! Il était ${condemnedRealRole.displayNameFr}.',
     );
@@ -1615,8 +1623,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           }
         } catch (_) {}
         updates['players/$deadPartnerId/role'] = partnerRole.id;
+        voteDeathQueue.add({
+          'action': 'FLIP_CARTE_MORT',
+          'joueurId': deadPartnerId,
+          'nom': deadPartner.name,
+          'role': partnerRole.name,
+          'camp': partnerRole.isEvil ? 'LOUPS' : 'VILLAGE',
+          'cause': 'AMOUREUX',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
       }
     }
+    updates['deathAnnouncementQueue'] = voteDeathQueue;
 
     final allDeaths = {
       condemnedId,
@@ -2210,6 +2228,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       '💥 Le Chasseur a abattu ${victim.name} (${victimRealRole.displayNameFr}) dans son dernier râle !',
     );
 
+    final hunterDeathEntry = {
+      'action': 'FLIP_CARTE_MORT',
+      'joueurId': targetId,
+      'nom': victim.name,
+      'role': victimRealRole.name,
+      'camp': victimRealRole.isEvil ? 'LOUPS' : 'VILLAGE',
+      'cause': 'CHASSEUR',
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
+    updates['lastDeathFlip'] = hunterDeathEntry;
+    final List<Map<String, dynamic>> hunterQueue = [hunterDeathEntry];
+
     final deadPartnerId = handleLoverDeath(targetId, room.players, logs);
     if (deadPartnerId != null) {
       updates['players/$deadPartnerId/isAlive'] = false;
@@ -2225,8 +2255,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           }
         } catch (_) {}
         updates['players/$deadPartnerId/role'] = partnerRole.id;
+        hunterQueue.add({
+          'action': 'FLIP_CARTE_MORT',
+          'joueurId': deadPartnerId,
+          'nom': deadPartner.name,
+          'role': partnerRole.name,
+          'camp': partnerRole.isEvil ? 'LOUPS' : 'VILLAGE',
+          'cause': 'AMOUREUX',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
       }
     }
+    updates['deathAnnouncementQueue'] = hunterQueue;
 
     final realRoles = await _resolveRealRoles(room);
 

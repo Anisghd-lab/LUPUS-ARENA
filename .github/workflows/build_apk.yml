@@ -133,14 +133,15 @@ jobs:
           body: |
             ### 🐺 Lupus Arena - ${{ env.APP_VERSION }}
 
-            Mise à jour majeure : Mécanique officielle de double action nocturne des loups, bluff intra-meute & auto-mutisme, saut automatique au débat et parité absolue Room & God Mode.
+            Mise à jour majeure : Scrutin diurne 15s eager avec voix double du Capitaine, Succession du Capitaine (Testament 10s), Résolution composite de la Sorcière, Déduplication stricte Firebase & Agora, et Cinématique 3D de révélation des défunts au centre de la table.
 
             #### 🌟 Points Forts & Nouveautés :
-            - **🐺 Double Action Nocturne Obligatoire** : Les loups doivent obligatoirement désigner 1 proie à dévorer ET 1 joueur vivant à réduire au silence. Le bouton de validation reste verrouillé tant que les deux cibles distinctes ne sont pas validées.
-            - **🎭 Bluff Intra-Meute & Auto-Mutisme Stratégique** : Les loups peuvent réduire au silence n'importe quel joueur vivant, y compris un complice (Loup-Garou ou Loup Blanc) ou s'auto-museler eux-mêmes pour parfaire leur alibi d'innocent. Seule interdiction stricte : museler la proie dévorée de la nuit.
-            - **🔇 Débat Diurne & Saut de Parole Instantané** : Le joueur sous silence (loup ou villageois) hérite de `isMuted`, voit son micro Agora verrouillé, affiche son badge de mute rouge et son tour de parole est sauté automatiquement sans aucun temps mort lors du débat.
-            - **👑 Parité Isomorphique Room & God Mode** : Intégration dans le panneau Maître du Jeu d'une carte de diagnostic de double action en temps réel, de boutons directs de morsure et de silence nocturne, et d'un forçage d'avance de débat respectant l'exclusion des muets.
-            - **🧹 Cycle de Vie & Purge Automatique du Silence** : Levée du bâillon au crépuscule/fin de vote et purge systématique lors de tout saut arbitraire vers une phase nocturne.
+            - **🗳️ Scrutin Diurne Eager (15s)** : Dépouillement immédiat dès que tous les vivants ont voté, application instantanée de la sentence et révélation publique du rôle d'origine. Poids = 2 pour le vote du Capitaine.
+            - **🎖️ Succession du Capitaine (Testament 10s)** : À sa mort, le Capitaine dispose d'une fenêtre d'agonie de 10s pour désigner son successeur via un panneau interactif dédié. Passation automatique d'office si le temps expire ou en cas de déconnexion.
+            - **🧪 Résolution Composite de la Sorcière** : Affichage exclusif de la victime de la meute à la Sorcière vivante. Choix combinables de Potion de Vie (sauver) et Potion de Mort (empoisonner). Décrémentation stricte et déchéance en Simple Villageois dès épuisement des 2 potions.
+            - **🔥 Architecture Firebase & Déduplication Agora Anti-Doublons** : Indexation stricte par ID utilisateur `/rooms/{roomId}/players/{userId}` éliminant les sessions fantômes et PushID aléatoires. Déconnexion préalable systématique du canal RTC Agora avant toute reconnexion pour éviter le rejet par les serveurs Agora.
+            - **🎴 Cinématique 3D de Révélation au Centre du Cercle** : Confinement strict de l'overlay au vide central de la table radiale (largeur <= 95px, hauteur <= 140px) préservant la visibilité des joueurs. Révélation séquentielle FIFO avec retournement 3D (0° à 180°), exposition statique de 2s et disparition fluide.
+            - **🧪 Suite Complète de Tests Automatisés** : Validation à 100% des mécaniques moteur Kotlin (`NouvellesFonctionnalitesReleaseTest`), de la déduplication client (`game_room_deduplication_test.dart`) et des widgets UI (`captain_succession_and_flip_card_test.dart`).
 
             ---
             #### 📲 Binaires Téléchargeables :

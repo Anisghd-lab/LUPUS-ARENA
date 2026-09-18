@@ -6,15 +6,38 @@ import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'revealed_death_card_overlay.dart';
 
-/// Table mystique circulaire inspirée directement du design Stitch (Screen 2: Table de Nuit Ultime).
-/// Dispose les joueurs (jusqu'à 16) de façon radiale et symétrique autour d'un sceau arcanique
-/// avec anneaux runiques, état de parole Agora, indicateurs de mort/capitaine/amoureux et sélection de cible.
-///
-/// Optimisation Skia/Impeller :
-/// - Couche d'arrière-plan animée (rotation runique) isolée dans un [RepaintBoundary].
-/// - Pré-allocation et réutilisation des widgets enfants via le paramètre `child` de [AnimatedBuilder].
-/// - Contrôleur de pulsation audio activé à la demande et isolé dans un [RepaintBoundary].
-/// - Chaque nœud de joueur radial est isolé dans son propre [RepaintBoundary] pour éviter les repaint en cascade.
+/// Dimensions calculées dynamiquement pour l'agencement radial de la table
+class _TableDimensions {
+  final double radius;
+  final double innerRadius;
+  final double avatarSize;
+  final double nodeWidth;
+  final double fontSize;
+  final bool isDoubleRing;
+  final int outerCount;
+  final int innerCount;
+  final double innerRadiusFactor;
+
+  const _TableDimensions({
+    required this.radius,
+    required this.innerRadius,
+    required this.avatarSize,
+    required this.nodeWidth,
+    required this.fontSize,
+    required this.isDoubleRing,
+    required this.outerCount,
+    required this.innerCount,
+    required this.innerRadiusFactor,
+  });
+}
+
+/// Table mystique circulaire adaptative inspirée du design Stitch.
+/// Dispose les joueurs (de 4 jusqu'à 30 participants) de façon réactive :
+/// - Dimensionnement dynamique par [LayoutBuilder] / [MediaQuery] pour s'adapter à l'écran.
+/// - Double anneau concentrique avec interfoliage angulaire pour N > 16 joueurs.
+/// - Hitbox tactile garantie d'au moins 48x48 dp pour chaque joueur ([HitTestBehavior.opaque]).
+/// - Transitions de repositionnement fluides via [AnimatedPositioned].
+/// - Optimisation Skia/Impeller avec [RepaintBoundary] et contrôleur de pulsation audio conditionnel.
 class MysticRadialTable extends StatefulWidget {
   final List<PlayerModel> players;
   final String? selectedPlayerId;
@@ -174,11 +197,70 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     super.dispose();
   }
 
+  _TableDimensions _computeDimensions({
+    required double tableSize,
+    required int totalPlayers,
+    required bool isDoubleRing,
+  }) {
+    final double maxRadius = (tableSize / 2) - 28.0;
+
+    if (isDoubleRing) {
+      final outerCount = (totalPlayers + 1) ~/ 2;
+      final innerCount = totalPlayers ~/ 2;
+      const double innerFactor = 0.62;
+      final double outerRadius = maxRadius;
+      final double innerRadius = maxRadius * innerFactor;
+
+      return _TableDimensions(
+        radius: outerRadius,
+        innerRadius: innerRadius,
+        avatarSize: 28.0,
+        nodeWidth: 34.0,
+        fontSize: 8.0,
+        isDoubleRing: true,
+        outerCount: outerCount,
+        innerCount: innerCount,
+        innerRadiusFactor: innerFactor,
+      );
+    }
+
+    // Single ring
+    final double avatarSize;
+    final double nodeWidth;
+    final double fontSize;
+
+    if (totalPlayers <= 8) {
+      avatarSize = 44.0;
+      nodeWidth = 50.0;
+      fontSize = 11.0;
+    } else if (totalPlayers <= 12) {
+      avatarSize = 38.0;
+      nodeWidth = 44.0;
+      fontSize = 9.5;
+    } else {
+      // 13..16
+      avatarSize = 32.0;
+      nodeWidth = 38.0;
+      fontSize = 8.5;
+    }
+
+    return _TableDimensions(
+      radius: maxRadius,
+      innerRadius: 0.0,
+      avatarSize: avatarSize,
+      nodeWidth: nodeWidth,
+      fontSize: fontSize,
+      isDoubleRing: false,
+      outerCount: totalPlayers,
+      innerCount: 0,
+      innerRadiusFactor: 1.0,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    const double tableSize = 280.0;
-    final radius = (tableSize / 2) - 28.0;
     final totalPlayers = widget.players.length;
+    final bool isDoubleRing = totalPlayers > 16;
 
     // Trouver le joueur actuellement sélectionné
     PlayerModel? selectedPlayer;
@@ -191,50 +273,95 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       }
     }
 
-    return Center(
-      child: SizedBox(
-        width: tableSize,
-        height: tableSize,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // 1, 2, 3. Couche d'arrière-plan avec dégradé et anneaux runiques animés (Isolée)
-            _MysticRadialBackgroundLayer(
-              tableSize: tableSize,
-              rotationAnimation: _rotationController,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double screenWidth =
+            MediaQuery.maybeSizeOf(context)?.width ?? 360.0;
+        final double screenHeight =
+            MediaQuery.maybeSizeOf(context)?.height ?? 640.0;
 
-            // 4. Carte d'état de cible OU Séquence cinématique 3D des défunts au centre (Isolée)
-            RepaintBoundary(
-              child: (widget.deathQueue != null && widget.deathQueue!.isNotEmpty)
-                  ? RevealedDeathCardOverlay(
-                      key: ValueKey(
-                          widget.deathQueue!.map((e) => e.playerId).join('_')),
-                      queue: widget.deathQueue!,
-                      onSequenceCompleted: widget.onDeathSequenceCompleted,
-                    )
-                  : _buildCenterTargetCard(selectedPlayer),
-            ),
+        final double availableWidth =
+            constraints.maxWidth.isFinite && constraints.maxWidth > 0
+                ? constraints.maxWidth
+                : (screenWidth - 20).clamp(280.0, 480.0);
+        final double availableHeight =
+            constraints.maxHeight.isFinite && constraints.maxHeight > 0
+                ? constraints.maxHeight
+                : availableWidth;
 
-            // 5. Noeuds radiaux des joueurs disposés à 360° (Chacun dans son RepaintBoundary)
-            for (int i = 0; i < totalPlayers; i++)
-              _buildRadialPlayerNode(
-                player: widget.players[i],
-                index: i,
-                total: totalPlayers,
-                radius: radius,
-                center: tableSize / 2,
-              ),
-          ],
-        ),
-      ),
+        // Dimensionnement adaptatif de la table
+        final double tableSize =
+            math.min(availableWidth, availableHeight).clamp(280.0, 480.0);
+        final double center = tableSize / 2;
+
+        final dimensions = _computeDimensions(
+          tableSize: tableSize,
+          totalPlayers: totalPlayers,
+          isDoubleRing: isDoubleRing,
+        );
+
+        return Center(
+          child: SizedBox(
+            width: tableSize,
+            height: tableSize,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // 1, 2, 3. Couche d'arrière-plan avec dégradé et anneaux runiques animés (Isolée)
+                _MysticRadialBackgroundLayer(
+                  tableSize: tableSize,
+                  isDoubleRing: isDoubleRing,
+                  innerRadiusFactor: dimensions.innerRadiusFactor,
+                  rotationAnimation: _rotationController,
+                ),
+
+                // 4. Carte d'état de cible OU Séquence cinématique 3D des défunts au centre (Isolée)
+                RepaintBoundary(
+                  child: (widget.deathQueue != null &&
+                          widget.deathQueue!.isNotEmpty)
+                      ? RevealedDeathCardOverlay(
+                          key: ValueKey(widget.deathQueue!
+                              .map((e) => e.playerId)
+                              .join('_')),
+                          queue: widget.deathQueue!,
+                          onSequenceCompleted: widget.onDeathSequenceCompleted,
+                        )
+                      : _buildCenterTargetCard(
+                          selectedPlayer,
+                          isCompact: isDoubleRing,
+                        ),
+                ),
+
+                // 5. Noeuds radiaux des joueurs disposés à 360° (avec transitions AnimatedPositioned et Hitbox 48x48)
+                for (int i = 0; i < totalPlayers; i++)
+                  _buildRadialPlayerNode(
+                    player: widget.players[i],
+                    index: i,
+                    total: totalPlayers,
+                    dimensions: dimensions,
+                    center: center,
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildCenterTargetCard(PlayerModel? selectedPlayer) {
+  Widget _buildCenterTargetCard(
+    PlayerModel? selectedPlayer, {
+    bool isCompact = false,
+  }) {
+    final double cardWidth = isCompact ? 104.0 : 126.0;
+    final double hPadding = isCompact ? 6.0 : 8.0;
+    final double vPadding = isCompact ? 6.0 : 10.0;
+    final double nameFontSize = isCompact ? 10.0 : 11.5;
+    final double badgeFontSize = isCompact ? 7.5 : 8.5;
+
     return Container(
-      width: 126,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      width: cardWidth,
+      padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: vPadding),
       decoration: BoxDecoration(
         color: const Color(0xCC0A0F1E),
         borderRadius: BorderRadius.circular(18),
@@ -253,7 +380,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
         children: [
           // Badge CIBLE avec indicateur clignotant
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
             decoration: BoxDecoration(
               color: const Color(0x992B0D14),
               borderRadius: BorderRadius.circular(12),
@@ -266,27 +393,27 @@ class _MysticRadialTableState extends State<MysticRadialTable>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 5,
-                  height: 5,
+                  width: 4.5,
+                  height: 4.5,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: LupusColors.arcaneCrimson,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 3.5),
                 Text(
                   widget.centerActionTitle ?? context.tr('target'),
-                  style: const TextStyle(
-                    fontSize: 8.5,
+                  style: TextStyle(
+                    fontSize: badgeFontSize,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.8,
-                    color: Color(0xFFFCA5A5),
+                    color: const Color(0xFFFCA5A5),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
 
           // Nom de la cible sélectionnée
           Text(
@@ -297,7 +424,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: nameFontSize,
               fontWeight: FontWeight.w800,
               color: selectedPlayer != null ? Colors.white : LupusColors.textSecondary,
             ),
@@ -358,7 +485,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: isCompact ? 8.0 : 9.0,
                         fontWeight: FontWeight.w700,
                         color: roleColor,
                       ),
@@ -377,8 +504,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                     ? context.tr('ready_to_act')
                     : context.tr('eliminated'))
                 : context.tr('tap_a_player'),
-            style: const TextStyle(
-              fontSize: 8.5,
+            style: TextStyle(
+              fontSize: isCompact ? 7.5 : 8.5,
               color: LupusColors.textMuted,
             ),
           ),
@@ -391,7 +518,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     required PlayerModel player,
     required int index,
     required int total,
-    required double radius,
+    required _TableDimensions dimensions,
     required double center,
   }) {
     final isSelected = player.id == widget.selectedPlayerId;
@@ -413,15 +540,40 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     final isNewCaptainFlashing =
         (player.id == _animatingNewCaptainId) && _captainFlashController.isAnimating;
 
-    final double nodeWidth = total > 20 ? 32.0 : (total > 14 ? 38.0 : 44.0);
-    final double avatarSize = total > 20
-        ? (isSelected ? 28.0 : 25.0)
-        : (total > 14 ? (isSelected ? 36.0 : 32.0) : (isSelected ? 42.0 : 38.0));
+    final double nodeWidth = dimensions.nodeWidth;
+    final double avatarSize = isSelected
+        ? (dimensions.avatarSize + 4.0)
+        : dimensions.avatarSize;
 
-    // Calcul de l'angle à partir du sommet (-pi/2)
-    final double angle = (2 * math.pi * index / total) - (math.pi / 2);
-    final double x = center + (radius * math.cos(angle)) - (nodeWidth / 2);
-    final double y = center + (radius * math.sin(angle)) - (nodeWidth / 2);
+    // Calcul de l'angle et du rayon (mode simple anneau ou double anneau imbriqué)
+    final double angle;
+    final double currentRadius;
+
+    if (dimensions.isDoubleRing) {
+      final bool isOuter = (index % 2 == 0);
+      if (isOuter) {
+        final int outerIdx = index ~/ 2;
+        angle = (2 * math.pi * outerIdx / dimensions.outerCount) - (math.pi / 2);
+        currentRadius = dimensions.radius;
+      } else {
+        final int innerIdx = index ~/ 2;
+        // Décalage angulaire de pi / innerCount pour intercaler parfaitement entre les joueurs extérieurs
+        angle = (2 * math.pi * innerIdx / dimensions.innerCount) -
+            (math.pi / 2) +
+            (math.pi / dimensions.innerCount);
+        currentRadius = dimensions.innerRadius;
+      }
+    } else {
+      angle = (2 * math.pi * index / total) - (math.pi / 2);
+      currentRadius = dimensions.radius;
+    }
+
+    // Zone d'interaction tactile garantie minimale de 48x48 dp
+    final double hitWidth = math.max(48.0, nodeWidth);
+    final double hitHeight = math.max(48.0, nodeWidth + 16.0);
+
+    final double x = center + (currentRadius * math.cos(angle)) - (hitWidth / 2);
+    final double y = center + (currentRadius * math.sin(angle)) - (hitHeight / 2);
 
     // Initiales
     final initials = player.name.trim().isNotEmpty
@@ -430,444 +582,451 @@ class _MysticRadialTableState extends State<MysticRadialTable>
             : player.name.trim().substring(0, 1).toUpperCase())
         : '??';
 
-    return Positioned(
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOutCubic,
       left: x,
       top: y,
+      width: hitWidth,
+      height: hitHeight,
       child: RepaintBoundary(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: player.isAlive ? () => widget.onPlayerSelected(player.id) : null,
-          child: SizedBox(
-            width: nodeWidth,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Jeton de joueur
-                Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    // 1. Onde de choc et halo néon pulsant pour celui qui a la parole (Isolé)
-                    if (isSpeaking)
-                      _SpeakingPulseHalo(
-                        pulseAnimation: _pulseAnimation,
+          child: Center(
+            child: SizedBox(
+              width: nodeWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Jeton de joueur
+                  Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      // 1. Onde de choc et halo néon pulsant pour celui qui a la parole (Isolé)
+                      if (isSpeaking)
+                        _SpeakingPulseHalo(
+                          pulseAnimation: _pulseAnimation,
+                          avatarSize: avatarSize,
+                        ),
+
+                      // 2. Avatar du joueur avec décoration et animation de flash Capitaine conditionnelle
+                      _buildAvatarToken(
+                        player: player,
+                        isDead: isDead,
+                        isMe: isMe,
+                        isSpeaking: isSpeaking,
+                        isWolfPeer: isWolfPeer,
+                        seerDiscoveredRole: seerDiscoveredRole,
+                        isSelected: isSelected,
+                        isNewCaptainFlashing: isNewCaptainFlashing,
                         avatarSize: avatarSize,
+                        initials: initials,
+                        fontSize: dimensions.fontSize + 1.5,
                       ),
 
-                    // 2. Avatar du joueur avec décoration et animation de flash Capitaine conditionnelle
-                    _buildAvatarToken(
-                      player: player,
-                      isDead: isDead,
-                      isMe: isMe,
-                      isSpeaking: isSpeaking,
-                      isWolfPeer: isWolfPeer,
-                      seerDiscoveredRole: seerDiscoveredRole,
-                      isSelected: isSelected,
-                      isNewCaptainFlashing: isNewCaptainFlashing,
-                      avatarSize: avatarSize,
-                      initials: initials,
-                    ),
-
-                    // Badge Micro Néon pour celui qui a la parole
-                    if (isSpeaking)
-                      Positioned(
-                        bottom: -4,
-                        right: -4,
-                        child: Container(
-                          padding: const EdgeInsets.all(2.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF070B1D),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFF00FF88),
-                              width: 1.5,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0xFF00FF88),
-                                blurRadius: 8,
-                                spreadRadius: 1,
+                      // Badge Micro Néon pour celui qui a la parole
+                      if (isSpeaking)
+                        Positioned(
+                          bottom: -4,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2.0),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF070B1D),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF00FF88),
+                                width: 1.5,
                               ),
-                            ],
-                          ),
-                          child: const Text(
-                            '🎙️',
-                            style: TextStyle(fontSize: 8.5),
-                          ),
-                        ),
-                      ),
-
-                    // Badge Micro Barré Rouge si Bâillonné (silence forcé)
-                    if (player.isMuted && player.isAlive)
-                      Positioned(
-                        bottom: -4,
-                        left: -4,
-                        child: Container(
-                          padding: const EdgeInsets.all(2.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF200A10),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFFFF3333),
-                              width: 1.5,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x99FF3333),
-                                blurRadius: 8,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.mic_off_rounded,
-                            size: 9,
-                            color: Color(0xFFFF3333),
-                          ),
-                        ),
-                      ),
-
-                    // Badge Hors-Ligne si Déconnecté en cours de partie
-                    if (!player.isOnline && player.isAlive)
-                      Positioned(
-                        bottom: -4,
-                        right: -4,
-                        child: Container(
-                          padding: const EdgeInsets.all(2.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E212D),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.amber,
-                              width: 1.2,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.wifi_off_rounded,
-                            size: 8.5,
-                            color: Colors.amber,
-                          ),
-                        ),
-                      ),
-
-                    // Badge Allié Loup-Garou (visible pour les loups)
-                    if (isWolfPeer && !isMe && (player.isAlive || isGodMode))
-                      Positioned(
-                        top: -7,
-                        left: -7,
-                        child: Container(
-                          padding: const EdgeInsets.all(2.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF8B1E1E),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFFFF5252), width: 1.2),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0xFFFF2A4B),
-                                blurRadius: 8,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: const Text('🐺', style: TextStyle(fontSize: 10)),
-                        ),
-                      ),
-
-                    // Badge Rôle Sondé par la Voyante (visible uniquement par la voyante)
-                    if (seerDiscoveredRole != null && !isMe && (player.isAlive || isGodMode))
-                      Positioned(
-                        top: -7,
-                        right: -7,
-                        child: Container(
-                          padding: const EdgeInsets.all(2.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E1B4B),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF818CF8), width: 1.2),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0xFF6366F1),
-                                blurRadius: 8,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: const Text('🔮', style: TextStyle(fontSize: 10)),
-                        ),
-                      ),
-
-                    // Badge Capitaine (Étoile dorée uniquement si vivant)
-                    if (player.isCaptain && player.isAlive)
-                      Positioned(
-                        top: -4,
-                        right: -4,
-                        child: isNewCaptainFlashing
-                            ? RepaintBoundary(
-                                child: AnimatedBuilder(
-                                  animation: _captainFlashAnimation,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                      color: LupusColors.arcaneGold,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: LupusColors.arcaneGold
-                                              .withValues(alpha: 0.85),
-                                          blurRadius: 10,
-                                          spreadRadius: 2,
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(Icons.star_rounded,
-                                        size: 10, color: Colors.black),
-                                  ),
-                                  builder: (context, child) {
-                                    final flash =
-                                        _captainFlashAnimation.value;
-                                    return Transform.scale(
-                                      scale: 1.0 + (0.35 * flash),
-                                      child: child,
-                                    );
-                                  },
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0xFF00FF88),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
                                 ),
-                              )
-                            : Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(
-                                  color: LupusColors.arcaneGold,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.star_rounded,
-                                    size: 9, color: Colors.black),
-                              ),
-                      ),
-
-                    // Badge Amoureux (Cœur - masqué hors local, godmode ou mort)
-                    if (player.isLover && (isMe || isGodMode || isDead))
-                      Positioned(
-                        top: -4,
-                        left: -4,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE63946),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.favorite_rounded,
-                              size: 9, color: Colors.white),
-                        ),
-                      ),
-
-                    // Badge Maison Imbibée de Carburant (Pyromane)
-                    if (player.isDoused &&
-                        (isMe ||
-                            widget.myRole == GameRole.pyromaniac ||
-                            isGodMode ||
-                            isDead))
-                      Positioned(
-                        bottom: -4,
-                        left: -4,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFF4800),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.local_fire_department_rounded,
-                              size: 9, color: Colors.white),
-                        ),
-                      ),
-
-                    // Badge Envoûté (Joueur de Flûte)
-                    if (player.isCharmed &&
-                        (isMe ||
-                            widget.myRole == GameRole.piper ||
-                            isGodMode ||
-                            isDead))
-                      Positioned(
-                        bottom: -4,
-                        left: 12,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF06D6A0),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF06D6A0)
-                                    .withValues(alpha: 0.7),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(Icons.music_note_rounded,
-                              size: 9, color: Colors.black87),
-                        ),
-                      ),
-
-                    // Badge Infecté (Loup Infect)
-                    if (player.isInfected &&
-                        (isMe ||
-                            widget.myRole.isEvil ||
-                            isGodMode ||
-                            isDead))
-                      Positioned(
-                        top: 12,
-                        right: -5,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF84CC16),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF84CC16)
-                                    .withValues(alpha: 0.7),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(Icons.pest_control_rounded,
-                              size: 9, color: Colors.black),
-                        ),
-                      ),
-
-                    // Badge Bâillonné / Muté (Loup Noir)
-                    if (player.isMuted)
-                      Positioned(
-                        top: 12,
-                        left: -5,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF9333EA),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF9333EA)
-                                    .withValues(alpha: 0.7),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(Icons.volume_off_rounded,
-                              size: 9, color: Colors.white),
-                        ),
-                      ),
-
-                    // Badge de votes reçus (avec étoile dorée si ciblé par le vote du Maire)
-                    if (votes > 0)
-                      Positioned(
-                        bottom: -4,
-                        right: -4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: (widget.captainTargetVoteId == player.id)
-                                ? const Color(0xFFD97706) // Doré/Ambre pour vote du Maire
-                                : LupusColors.arcaneCrimson,
-                            borderRadius: BorderRadius.circular(6),
-                            border: (widget.captainTargetVoteId == player.id)
-                                ? Border.all(
-                                    color: LupusColors.arcaneGold, width: 1.2)
-                                : null,
-                            boxShadow: (widget.captainTargetVoteId == player.id)
-                                ? [
-                                    BoxShadow(
-                                      color: LupusColors.arcaneGold
-                                          .withValues(alpha: 0.6),
-                                      blurRadius: 6,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (widget.captainTargetVoteId == player.id) ...[
-                                const Icon(Icons.star_rounded,
-                                    size: 8, color: Colors.white),
-                                const SizedBox(width: 1),
                               ],
-                              Text(
-                                '$votes',
-                                style: const TextStyle(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
+                            ),
+                            child: const Text(
+                              '🎙️',
+                              style: TextStyle(fontSize: 8.0),
+                            ),
+                          ),
+                        ),
+
+                      // Badge Micro Barré Rouge si Bâillonné (silence forcé)
+                      if (player.isMuted && player.isAlive)
+                        Positioned(
+                          bottom: -4,
+                          left: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2.0),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF200A10),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFFF3333),
+                                width: 1.5,
                               ),
-                            ],
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x99FF3333),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.mic_off_rounded,
+                              size: 8.5,
+                              color: Color(0xFFFF3333),
+                            ),
+                          ),
+                        ),
+
+                      // Badge Hors-Ligne si Déconnecté en cours de partie
+                      if (!player.isOnline && player.isAlive)
+                        Positioned(
+                          bottom: -4,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2.0),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E212D),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.amber,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.wifi_off_rounded,
+                              size: 8.0,
+                              color: Colors.amber,
+                            ),
+                          ),
+                        ),
+
+                      // Badge Allié Loup-Garou (visible pour les loups)
+                      if (isWolfPeer && !isMe && (player.isAlive || isGodMode))
+                        Positioned(
+                          top: -6,
+                          left: -6,
+                          child: Container(
+                            padding: const EdgeInsets.all(2.0),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B1E1E),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFFFF5252), width: 1.2),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0xFFFF2A4B),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: const Text('🐺', style: TextStyle(fontSize: 9.0)),
+                          ),
+                        ),
+
+                      // Badge Rôle Sondé par la Voyante (visible uniquement par la voyante)
+                      if (seerDiscoveredRole != null && !isMe && (player.isAlive || isGodMode))
+                        Positioned(
+                          top: -6,
+                          right: -6,
+                          child: Container(
+                            padding: const EdgeInsets.all(2.0),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E1B4B),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFF818CF8), width: 1.2),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0xFF6366F1),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: const Text('🔮', style: TextStyle(fontSize: 9.0)),
+                          ),
+                        ),
+
+                      // Badge Capitaine (Étoile dorée uniquement si vivant)
+                      if (player.isCaptain && player.isAlive)
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: isNewCaptainFlashing
+                              ? RepaintBoundary(
+                                  child: AnimatedBuilder(
+                                    animation: _captainFlashAnimation,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: LupusColors.arcaneGold,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: LupusColors.arcaneGold
+                                                .withValues(alpha: 0.85),
+                                            blurRadius: 10,
+                                            spreadRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(Icons.star_rounded,
+                                          size: 9.5, color: Colors.black),
+                                    ),
+                                    builder: (context, child) {
+                                      final flash =
+                                          _captainFlashAnimation.value;
+                                      return Transform.scale(
+                                        scale: 1.0 + (0.35 * flash),
+                                        child: child,
+                                      );
+                                    },
+                                  ),
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: LupusColors.arcaneGold,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.star_rounded,
+                                      size: 8.5, color: Colors.black),
+                                ),
+                        ),
+
+                      // Badge Amoureux (Cœur - masqué hors local, godmode ou mort)
+                      if (player.isLover && (isMe || isGodMode || isDead))
+                        Positioned(
+                          top: -4,
+                          left: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE63946),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.favorite_rounded,
+                                size: 8.5, color: Colors.white),
+                          ),
+                        ),
+
+                      // Badge Maison Imbibée de Carburant (Pyromane)
+                      if (player.isDoused &&
+                          (isMe ||
+                              widget.myRole == GameRole.pyromaniac ||
+                              isGodMode ||
+                              isDead))
+                        Positioned(
+                          bottom: -4,
+                          left: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFF4800),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.local_fire_department_rounded,
+                                size: 8.5, color: Colors.white),
+                          ),
+                        ),
+
+                      // Badge Envoûté (Joueur de Flûte)
+                      if (player.isCharmed &&
+                          (isMe ||
+                              widget.myRole == GameRole.piper ||
+                              isGodMode ||
+                              isDead))
+                        Positioned(
+                          bottom: -4,
+                          left: 10,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF06D6A0),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF06D6A0)
+                                      .withValues(alpha: 0.7),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.music_note_rounded,
+                                size: 8.5, color: Colors.black87),
+                          ),
+                        ),
+
+                      // Badge Infecté (Loup Infect)
+                      if (player.isInfected &&
+                          (isMe ||
+                              widget.myRole.isEvil ||
+                              isGodMode ||
+                              isDead))
+                        Positioned(
+                          top: 10,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF84CC16),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF84CC16)
+                                      .withValues(alpha: 0.7),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.pest_control_rounded,
+                                size: 8.5, color: Colors.black),
+                          ),
+                        ),
+
+                      // Badge Bâillonné / Muté (Loup Noir)
+                      if (player.isMuted)
+                        Positioned(
+                          top: 10,
+                          left: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF9333EA),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF9333EA)
+                                      .withValues(alpha: 0.7),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.volume_off_rounded,
+                                size: 8.5, color: Colors.white),
+                          ),
+                        ),
+
+                      // Badge de votes reçus (avec étoile dorée si ciblé par le vote du Maire)
+                      if (votes > 0)
+                        Positioned(
+                          bottom: -4,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: (widget.captainTargetVoteId == player.id)
+                                  ? const Color(0xFFD97706) // Doré/Ambre pour vote du Maire
+                                  : LupusColors.arcaneCrimson,
+                              borderRadius: BorderRadius.circular(6),
+                              border: (widget.captainTargetVoteId == player.id)
+                                  ? Border.all(
+                                      color: LupusColors.arcaneGold, width: 1.2)
+                                  : null,
+                              boxShadow: (widget.captainTargetVoteId == player.id)
+                                  ? [
+                                      BoxShadow(
+                                        color: LupusColors.arcaneGold
+                                            .withValues(alpha: 0.6),
+                                        blurRadius: 6,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (widget.captainTargetVoteId == player.id) ...[
+                                  const Icon(Icons.star_rounded,
+                                      size: 7.5, color: Colors.white),
+                                  const SizedBox(width: 1),
+                                ],
+                                Text(
+                                  '$votes',
+                                  style: const TextStyle(
+                                    fontSize: 7.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+
+                  // Nom et numéro de siège avec icône loup si allié ou boule de cristal si sondé
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isWolfPeer && !isMe) ...[
+                        const Text('🐺', style: TextStyle(fontSize: 8.0)),
+                        const SizedBox(width: 1.5),
+                      ],
+                      if (seerDiscoveredRole != null && !isMe) ...[
+                        const Text('🔮', style: TextStyle(fontSize: 8.0)),
+                        const SizedBox(width: 1.5),
+                      ],
+                      if (player.isInfected &&
+                          (isMe || isWolfPeer || isGodMode || isDead)) ...[
+                        const Text('🩸', style: TextStyle(fontSize: 8.0)),
+                        const SizedBox(width: 1.5),
+                      ],
+                      if (player.isCharmed &&
+                          (isMe ||
+                              widget.myRole == GameRole.piper ||
+                              isGodMode ||
+                              isDead)) ...[
+                        const Text('🎵', style: TextStyle(fontSize: 8.0)),
+                        const SizedBox(width: 1.5),
+                      ],
+                      if (player.isMuted) ...[
+                        const Text('🤫', style: TextStyle(fontSize: 8.0)),
+                        const SizedBox(width: 1.5),
+                      ],
+                      Flexible(
+                        child: Text(
+                          '#${index + 1} ${player.name}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: dimensions.fontSize,
+                            fontWeight: (isSelected ||
+                                    (isWolfPeer && !isMe) ||
+                                    (seerDiscoveredRole != null && !isMe))
+                                ? FontWeight.w800
+                                : FontWeight.w500,
+                            color: (isWolfPeer && !isMe)
+                                ? const Color(0xFFFF5252)
+                                : ((seerDiscoveredRole != null && !isMe)
+                                    ? const Color(0xFFA5B4FC)
+                                    : (isDead
+                                        ? LupusColors.textMuted
+                                        : (isSelected
+                                            ? LupusColors.arcaneGold
+                                            : LupusColors.textSecondary))),
                           ),
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-
-                // Nom et numéro de siège avec icône loup si allié ou boule de cristal si sondé
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isWolfPeer && !isMe) ...[
-                      const Text('🐺', style: TextStyle(fontSize: 8.5)),
-                      const SizedBox(width: 2),
                     ],
-                    if (seerDiscoveredRole != null && !isMe) ...[
-                      const Text('🔮', style: TextStyle(fontSize: 8.5)),
-                      const SizedBox(width: 2),
-                    ],
-                    if (player.isInfected &&
-                        (isMe || isWolfPeer || isGodMode || isDead)) ...[
-                      const Text('🩸', style: TextStyle(fontSize: 8.5)),
-                      const SizedBox(width: 2),
-                    ],
-                    if (player.isCharmed &&
-                        (isMe ||
-                            widget.myRole == GameRole.piper ||
-                            isGodMode ||
-                            isDead)) ...[
-                      const Text('🎵', style: TextStyle(fontSize: 8.5)),
-                      const SizedBox(width: 2),
-                    ],
-                    if (player.isMuted) ...[
-                      const Text('🤫', style: TextStyle(fontSize: 8.5)),
-                      const SizedBox(width: 2),
-                    ],
-                    Flexible(
-                      child: Text(
-                        '#${index + 1} ${player.name}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: (isSelected ||
-                                  (isWolfPeer && !isMe) ||
-                                  (seerDiscoveredRole != null && !isMe))
-                              ? FontWeight.w800
-                              : FontWeight.w500,
-                          color: (isWolfPeer && !isMe)
-                              ? const Color(0xFFFF5252)
-                              : ((seerDiscoveredRole != null && !isMe)
-                                  ? const Color(0xFFA5B4FC)
-                                  : (isDead
-                                      ? LupusColors.textMuted
-                                      : (isSelected
-                                          ? LupusColors.arcaneGold
-                                          : LupusColors.textSecondary))),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -886,13 +1045,14 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     required bool isNewCaptainFlashing,
     required double avatarSize,
     required String initials,
+    required double fontSize,
   }) {
     final avatarContent = Center(
       child: isDead
           ? const Text(
               '✕',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.w900,
                 color: LupusColors.arcaneCrimson,
               ),
@@ -900,7 +1060,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
           : Text(
               initials,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: fontSize,
                 fontWeight: FontWeight.w800,
                 color: (isWolfPeer && !isMe)
                     ? const Color(0xFFFFD4D4)
@@ -960,9 +1120,9 @@ class _MysticRadialTableState extends State<MysticRadialTable>
           width: (isNewCaptainFlashing && flash > 0)
               ? (2.5 + (1.5 * flash))
               : ((isSpeaking || ((isWolfPeer || seerDiscoveredRole != null) && !isMe))
-                  ? 3.0 // Contour néon / rouge sang bien affirmé
+                  ? 2.6 // Contour néon / rouge sang bien affirmé
                   : (isSelected
-                      ? 2.5
+                      ? 2.2
                       : 1.2)),
         ),
         boxShadow: (isNewCaptainFlashing && flash > 0)
@@ -983,54 +1143,54 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                 ? [
                     const BoxShadow(
                       color: Color(0xFF00FF88),
-                      blurRadius: 12,
+                      blurRadius: 10,
                       spreadRadius: 2,
                     ),
                     if (isWolfPeer && !isMe)
                       const BoxShadow(
                         color: Color(0xFFFF2A4B),
-                        blurRadius: 14,
+                        blurRadius: 12,
                         spreadRadius: 2,
                       ),
                     if (seerDiscoveredRole != null && !isMe)
                       const BoxShadow(
                         color: Color(0xFF6366F1),
-                        blurRadius: 14,
+                        blurRadius: 12,
                         spreadRadius: 2,
                       ),
                     if (isSelected)
                       BoxShadow(
                         color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                        blurRadius: 16,
-                        spreadRadius: 3,
+                        blurRadius: 14,
+                        spreadRadius: 2.5,
                       ),
                   ]
                 : ((isWolfPeer && !isMe)
                     ? [
                         const BoxShadow(
                           color: Color(0xFFFF2A4B),
-                          blurRadius: 14,
-                          spreadRadius: 2.5,
+                          blurRadius: 12,
+                          spreadRadius: 2.0,
                         ),
                         if (isSelected)
                           BoxShadow(
                             color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                            blurRadius: 16,
-                            spreadRadius: 3,
+                            blurRadius: 14,
+                            spreadRadius: 2.5,
                           ),
                       ]
                     : (seerDiscoveredRole != null && !isMe)
                         ? [
                             const BoxShadow(
                               color: Color(0xFF6366F1),
-                              blurRadius: 14,
-                              spreadRadius: 2.5,
+                              blurRadius: 12,
+                              spreadRadius: 2.0,
                             ),
                             if (isSelected)
                               BoxShadow(
                                 color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                blurRadius: 16,
-                                spreadRadius: 3,
+                                blurRadius: 14,
+                                spreadRadius: 2.5,
                               ),
                           ]
                         : (isSelected
@@ -1071,13 +1231,17 @@ class _MysticRadialTableState extends State<MysticRadialTable>
 }
 
 /// Couche d'arrière-plan du sceau magique avec rotation runique et anneaux dorés.
-/// Entièrement isolée dans un [RepaintBoundary] avec réutilisation du widget enfant.
+/// Entièrement isolée dans un [RepaintBoundary] avec réutilisation des widgets enfants.
 class _MysticRadialBackgroundLayer extends StatelessWidget {
   final double tableSize;
+  final bool isDoubleRing;
+  final double innerRadiusFactor;
   final Animation<double> rotationAnimation;
 
   const _MysticRadialBackgroundLayer({
     required this.tableSize,
+    required this.isDoubleRing,
+    required this.innerRadiusFactor,
     required this.rotationAnimation,
   });
 
@@ -1108,12 +1272,12 @@ class _MysticRadialBackgroundLayer extends StatelessWidget {
             ),
           ),
 
-          // 2. Anneau runique animé en rotation douce (child pré-alloué réutilisé)
+          // 2. Anneau runique extérieur animé en rotation douce (child pré-alloué réutilisé)
           AnimatedBuilder(
             animation: rotationAnimation,
             child: Container(
-              width: tableSize - 60,
-              height: tableSize - 60,
+              width: tableSize - 56,
+              height: tableSize - 56,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -1131,10 +1295,35 @@ class _MysticRadialBackgroundLayer extends StatelessWidget {
             },
           ),
 
-          // 3. Anneau doré intérieur
+          // 3. Anneau runique intérieur secondaire pour mode double anneau (N > 16)
+          if (isDoubleRing)
+            AnimatedBuilder(
+              animation: rotationAnimation,
+              child: Container(
+                width: (tableSize - 56) * innerRadiusFactor,
+                height: (tableSize - 56) * innerRadiusFactor,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: LupusColors.arcaneCyan.withValues(alpha: 0.14),
+                    width: 1.0,
+                    strokeAlign: BorderSide.strokeAlignCenter,
+                  ),
+                ),
+              ),
+              builder: (context, child) {
+                return Transform.rotate(
+                  // Rotation en sens inverse pour un effet mystique saisissant
+                  angle: -rotationAnimation.value * 2 * math.pi,
+                  child: child,
+                );
+              },
+            ),
+
+          // 4. Anneau doré intérieur délimitant le centre
           Container(
-            width: tableSize - 120,
-            height: tableSize - 120,
+            width: isDoubleRing ? (tableSize * 0.38) : (tableSize - 120),
+            height: isDoubleRing ? (tableSize * 0.38) : (tableSize - 120),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(

@@ -151,11 +151,37 @@ enum GamePhase {
     return this == GamePhase.nightThief ||
         this == GamePhase.nightCupid ||
         this == GamePhase.nightDefender ||
-        this == GamePhase.nightSeer ||
         this == GamePhase.nightWerewolves ||
         this == GamePhase.nightBlackWolf ||
+        this == GamePhase.nightSeer ||
         this == GamePhase.nightWitch ||
         this == GamePhase.nightPyromaniac;
+  }
+
+  /// Indice d'ordonnancement strict et irréversible pour la phase nocturne (1 à 9)
+  int get nightOrderIndex {
+    switch (this) {
+      case GamePhase.nightThief:
+        return 1;
+      case GamePhase.nightCupid:
+        return 2;
+      case GamePhase.nightDefender:
+        return 3;
+      case GamePhase.nightWerewolves:
+        return 4;
+      case GamePhase.nightBlackWolf:
+        return 5;
+      case GamePhase.nightSeer:
+        return 6;
+      case GamePhase.nightWitch:
+        return 7;
+      case GamePhase.nightPyromaniac:
+        return 8;
+      case GamePhase.morningAnnouncement:
+        return 9;
+      default:
+        return 0;
+    }
   }
 
   bool get isDay {

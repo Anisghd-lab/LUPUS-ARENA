@@ -732,6 +732,12 @@ class SuperviseurDeJeu(
     }
 
     private fun changerPhase(nouvellePhase: PhaseJeu) {
+        if (phaseActuelle.isNuit && nouvellePhase.isNuit) {
+            if (nouvellePhase.nightOrderIndex < phaseActuelle.nightOrderIndex) {
+                onJournalEvent?.invoke("GARDE MONOTONE : Tentative de régression nocturne rejetée ($phaseActuelle -> $nouvellePhase).")
+                return
+            }
+        }
         phaseActuelle = nouvellePhase
         onPhaseChanged?.invoke(nouvellePhase)
     }

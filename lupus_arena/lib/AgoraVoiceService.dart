@@ -48,6 +48,15 @@ class AgoraVoiceService {
   int? _lastUid;
   bool _lastInitialMute = false;
 
+  // Mutex et file d'attente pour sérialiser switchChannel et éviter les conflits Agora
+  bool _isSwitching = false;
+  bool get isSwitching => _isSwitching;
+  String? _pendingSwitchChannelId;
+  int? _pendingSwitchUid;
+  String? _pendingSwitchUserAccount;
+  String? _pendingSwitchToken;
+  bool _pendingSwitchInitialMute = false;
+
   RtcEngine? get engine => _engine;
   bool get isInitialized => _isInitialized;
 
@@ -291,9 +300,9 @@ class AgoraVoiceService {
     }
 
     // 4. PURGE DES SESSIONS FANTÔMES :
-    // Vérifier si un canal est actif ou forcer leaveChannel() avant de rejoindre pour tuer toute session fantôme
+    // Vérifier si un canal est actif avant de forcer leaveChannel()
     try {
-      if (currentChannel.value != null || isConnected.value || _engine != null) {
+      if (currentChannel.value != null || isConnected.value) {
         addLog('Purge préalable d\'une session Agora active/fantôme (${currentChannel.value ?? "antérieure"})...');
         await _engine?.leaveChannel();
         isConnected.value = false;
@@ -406,7 +415,7 @@ class AgoraVoiceService {
     }
   }
 
-  /// Bascule propre et cadencée vers un autre canal
+  /// Bascule propre et cadencée vers un autre canal avec mutex de concurrence
   Future<void> switchChannel({
     required String newChannelId,
     int? uid,
@@ -420,23 +429,58 @@ class AgoraVoiceService {
       if (DateTime.now().difference(_lastFailureTime!).inSeconds < 8) return;
     }
 
-    addLog('🔄 Bascule vers le canal "$newChannelId"...');
-    debugPrint(
-      '[AgoraVoiceService] Bascule vocale : ${currentChannel.value} -> $newChannelId (initialMute: $initialMute)',
-    );
-
-    if (currentChannel.value != null && isConnected.value) {
-      await leaveChannel();
-      await Future.delayed(const Duration(milliseconds: 150));
+    if (_isSwitching) {
+      debugPrint('[AgoraVoiceService] switchChannel déjà en cours. Mise en attente de la cible: $newChannelId');
+      _pendingSwitchChannelId = newChannelId;
+      _pendingSwitchUid = uid;
+      _pendingSwitchUserAccount = userAccount;
+      _pendingSwitchToken = token;
+      _pendingSwitchInitialMute = initialMute;
+      return;
     }
 
-    await joinChannel(
-      channelId: newChannelId,
-      uid: uid,
-      userAccount: userAccount,
-      token: token,
-      initialMute: initialMute,
-    );
+    _isSwitching = true;
+    try {
+      addLog('🔄 Bascule vers le canal "$newChannelId"...');
+      debugPrint(
+        '[AgoraVoiceService] Bascule vocale : ${currentChannel.value} -> $newChannelId (initialMute: $initialMute)',
+      );
+
+      if (currentChannel.value != null || isConnected.value) {
+        await leaveChannel();
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+
+      await joinChannel(
+        channelId: newChannelId,
+        uid: uid,
+        userAccount: userAccount,
+        token: token,
+        initialMute: initialMute,
+      );
+    } finally {
+      _isSwitching = false;
+      if (_pendingSwitchChannelId != null) {
+        final nextTarget = _pendingSwitchChannelId!;
+        final nextUid = _pendingSwitchUid;
+        final nextAccount = _pendingSwitchUserAccount;
+        final nextToken = _pendingSwitchToken;
+        final nextMute = _pendingSwitchInitialMute;
+        _pendingSwitchChannelId = null;
+        _pendingSwitchUid = null;
+        _pendingSwitchUserAccount = null;
+        _pendingSwitchToken = null;
+        if (nextTarget != currentChannel.value || !isConnected.value) {
+          Future.microtask(() => switchChannel(
+                newChannelId: nextTarget,
+                uid: nextUid,
+                userAccount: nextAccount,
+                token: nextToken,
+                initialMute: nextMute,
+              ));
+        }
+      }
+    }
   }
 
   Future<void> toggleMute() async {

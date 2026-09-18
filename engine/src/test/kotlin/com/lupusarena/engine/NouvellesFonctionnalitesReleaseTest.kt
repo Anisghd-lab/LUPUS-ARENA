@@ -91,4 +91,30 @@ class NouvellesFonctionnalitesReleaseTest {
             assertEquals(Role.VILLAGEOIS, sorciere.roleActif)
         }
     }
+
+    @Test
+    fun `test garde monotone - interdiction absolue de regression nocturne`() {
+        superviseur.basculerEnPhase(PhaseJeu.NUIT_LOUPS)
+        assertEquals(PhaseJeu.NUIT_LOUPS, superviseur.phaseActuelle)
+
+        // Tentative illégale de rétrograder vers NUIT_VOYANTE
+        superviseur.basculerEnPhase(PhaseJeu.NUIT_VOYANTE)
+        assertEquals(PhaseJeu.NUIT_LOUPS, superviseur.phaseActuelle, "La phase des Loups ne doit jamais régresser vers la Voyante")
+
+        // Avancement légal vers NUIT_SORCIERE
+        superviseur.basculerEnPhase(PhaseJeu.NUIT_SORCIERE)
+        assertEquals(PhaseJeu.NUIT_SORCIERE, superviseur.phaseActuelle)
+
+        // Tentative illégale de rétrograder vers NUIT_LOUPS
+        superviseur.basculerEnPhase(PhaseJeu.NUIT_LOUPS)
+        assertEquals(PhaseJeu.NUIT_SORCIERE, superviseur.phaseActuelle, "La phase de la Sorcière ne doit jamais régresser vers les Loups")
+
+        // Avancement vers l'Aube
+        superviseur.basculerEnPhase(PhaseJeu.AUBE_BILAN)
+        assertEquals(PhaseJeu.AUBE_BILAN, superviseur.phaseActuelle)
+
+        // Tentative de revenir en arrière dans la nuit
+        superviseur.basculerEnPhase(PhaseJeu.NUIT_SORCIERE)
+        assertEquals(PhaseJeu.AUBE_BILAN, superviseur.phaseActuelle, "L'Aube ne doit pas régresser vers la Nuit")
+    }
 }

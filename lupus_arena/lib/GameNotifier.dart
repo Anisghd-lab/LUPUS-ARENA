@@ -143,12 +143,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   GameNotifier()
       : super(
-          LupusGameState(
-            currentUserId: _generateUniqueId(),
-            currentUserName: 'Guerrier_${Random().nextInt(900) + 100}',
-            currentUserAvatar: Random().nextInt(6),
-            agoraUid: Random().nextInt(899999) + 100000,
-          ),
+          () {
+            final initialId = _generateUniqueId();
+            return LupusGameState(
+              currentUserId: initialId,
+              currentUserName: 'Guerrier_${Random().nextInt(900) + 100}',
+              currentUserAvatar: Random().nextInt(6),
+              agoraUid: AgoraVoiceService.deriveUid(initialId),
+            );
+          }(),
         ) {
     loadSavedProfile();
   }
@@ -157,14 +160,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   Future<void> loadSavedProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      String? savedUserId = prefs.getString('player_user_id');
+      if (savedUserId == null || savedUserId.trim().isEmpty) {
+        savedUserId = state.currentUserId;
+        await prefs.setString('player_user_id', savedUserId);
+      }
       final savedName = prefs.getString('player_nickname');
       final savedAvatar = prefs.getInt('player_avatar');
-      if (savedName != null && savedName.trim().isNotEmpty) {
-        state = state.copyWith(currentUserName: savedName.trim());
-      }
-      if (savedAvatar != null) {
-        state = state.copyWith(currentUserAvatar: savedAvatar);
-      }
+      final stableAgoraUid = AgoraVoiceService.deriveUid(savedUserId);
+      state = state.copyWith(
+        currentUserId: savedUserId,
+        agoraUid: stableAgoraUid,
+        currentUserName: (savedName != null && savedName.trim().isNotEmpty)
+            ? savedName.trim()
+            : state.currentUserName,
+        currentUserAvatar: savedAvatar ?? state.currentUserAvatar,
+      );
     } catch (e) {
       debugPrint('[Profile] Erreur de chargement du profil local : $e');
     }
@@ -218,6 +229,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       await _currentRoomRef!.update(updates);
       if (state.room != null) {
         final roomCode = state.room!.roomCode;
+        await _database.ref('rooms/$roomCode').update(updates);
+        await _database.ref('games/$roomCode').update(updates);
         await _database.ref('rooms/$roomCode/state').update(updates);
       }
     } catch (e) {
@@ -241,11 +254,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         phase: updatedPhase,
         timerSeconds: updatedTimer,
         currentSpeakerId: updates.containsKey('currentSpeakerId')
-            ? updates['currentSpeakerId']
+            ? updates['currentSpeakerId'] as String?
             : state.room!.currentSpeakerId,
       );
       state = state.copyWith(room: provisionalRoom);
-      await _applyVoiceRulesForPhase(provisionalRoom);
+      _applyVoiceRulesForPhase(provisionalRoom);
     }
   }
 
@@ -261,6 +274,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         isHost: true,
         isReady: true,
         isAlive: true,
+        isOnline: true,
         agoraUid: state.agoraUid,
         socketId:
             'sock_${state.currentUserId}_${DateTime.now().millisecondsSinceEpoch}',
@@ -276,9 +290,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         logs: ['Le salon $roomCode a été créé par ${state.currentUserName}.'],
       );
 
-      _currentRoomRef = _database.ref('games/$roomCode');
+      _currentRoomRef = _database.ref('rooms/$roomCode');
       await _currentRoomRef!.set(newRoom.toMap());
+      await _database.ref('games/$roomCode').set(newRoom.toMap());
       await _database.ref('rooms/$roomCode/state').set(newRoom.toMap());
+
+      try {
+        await _currentRoomRef!
+            .child('players/${state.currentUserId}/isOnline')
+            .onDisconnect()
+            .set(false);
+        await _currentRoomRef!
+            .child('players/${state.currentUserId}/lastSeen')
+            .onDisconnect()
+            .set(ServerValue.timestamp);
+      } catch (_) {}
 
       _subscribeToRoom(roomCode);
 
@@ -432,9 +458,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         debugPrint('[Firebase Test Room Error] $e');
       }
 
-      _currentRoomRef = _database.ref('games/$roomCode');
+      _currentRoomRef = _database.ref('rooms/$roomCode');
       await _currentRoomRef!.set(newRoom.toMap());
+      await _database.ref('games/$roomCode').set(newRoom.toMap());
       await _database.ref('rooms/$roomCode/state').set(newRoom.toMap());
+
+      try {
+        await _currentRoomRef!
+            .child('players/${state.currentUserId}/isOnline')
+            .onDisconnect()
+            .set(false);
+        await _currentRoomRef!
+            .child('players/${state.currentUserId}/lastSeen')
+            .onDisconnect()
+            .set(ServerValue.timestamp);
+      } catch (_) {}
 
       _subscribeToRoom(roomCode);
 
@@ -481,8 +519,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final ref = _database.ref('games/$cleanCode');
-      final snapshot = await ref.get();
+      DatabaseReference ref = _database.ref('rooms/$cleanCode');
+      DataSnapshot snapshot = await ref.get();
+
+      if (!snapshot.exists || snapshot.value == null) {
+        final legacyRef = _database.ref('games/$cleanCode');
+        final legacySnap = await legacyRef.get();
+        if (legacySnap.exists && legacySnap.value != null) {
+          ref = legacyRef;
+          snapshot = legacySnap;
+        }
+      }
 
       if (!snapshot.exists || snapshot.value == null) {
         state = state.copyWith(
@@ -496,8 +543,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final room = GameRoom.fromMap(data, cleanCode, state.currentUserId);
 
       // --- 4. ENTRÉE UNIQUE PAR JOUEUR DANS LE SALON (ANTI-DOUBLON & RECONNEXION) ---
-      // Vérification de l'identifiant unique (userId) avant d'ajouter le joueur.
-      // S'il existe déjà dans le salon, remplace son socket (reconnexion) au lieu de créer une entrée dupliquée.
+      // Vérification de l'identifiant unique (userId) dans la table de hachage des joueurs
       final existingPlayer = room.players[state.currentUserId] ??
           room.playerList.cast<PlayerModel?>().firstWhere(
                 (p) => p != null && p.id == state.currentUserId,
@@ -515,21 +561,38 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           socketId: currentSocketId,
           name: state.currentUserName,
           avatarIndex: state.currentUserAvatar,
+          isOnline: true,
         );
 
         final playerUpdates = <String, dynamic>{
+          'id': state.currentUserId,
           'agoraUid': state.agoraUid,
           'socketId': currentSocketId,
           'name': state.currentUserName,
           'avatarIndex': state.currentUserAvatar,
+          'isOnline': true,
+          'lastSeen': ServerValue.timestamp,
           'lastReconnectedAt': ServerValue.timestamp,
         };
 
-        await ref.child('players/${existingPlayer.id}').update(playerUpdates);
-        await ref.child('logs').set([
+        // Écriture stricte indexée par ID utilisateur : /rooms/{roomId}/players/{userId}
+        await ref.child('players/${state.currentUserId}').update(playerUpdates);
+        await _database.ref('rooms/$cleanCode/players/${state.currentUserId}').update(playerUpdates);
+        await _database.ref('games/$cleanCode/players/${state.currentUserId}').update(playerUpdates);
+
+        try {
+          await ref.child('players/${state.currentUserId}/isOnline').onDisconnect().set(false);
+          await ref.child('players/${state.currentUserId}/lastSeen').onDisconnect().set(ServerValue.timestamp);
+          await _database.ref('rooms/$cleanCode/players/${state.currentUserId}/isOnline').onDisconnect().set(false);
+          await _database.ref('rooms/$cleanCode/players/${state.currentUserId}/lastSeen').onDisconnect().set(ServerValue.timestamp);
+        } catch (_) {}
+
+        final updatedLogs = [
           ...room.logs,
           '🔄 ${state.currentUserName} s\'est reconnecté(e) au salon.',
-        ]);
+        ];
+        await ref.child('logs').set(updatedLogs);
+        await _database.ref('rooms/$cleanCode/logs').set(updatedLogs);
 
         _currentRoomRef = ref;
         _subscribeToRoom(cleanCode);
@@ -542,8 +605,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         );
 
         final updatedPlayers = Map<String, PlayerModel>.from(room.players)
-          ..[existingPlayer.id] = updatedPlayer;
-        final updatedRoom = room.copyWith(players: updatedPlayers);
+          ..[state.currentUserId] = updatedPlayer;
+        final updatedRoom = room.copyWith(players: updatedPlayers, logs: updatedLogs);
 
         state = state.copyWith(room: updatedRoom, isLoading: false);
         await _applyVoiceRulesForPhase(updatedRoom);
@@ -575,15 +638,32 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         isHost: false,
         isReady: false,
         isAlive: true,
+        isOnline: true,
         agoraUid: state.agoraUid,
         socketId: currentSocketId,
       );
 
-      await ref.child('players/${state.currentUserId}').set(player.toMap());
-      await ref.child('logs').set([
+      final playerMap = player.toMap();
+      playerMap['lastSeen'] = ServerValue.timestamp;
+
+      // Écriture stricte indexée par ID utilisateur : /rooms/{roomId}/players/{userId}
+      await ref.child('players/${state.currentUserId}').set(playerMap);
+      await _database.ref('rooms/$cleanCode/players/${state.currentUserId}').set(playerMap);
+      await _database.ref('games/$cleanCode/players/${state.currentUserId}').set(playerMap);
+
+      try {
+        await ref.child('players/${state.currentUserId}/isOnline').onDisconnect().set(false);
+        await ref.child('players/${state.currentUserId}/lastSeen').onDisconnect().set(ServerValue.timestamp);
+        await _database.ref('rooms/$cleanCode/players/${state.currentUserId}/isOnline').onDisconnect().set(false);
+        await _database.ref('rooms/$cleanCode/players/${state.currentUserId}/lastSeen').onDisconnect().set(ServerValue.timestamp);
+      } catch (_) {}
+
+      final updatedLogs = [
         ...room.logs,
         '${state.currentUserName} a rejoint le village.',
-      ]);
+      ];
+      await ref.child('logs').set(updatedLogs);
+      await _database.ref('rooms/$cleanCode/logs').set(updatedLogs);
 
       _currentRoomRef = ref;
       _subscribeToRoom(cleanCode);
@@ -595,7 +675,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         userAccount: state.currentUserId,
       );
 
-      state = state.copyWith(room: room, isLoading: false);
+      final updatedPlayers = Map<String, PlayerModel>.from(room.players)
+        ..[state.currentUserId] = player;
+      final updatedRoom = room.copyWith(players: updatedPlayers, logs: updatedLogs);
+
+      state = state.copyWith(room: updatedRoom, isLoading: false);
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -3464,22 +3548,112 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   Future<void> leaveRoom() async {
-    _roomSubscription?.cancel();
-    _roomSubscription = null;
-    _currentPhaseSubscription?.cancel();
-    _currentPhaseSubscription = null;
-    _secretRoleSubscription?.cancel();
-    _secretRoleSubscription = null;
-    _wolfPackSubscription?.cancel();
-    _wolfPackSubscription = null;
-    _replayStatusSubscription?.cancel();
-    _replayStatusSubscription = null;
-    _gameResetSubscription?.cancel();
-    _gameResetSubscription = null;
-    _lastAppliedVoiceChannel = null;
-    _lastAppliedVoicePhase = null;
-    await _voiceService.leaveChannel();
-    state = state.copyWith(clearRoom: true, isVictoryVoiceExpired: false);
+    final currentRoom = state.room;
+    final userId = state.currentUserId;
+    final roomCode = currentRoom?.roomCode;
+
+    try {
+      if (currentRoom != null && roomCode != null) {
+        final roomRef = _currentRoomRef ?? _database.ref('rooms/$roomCode');
+
+        // Annuler les déclencheurs onDisconnect
+        try {
+          await roomRef.child('players/$userId/isOnline').onDisconnect().cancel();
+          await roomRef.child('players/$userId/lastSeen').onDisconnect().cancel();
+          await _database.ref('rooms/$roomCode/players/$userId/isOnline').onDisconnect().cancel();
+          await _database.ref('rooms/$roomCode/players/$userId/lastSeen').onDisconnect().cancel();
+        } catch (_) {}
+
+        if (currentRoom.phase == GamePhase.lobby) {
+          // --- SORTIE EN PHASE DE LOBBY ---
+          // 1. Supprimer le joueur de la table /rooms/{roomId}/players/{userId}
+          await roomRef.child('players/$userId').remove();
+          await _database.ref('rooms/$roomCode/players/$userId').remove();
+          await _database.ref('games/$roomCode/players/$userId').remove();
+
+          // 2. Déterminer les joueurs restants
+          final remainingPlayers = currentRoom.players.values
+              .where((p) => p.id != userId)
+              .toList();
+
+          if (remainingPlayers.isEmpty) {
+            // Salon vidé : suppression définitive
+            await roomRef.remove();
+            await _database.ref('rooms/$roomCode').remove();
+            await _database.ref('games/$roomCode').remove();
+          } else if (currentRoom.hostId == userId) {
+            // L'hôte quitte : passation de l'hôte au prochain joueur de la liste
+            final nextHost = remainingPlayers.first;
+            final hostUpdates = <String, dynamic>{
+              'hostId': nextHost.id,
+              'players/${nextHost.id}/isHost': true,
+            };
+            await roomRef.update(hostUpdates);
+            await _database.ref('rooms/$roomCode').update(hostUpdates);
+            await _database.ref('games/$roomCode').update(hostUpdates);
+
+            final updatedLogs = [
+              ...currentRoom.logs,
+              '🚪 ${state.currentUserName} a quitté le salon.',
+              '👑 ${nextHost.name} est devenu le nouvel hôte du village.',
+            ];
+            await roomRef.child('logs').set(updatedLogs);
+            await _database.ref('rooms/$roomCode/logs').set(updatedLogs);
+            await _database.ref('games/$roomCode/logs').set(updatedLogs);
+          } else {
+            // Joueur normal quittant le lobby
+            final updatedLogs = [
+              ...currentRoom.logs,
+              '🚪 ${state.currentUserName} a quitté le salon.',
+            ];
+            await roomRef.child('logs').set(updatedLogs);
+            await _database.ref('rooms/$roomCode/logs').set(updatedLogs);
+            await _database.ref('games/$roomCode/logs').set(updatedLogs);
+          }
+        } else {
+          // --- SORTIE EN JEU (IN-GAME) ---
+          // Conserver l'emplacement du joueur, son rôle et son siège radial.
+          // Passer isOnline = false et horodater lastSeen pour reprise ultérieure.
+          final statusUpdates = <String, dynamic>{
+            'players/$userId/isOnline': false,
+            'players/$userId/lastSeen': ServerValue.timestamp,
+          };
+          await roomRef.update(statusUpdates);
+          await _database.ref('rooms/$roomCode').update(statusUpdates);
+          await _database.ref('games/$roomCode').update(statusUpdates);
+
+          final updatedLogs = [
+            ...currentRoom.logs,
+            '📡 ${state.currentUserName} s\'est déconnecté(e) (partie en cours).',
+          ];
+          await roomRef.child('logs').set(updatedLogs);
+          await _database.ref('rooms/$roomCode/logs').set(updatedLogs);
+          await _database.ref('games/$roomCode/logs').set(updatedLogs);
+        }
+      }
+    } catch (e) {
+      debugPrint('[LeaveRoom Error] $e');
+    } finally {
+      // Libération des flux et du canal Agora
+      _roomSubscription?.cancel();
+      _roomSubscription = null;
+      _currentPhaseSubscription?.cancel();
+      _currentPhaseSubscription = null;
+      _secretRoleSubscription?.cancel();
+      _secretRoleSubscription = null;
+      _wolfPackSubscription?.cancel();
+      _wolfPackSubscription = null;
+      _replayStatusSubscription?.cancel();
+      _replayStatusSubscription = null;
+      _gameResetSubscription?.cancel();
+      _gameResetSubscription = null;
+      _lastAppliedVoiceChannel = null;
+      _lastAppliedVoicePhase = null;
+      _currentRoomRef = null;
+
+      await _voiceService.leaveChannel();
+      state = state.copyWith(clearRoom: true, isVictoryVoiceExpired: false);
+    }
   }
 
   static String _generateRoomCode() {

@@ -718,6 +718,29 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       ),
                     ),
 
+                  // Badge Hors-Ligne si Déconnecté en cours de partie
+                  if (!player.isOnline && player.isAlive)
+                    Positioned(
+                      bottom: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(2.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E212D),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.amber,
+                            width: 1.2,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.wifi_off_rounded,
+                          size: 8.5,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ),
+
 
                   // Badge Allié Loup-Garou (visible pour les loups)
                   if (isWolfPeer && !isMe && (player.isAlive || isGodMode))

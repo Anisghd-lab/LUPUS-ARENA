@@ -18,12 +18,12 @@ class RoomPresenceService {
   }) async {
     if (roomCode.isEmpty || userId.isEmpty) return;
     final updates = <String, dynamic>{
-      if (isOnline != null) 'isOnline': isOnline,
-      if (isMuted != null) 'isMuted': isMuted,
-      if (micVolume != null) 'micVolume': micVolume,
-      if (isSpeaking != null) 'isSpeaking': isSpeaking,
       'lastSeen': ServerValue.timestamp,
     };
+    if (isOnline != null) updates['isOnline'] = isOnline;
+    if (isMuted != null) updates['isMuted'] = isMuted;
+    if (micVolume != null) updates['micVolume'] = micVolume;
+    if (isSpeaking != null) updates['isSpeaking'] = isSpeaking;
     try {
       await _database.ref('rooms/$roomCode/presence/$userId').update(updates);
     } catch (e) {

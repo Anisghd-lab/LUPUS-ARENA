@@ -4121,12 +4121,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }) async {
     if (_currentRoomRef == null || state.currentUserId.isEmpty) return;
     final presenceUpdates = <String, dynamic>{
-      if (isOnline != null) 'isOnline': isOnline,
-      if (isMuted != null) 'isMuted': isMuted,
-      if (micVolume != null) 'micVolume': micVolume,
-      if (isSpeaking != null) 'isSpeaking': isSpeaking,
       'lastSeen': ServerValue.timestamp,
     };
+    if (isOnline != null) presenceUpdates['isOnline'] = isOnline;
+    if (isMuted != null) presenceUpdates['isMuted'] = isMuted;
+    if (micVolume != null) presenceUpdates['micVolume'] = micVolume;
+    if (isSpeaking != null) presenceUpdates['isSpeaking'] = isSpeaking;
     try {
       await _currentRoomRef!
           .child('presence/${state.currentUserId}')

@@ -238,60 +238,88 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 children: [
                   Text(
                     context.tr('strategic_actions'),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                      color: LupusColors.textMuted.withValues(alpha: 0.8),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: LupusColors.sunAmber,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: (phase.isNight ? LupusColors.arcaneViolet : LupusColors.sunAmber).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: (phase.isNight ? LupusColors.arcaneViolet : LupusColors.sunAmber).withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Text(
+                      phase.isNight ? 'NOCTURNE' : 'DIURNE',
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w900,
+                        color: phase.isNight ? const Color(0xFFD4B2FF) : LupusColors.sunAmber,
+                      ),
                     ),
                   ),
                 ],
               ),
-              if (selectedTarget != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: LupusColors.arcaneGold.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: LupusColors.arcaneGold.withValues(alpha: 0.3),
-                      width: 0.5,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (selectedTarget != null)
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: LupusColors.arcaneGold.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: LupusColors.arcaneGold.withValues(alpha: 0.3),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 4,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: LupusColors.arcaneGold,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            selectedTarget.name,
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: LupusColors.arcaneGold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 4,
-                        height: 4,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: LupusColors.arcaneGold,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        selectedTarget.name,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: LupusColors.arcaneGold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                  _buildTimerBadge(),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 6),
 
-          // Zone d'action scrollable si nécessaire pour les petits écrans
-          SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          // Zone d'action dynamique ultra-compacte selon le rôle et la phase
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: KeyedSubtree(
+              key: ValueKey('${phase.name}_${selectedTarget?.id ?? 'none'}_${role.id}'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                 // 1. CHASSEUR AU DERNIER SOUFFLE
                 if (phase == GamePhase.hunterDeathChoice) ...[
                   if (widget.room.pendingHunterId == widget.currentUserId) ...[
@@ -318,14 +346,14 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     ),
                   ],
                 ]
-                // 2. CAPITAINE DÉFUNT (TESTAMENT) OU SPECTATEUR / VILLAGE
-                else if (phase == GamePhase.captainSuccession) ...[
+                // 2. CAPITAINE / MAIRE DÉFUNT (TESTAMENT) OU SPECTATEUR / VILLAGE
+                else if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) ...[
                   if (isDyingCaptain) ...[
                     _buildCaptainSuccessionSection(selectedTarget),
-                  ] else if ((widget.room.pendingCaptainId ?? widget.room.captainId)?.startsWith('bot_') == true) ...[
+                  ] else if ((widget.room.pendingCaptainId ?? widget.room.captainId ?? widget.room.expandedRolesState.mayorPlayerId)?.startsWith('bot_') == true) ...[
                     _buildBotActivityBanner(
-                      widget.room.players[widget.room.pendingCaptainId ?? widget.room.captainId ?? ''] ?? me,
-                      '🤖 Le Capitaine Bot transmet son brassard...',
+                      widget.room.players[widget.room.pendingCaptainId ?? widget.room.captainId ?? widget.room.expandedRolesState.mayorPlayerId ?? ''] ?? me,
+                      '🤖 Le Maire Bot transmet son écharpe...',
                     ),
                   ] else ...[
                     _buildCaptainSuccessionSpectatorSection(),
@@ -418,13 +446,21 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
                   ],
                 ]
-                // 10. ÉLECTION DU CAPITAINE
-                else if (phase == GamePhase.captainElection) ...[
+                // 10. ÉLECTION DU CAPITAINE / MAIRE
+                else if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) ...[
                   _buildCaptainElectionSection(selectedTarget),
+                ]
+                // 10.B DISCOURS D'OUVERTURE DU MAIRE
+                else if (phase == GamePhase.mayorSpeechOpening) ...[
+                  _buildMayorSpeechOpeningSection(),
                 ]
                 // 11. DÉBAT TOUR PAR TOUR
                 else if (phase == GamePhase.dayDebate) ...[
                   _buildDebateSection(),
+                ]
+                // 11.B DISCOURS DE CLÔTURE DU MAIRE
+                else if (phase == GamePhase.mayorSpeechClosing) ...[
+                  _buildMayorSpeechClosingSection(),
                 ]
                 // 12. SCRUTIN DU BÛCHER & SECOND VOTE
                 else if (phase == GamePhase.dayVoting || phase == GamePhase.dayTieBreakVote) ...[
@@ -450,10 +486,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   // ==========================================
   // --- MODULES DE RÔLES COMPACTS SANS OVERFLOW ---
@@ -2048,6 +2085,67 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
+  /// Module Discours d'Ouverture du Maire
+  Widget _buildMayorSpeechOpeningSection() {
+    final mayorId = widget.room.captainId ?? widget.room.expandedRolesState.mayorPlayerId ?? widget.room.currentSpeakerId;
+    final isMayor = mayorId == widget.currentUserId || widget.isAdmin;
+    final mayorName = widget.room.players[mayorId]?.name ?? 'Le Maire';
+
+    if (isMayor) {
+      return SizedBox(
+        height: 40,
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: LupusColors.sunAmber,
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onPressed: widget.onPassDebate,
+          icon: const Icon(Icons.record_voice_over_rounded, size: 16, color: Colors.black),
+          label: const Text(
+            '🎖️ Ouvrir les débats du village',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Colors.black,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: LupusColors.sunAmber.withValues(alpha: 0.5)),
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.record_voice_over_rounded, color: LupusColors.sunAmber, size: 16),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '🎖️ $mayorName ouvre solennellement les débats...',
+              style: const TextStyle(
+                color: LupusColors.sunAmber,
+                fontWeight: FontWeight.w700,
+                fontSize: 11.5,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Module Débat tour par tour
   Widget _buildDebateSection() {
     final isSpeaker = widget.room.currentSpeakerId == widget.currentUserId;
@@ -2096,6 +2194,67 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               context.tr('listen_speaker', {'name': speaker?.name ?? context.tr('speaker')}),
               style: const TextStyle(
                 color: Color(0xFF00FFCC),
+                fontWeight: FontWeight.w700,
+                fontSize: 11.5,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Module Discours de Clôture du Maire
+  Widget _buildMayorSpeechClosingSection() {
+    final mayorId = widget.room.captainId ?? widget.room.expandedRolesState.mayorPlayerId ?? widget.room.currentSpeakerId;
+    final isMayor = mayorId == widget.currentUserId || widget.isAdmin;
+    final mayorName = widget.room.players[mayorId]?.name ?? 'Le Maire';
+
+    if (isMayor) {
+      return SizedBox(
+        height: 40,
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: LupusColors.arcaneCrimson,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onPressed: widget.onPassDebate,
+          icon: const Icon(Icons.gavel_rounded, size: 16, color: Colors.white),
+          label: const Text(
+            '⚖️ Clôturer & Lancer le vote du bûcher',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: LupusColors.arcaneCrimson.withValues(alpha: 0.5)),
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.gavel_rounded, color: LupusColors.arcaneCrimson, size: 16),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '⚖️ $mayorName prononce le mot de clôture...',
+              style: const TextStyle(
+                color: Color(0xFFFFA4A4),
                 fontWeight: FontWeight.w700,
                 fontSize: 11.5,
               ),

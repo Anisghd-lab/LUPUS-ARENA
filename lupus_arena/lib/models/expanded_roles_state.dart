@@ -24,6 +24,14 @@ class ExpandedRolesState {
   final bool scapegoatNeedsToBan;
   final bool hasUsedInfection;
 
+  // --- ÉTAT DU MAIRE (CAPITAINE) DU VILLAGE ---
+  final String? mayorPlayerId;
+  final bool isMayorElected;
+  final String? pendingMayorSuccessorId;
+  final bool isMayorSuccessionPending;
+  final bool mayorSpeechOpeningDone;
+  final bool mayorSpeechClosingDone;
+
   const ExpandedRolesState({
     this.infectedPlayerId,
     this.wildChildModelId,
@@ -45,6 +53,12 @@ class ExpandedRolesState {
     this.bearGrowledThisMorning = false,
     this.scapegoatNeedsToBan = false,
     this.hasUsedInfection = false,
+    this.mayorPlayerId,
+    this.isMayorElected = false,
+    this.pendingMayorSuccessorId,
+    this.isMayorSuccessionPending = false,
+    this.mayorSpeechOpeningDone = false,
+    this.mayorSpeechClosingDone = false,
   });
 
   List<String> get sectarianTeamA => sectarianTeams['teamA'] ?? const [];
@@ -71,6 +85,12 @@ class ExpandedRolesState {
     bool? bearGrowledThisMorning,
     bool? scapegoatNeedsToBan,
     bool? hasUsedInfection,
+    String? mayorPlayerId,
+    bool? isMayorElected,
+    String? pendingMayorSuccessorId,
+    bool? isMayorSuccessionPending,
+    bool? mayorSpeechOpeningDone,
+    bool? mayorSpeechClosingDone,
   }) {
     return ExpandedRolesState(
       infectedPlayerId: infectedPlayerId ?? this.infectedPlayerId,
@@ -98,6 +118,16 @@ class ExpandedRolesState {
           bearGrowledThisMorning ?? this.bearGrowledThisMorning,
       scapegoatNeedsToBan: scapegoatNeedsToBan ?? this.scapegoatNeedsToBan,
       hasUsedInfection: hasUsedInfection ?? this.hasUsedInfection,
+      mayorPlayerId: mayorPlayerId ?? this.mayorPlayerId,
+      isMayorElected: isMayorElected ?? this.isMayorElected,
+      pendingMayorSuccessorId:
+          pendingMayorSuccessorId ?? this.pendingMayorSuccessorId,
+      isMayorSuccessionPending:
+          isMayorSuccessionPending ?? this.isMayorSuccessionPending,
+      mayorSpeechOpeningDone:
+          mayorSpeechOpeningDone ?? this.mayorSpeechOpeningDone,
+      mayorSpeechClosingDone:
+          mayorSpeechClosingDone ?? this.mayorSpeechClosingDone,
     );
   }
 
@@ -125,6 +155,12 @@ class ExpandedRolesState {
       'bearGrowledThisMorning': bearGrowledThisMorning,
       'scapegoatNeedsToBan': scapegoatNeedsToBan,
       'hasUsedInfection': hasUsedInfection,
+      'mayorPlayerId': mayorPlayerId,
+      'isMayorElected': isMayorElected,
+      'pendingMayorSuccessorId': pendingMayorSuccessorId,
+      'isMayorSuccessionPending': isMayorSuccessionPending,
+      'mayorSpeechOpeningDone': mayorSpeechOpeningDone,
+      'mayorSpeechClosingDone': mayorSpeechClosingDone,
     };
   }
 
@@ -198,6 +234,15 @@ class ExpandedRolesState {
           map['bearGrowledThisMorning'] as bool? ?? false,
       scapegoatNeedsToBan: map['scapegoatNeedsToBan'] as bool? ?? false,
       hasUsedInfection: map['hasUsedInfection'] as bool? ?? false,
+      mayorPlayerId: map['mayorPlayerId']?.toString(),
+      isMayorElected: map['isMayorElected'] as bool? ?? false,
+      pendingMayorSuccessorId: map['pendingMayorSuccessorId']?.toString(),
+      isMayorSuccessionPending:
+          map['isMayorSuccessionPending'] as bool? ?? false,
+      mayorSpeechOpeningDone:
+          map['mayorSpeechOpeningDone'] as bool? ?? false,
+      mayorSpeechClosingDone:
+          map['mayorSpeechClosingDone'] as bool? ?? false,
     );
   }
 }

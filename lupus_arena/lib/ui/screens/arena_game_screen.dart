@@ -1608,11 +1608,17 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       case GamePhase.hunterDeathChoice:
         return context.tr('phase_hunter_breath_title');
       case GamePhase.captainSuccession:
+      case GamePhase.mayorSuccession:
         return context.tr('phase_captain_succession_title');
       case GamePhase.captainElection:
+      case GamePhase.mayorElection:
         return context.tr('phase_captain_election_title');
+      case GamePhase.mayorSpeechOpening:
+        return 'Discours d\'Ouverture du Maire';
       case GamePhase.dayDebate:
         return context.tr('phase_debate_title');
+      case GamePhase.mayorSpeechClosing:
+        return 'Clôture des Débats par le Maire';
       case GamePhase.dayVoting:
         return context.tr('phase_judgment_title');
       case GamePhase.dayDefense:
@@ -1638,9 +1644,17 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       case GamePhase.dayTieBreakVote:
         return context.tr('phase_voting_subtitle');
       case GamePhase.captainElection:
+      case GamePhase.mayorElection:
         return context.tr('phase_captain_election_subtitle');
+      case GamePhase.mayorSpeechOpening:
+        return 'Le Maire ouvre solennellement les débats de l\'arène.';
       case GamePhase.dayDebate:
         return context.tr('phase_debate_subtitle');
+      case GamePhase.mayorSpeechClosing:
+        return 'Le Maire prononce son mot de clôture avant le vote.';
+      case GamePhase.captainSuccession:
+      case GamePhase.mayorSuccession:
+        return 'Le Maire défunt transmet son écharpe à son successeur.';
       case GamePhase.nightSeer:
         return context.tr('seer_power_desc');
       case GamePhase.nightDefender:
@@ -1670,7 +1684,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     }
     if (phase == GamePhase.nightSeer) return context.tr('status_scanned');
     if (phase == GamePhase.nightDefender) return context.tr('status_protected');
-    if (phase == GamePhase.captainElection) return context.tr('candidate');
+    if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) return context.tr('candidate');
+    if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) return 'Successeur';
     return context.tr('target');
   }
 

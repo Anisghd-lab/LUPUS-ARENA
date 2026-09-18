@@ -55,6 +55,7 @@ class VoteCoordinator {
   }) {
     final voteCounts = <String, int>{};
 
+    final livingCount = players.values.where((p) => p.isAlive).length;
     for (final voter in players.values.where((p) => p.isAlive)) {
       // Ignorer les votants bannis par le Bouc Émissaire
       if (expandedRolesState.bannedVotersForToday.contains(voter.id)) {
@@ -63,8 +64,9 @@ class VoteCoordinator {
 
       final target = voter.targetVoteId;
       if (target != null && players[target]?.isAlive == true) {
-        // Le Capitaine a un vote double (poids 2)
-        final weight = voter.isCaptain || voter.id == captainId ? 2 : 1;
+        // Le Capitaine / Maire a un vote double (poids 2), sauf s'il reste <= 3 survivants où le vote redevient 1
+        final isMayor = voter.isCaptain || voter.id == captainId || voter.id == expandedRolesState.mayorPlayerId;
+        final weight = (isMayor && livingCount > 3) ? 2 : 1;
         voteCounts[target] = (voteCounts[target] ?? 0) + weight;
       }
     }

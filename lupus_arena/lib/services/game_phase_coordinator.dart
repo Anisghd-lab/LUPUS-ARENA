@@ -2,6 +2,7 @@ import '../models/expanded_roles_state.dart';
 import '../models/game_phase.dart';
 import '../models/player_model.dart';
 import 'expanded_roles_coordinator.dart';
+import 'mayor_coordinator.dart';
 
 /// Résultat de la résolution des morts du matin
 class MorningResolutionResult {
@@ -24,7 +25,11 @@ class MorningResolutionResult {
 
 /// Coordinateur d'arbitrage du cycle de vie et des phases de jeu (Automate d'états finis)
 class GamePhaseCoordinator {
-  const GamePhaseCoordinator();
+  final MayorCoordinator mayorCoordinator;
+
+  const GamePhaseCoordinator({
+    this.mayorCoordinator = const MayorCoordinator(),
+  });
 
   /// Séquence canonique stricte des nuits :
   /// 1: Voleur (Nuit 1) -> 2: Cupidon (Nuit 1) -> 3: Salvateur -> 4: Loups-Garous ->
@@ -186,5 +191,37 @@ class GamePhaseCoordinator {
     if (evilCount >= innocentCount) return 'werewolves';
 
     return null;
+  }
+
+  /// Ordonnancement automatique des phases diurnes (Maire, Débat, Vote, Résolution)
+  GamePhase getNextDayPhase({
+    required GamePhase current,
+    required int round,
+    required String? mayorId,
+    required Map<String, PlayerModel> players,
+    bool mayorOpeningDone = false,
+    bool mayorClosingDone = false,
+  }) {
+    return mayorCoordinator.getNextDayPhase(
+      current: current,
+      round: round,
+      mayorId: mayorId,
+      players: players,
+      mayorOpeningDone: mayorOpeningDone,
+      mayorClosingDone: mayorClosingDone,
+    );
+  }
+
+  /// Calcul du poids électoral d'un joueur (+2 pour le Maire / Capitaine, 1 si <= 3 survivants)
+  int getVoteWeight({
+    required String voterId,
+    required String? mayorPlayerId,
+    int livingCount = 0,
+  }) {
+    return mayorCoordinator.calculateVoteWeight(
+      voterId: voterId,
+      mayorPlayerId: mayorPlayerId,
+      livingCount: livingCount,
+    );
   }
 }

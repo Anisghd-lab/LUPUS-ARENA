@@ -19,10 +19,14 @@ enum GamePhase {
   morningAnnouncement, // Annonce des morts & mort de chagrin des amoureux
   hunterDeathChoice, // Ultime tir du Chasseur
   captainSuccession, // Passation de pouvoir du Capitaine éliminé
+  mayorSuccession, // Testament & passation du Maire éliminé
 
   // --- PHASES DIURNES ---
   captainElection, // Élection du Capitaine (Jour 1 uniquement)
+  mayorElection, // Élection du Maire (Jour 1, post-Aube)
+  mayorSpeechOpening, // Prise de parole prioritaire d'ouverture du Maire
   dayDebate, // Débat ordonné tour par tour (orateur unique)
+  mayorSpeechClosing, // Clôture solennelle du débat par le Maire avant le vote
   dayVoting, // Scrutin d'élimination du village
   dayDefense, // Plaidoirie des accusés en cas d'égalité
   dayTieBreakVote, // Second vote restreint aux accusés
@@ -35,7 +39,10 @@ enum GamePhase {
     // Compatibilité rétroactive et synchronisation State Machine (Kotlin / Firebase)
     if (phase == 'JOUR_VOTE' || phase == 'dayVote' || phase == 'dayVoting') return GamePhase.dayVoting;
     if (phase == 'JOUR_DEBAT' || phase == 'dayDebate' || phase == 'dayDiscussion') return GamePhase.dayDebate;
-    if (phase == 'CAPITAINE_SUCCESSION' || phase == 'captainSuccession') return GamePhase.captainSuccession;
+    if (phase == 'CAPITAINE_SUCCESSION' || phase == 'captainSuccession' || phase == 'mayorSuccession' || phase == 'MAYOR_SUCCESSION') return GamePhase.mayorSuccession;
+    if (phase == 'CAPITAINE_ELECTION' || phase == 'captainElection' || phase == 'mayorElection' || phase == 'MAYOR_ELECTION') return GamePhase.mayorElection;
+    if (phase == 'MAYOR_SPEECH_OPENING' || phase == 'mayorSpeechOpening') return GamePhase.mayorSpeechOpening;
+    if (phase == 'MAYOR_SPEECH_CLOSING' || phase == 'mayorSpeechClosing') return GamePhase.mayorSpeechClosing;
     if (phase == 'NUIT_SORCIERE' || phase == 'nightWitch') return GamePhase.nightWitch;
     if (phase == 'NUIT_VOYANTE' || phase == 'nightSeer') return GamePhase.nightSeer;
     if (phase == 'NUIT_LOUPS' || phase == 'nightWerewolves') return GamePhase.nightWerewolves;
@@ -93,11 +100,17 @@ enum GamePhase {
       case GamePhase.hunterDeathChoice:
         return 'Dernier Souffle du Chasseur !';
       case GamePhase.captainSuccession:
+      case GamePhase.mayorSuccession:
         return 'Succession du Capitaine';
       case GamePhase.captainElection:
+      case GamePhase.mayorElection:
         return 'Élection du Capitaine du Village';
+      case GamePhase.mayorSpeechOpening:
+        return 'Discours d\'Ouverture du Maire';
       case GamePhase.dayDebate:
         return 'Débat du Village (Tour par Tour)';
+      case GamePhase.mayorSpeechClosing:
+        return 'Clôture des Débats par le Maire';
       case GamePhase.dayVoting:
         return 'Scrutin du Bûcher';
       case GamePhase.dayDefense:
@@ -140,11 +153,17 @@ enum GamePhase {
       case GamePhase.hunterDeathChoice:
         return 'Le chasseur abat une cible de son choix dans son dernier souffle.';
       case GamePhase.captainSuccession:
+      case GamePhase.mayorSuccession:
         return 'Le capitaine défunt nomme son successeur avant de rejoindre l\'au-delà.';
       case GamePhase.captainElection:
+      case GamePhase.mayorElection:
         return 'Le village vote pour élire son chef (sa voix comptera double).';
+      case GamePhase.mayorSpeechOpening:
+        return 'Le Maire ouvre solennellement les débats de l\'arène.';
       case GamePhase.dayDebate:
         return 'Chaque orateur dispose d\'un temps de parole exclusif au micro.';
+      case GamePhase.mayorSpeechClosing:
+        return 'Le Maire prononce son mot de clôture avant le vote.';
       case GamePhase.dayVoting:
         return 'Désignez par votre vote qui doit être sacrifié au bûcher.';
       case GamePhase.dayDefense:

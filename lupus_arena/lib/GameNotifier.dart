@@ -16,6 +16,7 @@ import 'models/game_room.dart';
 import 'models/player_model.dart';
 import 'services/expanded_roles_coordinator.dart';
 import 'services/game_phase_coordinator.dart';
+import 'services/mayor_coordinator.dart';
 import 'services/role_action_dispatcher.dart';
 import 'services/role_security_service.dart';
 import 'services/room_presence_service.dart';
@@ -260,9 +261,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           ? 'JOUR_VOTE'
           : (pName == GamePhase.dayDebate.name
               ? 'JOUR_DEBAT'
-              : (pName == GamePhase.captainSuccession.name
+              : (pName == GamePhase.captainSuccession.name || pName == GamePhase.mayorSuccession.name
                   ? 'CAPITAINE_SUCCESSION'
-                  : pName));
+                  : (pName == GamePhase.captainElection.name || pName == GamePhase.mayorElection.name
+                      ? 'CAPITAINE_ELECTION'
+                      : (pName == GamePhase.mayorSpeechOpening.name
+                          ? 'MAYOR_SPEECH_OPENING'
+                          : (pName == GamePhase.mayorSpeechClosing.name
+                              ? 'MAYOR_SPEECH_CLOSING'
+                              : pName)))));
     } else if (updates.containsKey('currentPhase')) {
       final cp = GamePhase.fromString(updates['currentPhase']?.toString());
       updates['phase'] = cp.name;
@@ -1883,10 +1890,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           '🎯 Le Chasseur a été abattu ! Il a 25s pour faire feu dans son dernier souffle.',
         );
       } else if (pendingCaptain != null) {
-        updates['phase'] = GamePhase.captainSuccession.name;
+        updates['phase'] = GamePhase.mayorSuccession.name;
         updates['pendingCaptainId'] = pendingCaptain;
-        updates['timerSeconds'] = 10;
-        logs.add('🎖️ Le Capitaine est tombé ! Il dispose de 10s pour nommer son héritier.');
+        updates['timerSeconds'] = 15;
+        logs.add('🎖️ Le Maire est tombé ! Il dispose de 15s pour nommer son héritier.');
       } else {
         updates['phase'] = GamePhase.morningAnnouncement.name;
         updates['timerSeconds'] = 20;
@@ -1931,12 +1938,24 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     Map<String, dynamic> updates,
     List<String> logs,
   ) {
-    if (room.round == 1 && room.captainId == null) {
-      updates['phase'] = GamePhase.captainElection.name;
-      updates['timerSeconds'] = 50;
+    final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId;
+    final isMayorAlive = mayorId != null && (room.players[mayorId]?.isAlive ?? false);
+
+    if (room.round == 1 && mayorId == null) {
+      updates['phase'] = GamePhase.mayorElection.name;
+      updates['timerSeconds'] = 15;
       logs.add(
-        '🗳️ Jour 1 : Le village se rassemble pour élire son premier Capitaine !',
+        '🗳️ Jour 1 : Le village se rassemble pour élire son premier Capitaine / Maire !',
       );
+      return;
+    }
+
+    if (isMayorAlive && !room.expandedRolesState.mayorSpeechOpeningDone) {
+      updates['phase'] = GamePhase.mayorSpeechOpening.name;
+      updates['currentSpeakerId'] = mayorId;
+      updates['timerSeconds'] = 15;
+      final mayorName = room.players[mayorId]?.name ?? 'Le Maire';
+      logs.add('🎖️ $mayorName ouvre solennellement les débats de l\'arène (15s) !');
       return;
     }
 
@@ -1957,9 +1976,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         '🎙️ Débat du village ouvert. Parole exclusive accordée à $speakerName (60s).',
       );
     } else {
-      updates['phase'] = GamePhase.dayVoting.name;
-      updates['currentPhase'] = 'JOUR_VOTE';
-      updates['timerSeconds'] = 15;
+      if (isMayorAlive && !room.expandedRolesState.mayorSpeechClosingDone) {
+        updates['phase'] = GamePhase.mayorSpeechClosing.name;
+        updates['currentSpeakerId'] = mayorId;
+        updates['timerSeconds'] = 15;
+        final mayorName = room.players[mayorId]?.name ?? 'Le Maire';
+        logs.add('⚖️ Clôture des débats : parole solennelle accordée à $mayorName (15s) avant l\'ouverture du scrutin !');
+      } else {
+        updates['phase'] = GamePhase.dayVoting.name;
+        updates['currentPhase'] = 'JOUR_VOTE';
+        updates['timerSeconds'] = 15;
+      }
     }
   }
 
@@ -1967,9 +1994,90 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   // C. PHASE DIURNE (DÉBAT & VOTE)
   // ===========================================================================
 
+  Future<void> concludeMayorSpeechOpening() async {
+    if (state.room == null) return;
+    final room = state.room!;
+    if (room.phase != GamePhase.mayorSpeechOpening) return;
+
+    final updates = <String, dynamic>{
+      'expandedRolesState': room.expandedRolesState
+          .copyWith(mayorSpeechOpeningDone: true)
+          .toMap(),
+    };
+    final logs = List<String>.from(room.logs);
+
+    final queue = List<String>.from(room.alivePlayers.map((p) => p.id));
+    while (queue.isNotEmpty && (room.players[queue.first]?.isMuted ?? false)) {
+      final mutedId = queue.removeAt(0);
+      final mutedName = room.players[mutedId]?.name ?? 'Un citoyen';
+      logs.add('🔇 $mutedName est bâillonné par les loups ! Son tour de parole est sauté.');
+    }
+
+    if (queue.isNotEmpty) {
+      updates['phase'] = GamePhase.dayDebate.name;
+      updates['debateQueue'] = queue;
+      updates['currentSpeakerId'] = queue.first;
+      updates['timerSeconds'] = 60;
+      final speakerName = room.players[queue.first]?.name ?? 'Inconnu';
+      logs.add(
+        '🎙️ Le Maire a ouvert les débats. Parole exclusive accordée à $speakerName (60s).',
+      );
+    } else {
+      final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId;
+      final isMayorAlive =
+          mayorId != null && (room.players[mayorId]?.isAlive ?? false);
+      if (isMayorAlive && !room.expandedRolesState.mayorSpeechClosingDone) {
+        updates['phase'] = GamePhase.mayorSpeechClosing.name;
+        updates['currentSpeakerId'] = mayorId;
+        updates['timerSeconds'] = 15;
+      } else {
+        updates['phase'] = GamePhase.dayVoting.name;
+        updates['currentPhase'] = 'JOUR_VOTE';
+        updates['timerSeconds'] = 15;
+        logs.add('⚖️ Ouverture immédiate du scrutin du bûcher (15s).');
+      }
+    }
+
+    updates['logs'] = logs;
+    await _syncState(updates);
+  }
+
+  Future<void> concludeMayorSpeechClosing() async {
+    if (state.room == null) return;
+    final room = state.room!;
+    if (room.phase != GamePhase.mayorSpeechClosing) return;
+
+    final updates = <String, dynamic>{
+      'phase': GamePhase.dayVoting.name,
+      'currentPhase': 'JOUR_VOTE',
+      'currentSpeakerId': null,
+      'debateQueue': [],
+      'timerSeconds': 15,
+      'expandedRolesState': room.expandedRolesState
+          .copyWith(mayorSpeechClosingDone: true)
+          .toMap(),
+    };
+    final logs = List<String>.from(room.logs);
+    logs.add(
+      '⚖️ Le Maire a prononcé son mot de clôture. Scrutin de 15s ouvert pour désigner un suspect au bûcher !',
+    );
+    _resetAllVotes(updates);
+    updates['logs'] = logs;
+    await _syncState(updates);
+  }
+
   Future<void> passTurnDebate() async {
     if (state.room == null) return;
     final room = state.room!;
+
+    if (room.phase == GamePhase.mayorSpeechOpening) {
+      await concludeMayorSpeechOpening();
+      return;
+    }
+    if (room.phase == GamePhase.mayorSpeechClosing) {
+      await concludeMayorSpeechClosing();
+      return;
+    }
     if (room.phase != GamePhase.dayDebate) return;
 
     final queue = List<String>.from(room.debateQueue);
@@ -1997,14 +2105,27 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['timerSeconds'] = 60;
       logs.add('🎙️ $currentSpeakerName a cédé sa parole. La parole passe à $speakerName.');
     } else {
-      updates['phase'] = GamePhase.dayVoting.name;
-      updates['currentPhase'] = 'JOUR_VOTE';
-      updates['currentSpeakerId'] = null;
-      updates['debateQueue'] = [];
-      updates['timerSeconds'] = 15;
-      logs.add(
-        '⚖️ Les débats sont clos. Scrutin de 15s ouvert pour désigner un suspect au bûcher !',
-      );
+      final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId;
+      final isMayorAlive =
+          mayorId != null && (room.players[mayorId]?.isAlive ?? false);
+
+      if (isMayorAlive && !room.expandedRolesState.mayorSpeechClosingDone) {
+        updates['phase'] = GamePhase.mayorSpeechClosing.name;
+        updates['currentSpeakerId'] = mayorId;
+        updates['debateQueue'] = [];
+        updates['timerSeconds'] = 15;
+        final mayorName = room.players[mayorId]?.name ?? 'Le Maire';
+        logs.add('⚖️ Clôture des débats : parole solennelle accordée à $mayorName (15s) avant l\'ouverture du scrutin !');
+      } else {
+        updates['phase'] = GamePhase.dayVoting.name;
+        updates['currentPhase'] = 'JOUR_VOTE';
+        updates['currentSpeakerId'] = null;
+        updates['debateQueue'] = [];
+        updates['timerSeconds'] = 15;
+        logs.add(
+          '⚖️ Les débats sont clos. Scrutin de 15s ouvert pour désigner un suspect au bûcher !',
+        );
+      }
     }
 
     updates['logs'] = logs;
@@ -2019,17 +2140,31 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final room = state.room!;
     if (room.phase != GamePhase.dayDebate) return;
 
-    final updates = <String, dynamic>{
-      'phase': GamePhase.dayVoting.name,
-      'currentPhase': 'JOUR_VOTE',
-      'currentSpeakerId': null,
-      'debateQueue': [],
-      'timerSeconds': 15,
-      'logs': [
-        ...room.logs,
+    final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId;
+    final isMayorAlive =
+        mayorId != null && (room.players[mayorId]?.isAlive ?? false);
+
+    final updates = <String, dynamic>{};
+    final logs = List<String>.from(room.logs);
+
+    if (isMayorAlive && !room.expandedRolesState.mayorSpeechClosingDone) {
+      updates['phase'] = GamePhase.mayorSpeechClosing.name;
+      updates['currentSpeakerId'] = mayorId;
+      updates['debateQueue'] = [];
+      updates['timerSeconds'] = 15;
+      final mayorName = room.players[mayorId]?.name ?? 'Le Maire';
+      logs.add('⚖️ Temps de débat expiré : $mayorName prend la parole pour son discours de clôture (15s) !');
+    } else {
+      updates['phase'] = GamePhase.dayVoting.name;
+      updates['currentPhase'] = 'JOUR_VOTE';
+      updates['currentSpeakerId'] = null;
+      updates['debateQueue'] = [];
+      updates['timerSeconds'] = 15;
+      logs.add(
         '⚖️ Temps de débat expiré : clôture automatique et ouverture immédiate du scrutin du bûcher (15s) !',
-      ],
-    };
+      );
+    }
+
     _resetAllVotes(updates);
     await _syncState(updates);
   }
@@ -2041,11 +2176,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final updates = <String, dynamic>{};
     final logs = List<String>.from(room.logs);
 
+    final livingCount = room.alivePlayers.length;
+    final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId;
     final voteTally = <String, int>{};
     for (final voter in room.alivePlayers) {
       final target = voter.targetVoteId;
       if (target != null) {
-        final weight = voter.isCaptain ? 2 : 1;
+        final weight = _phaseCoordinator.getVoteWeight(
+          voterId: voter.id,
+          mayorPlayerId: mayorId,
+          livingCount: livingCount,
+        );
         voteTally[target] = (voteTally[target] ?? 0) + weight;
       }
     }
@@ -2274,7 +2415,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final p = room.players[id];
       final r = realRoles[id] ?? p?.role;
       if (r == GameRole.hunter) pendingHunter = id;
-      if (p?.isCaptain == true || room.captainId == id) pendingCaptain = id;
+      if (p?.isCaptain == true || room.captainId == id || room.expandedRolesState.mayorPlayerId == id) {
+        pendingCaptain = id;
+      }
     }
 
     final simulatedRoom = room.copyWith(
@@ -2301,11 +2444,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         '🎯 Le Chasseur ${room.players[pendingHunter]?.name} s\'effondre et épaule son fusil (25s) !',
       );
     } else if (pendingCaptain != null) {
-      updates['phase'] = GamePhase.captainSuccession.name;
+      updates['phase'] = GamePhase.mayorSuccession.name;
       updates['pendingCaptainId'] = pendingCaptain;
-      updates['timerSeconds'] = 10;
+      updates['timerSeconds'] = 15;
       logs.add(
-        '🎖️ Le Capitaine doit désigner son successeur avant de mourir (10s).',
+        '🎖️ Le Maire doit désigner son successeur avant de mourir (15s).',
       );
     } else if (room.expandedRolesState.isSecondVoteTriggered) {
       logs.add('⚖️ Le Juge Bègue a exigé un second vote consécutif ! Le village retourne immédiatement aux urnes.');
@@ -2925,11 +3068,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await hunterShoot(target.id);
   }
 
-  /// Exécution automatique de la passation de brassard par le Capitaine Bot défunt
+  /// Exécution automatique de la passation de brassard par le Capitaine / Maire Bot défunt
   Future<void> _executeBotCaptainSuccession() async {
     if (state.room == null || (!state.isHost && !state.isAdmin)) return;
     final room = state.room!;
-    if (room.phase != GamePhase.captainSuccession) return;
+    if (room.phase != GamePhase.captainSuccession && room.phase != GamePhase.mayorSuccession) return;
     final alive = room.alivePlayers.toList();
     if (alive.isEmpty) return;
     final random = Random();
@@ -2937,11 +3080,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await captainPassBadge(successor.id);
   }
 
-  /// Exécution automatique des votes des Bots pour l'Élection du Capitaine
+  /// Exécution automatique des votes des Bots pour l'Élection du Capitaine / Maire
   Future<void> _executeBotCaptainElectionVotes() async {
     if (state.room == null || (!state.isHost && !state.isAdmin)) return;
     final room = state.room!;
-    if (room.phase != GamePhase.captainElection) return;
+    if (room.phase != GamePhase.captainElection && room.phase != GamePhase.mayorElection) return;
     final alivePlayers = room.alivePlayers.toList();
     if (alivePlayers.isEmpty) return;
 
@@ -3113,12 +3256,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     }
 
-    // 3. SUCCESSION DU CAPITAINE
-    if (phase == GamePhase.captainSuccession) {
-      final dyingCap = room.pendingCaptainId ?? room.captainId;
+    // 3. SUCCESSION DU CAPITAINE / MAIRE
+    if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) {
+      final dyingCap = room.pendingCaptainId ?? room.captainId ?? room.expandedRolesState.mayorPlayerId;
       if (dyingCap != null && dyingCap.startsWith('bot_')) {
         _botActionTimer = Timer(const Duration(milliseconds: 2000), () {
-          if (state.room?.phase == phase && (state.isHost || state.isAdmin)) {
+          if ((state.room?.phase == GamePhase.captainSuccession || state.room?.phase == GamePhase.mayorSuccession) && (state.isHost || state.isAdmin)) {
             _executeBotCaptainSuccession();
           }
         });
@@ -3126,13 +3269,26 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     }
 
-    // 4. ÉLECTION DU CAPITAINE
-    if (phase == GamePhase.captainElection) {
+    // 4. ÉLECTION DU CAPITAINE / MAIRE
+    if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) {
       final hasBotsToVote = room.alivePlayers.any((p) => p.id.startsWith('bot_') && p.targetVoteId == null);
       if (hasBotsToVote) {
         _botActionTimer = Timer(const Duration(milliseconds: 1800), () {
-          if (state.room?.phase == phase && (state.isHost || state.isAdmin)) {
+          if ((state.room?.phase == GamePhase.captainElection || state.room?.phase == GamePhase.mayorElection) && (state.isHost || state.isAdmin)) {
             _executeBotCaptainElectionVotes();
+          }
+        });
+        return;
+      }
+    }
+
+    // 4.B DISCOURS D'OUVERTURE DU MAIRE
+    if (phase == GamePhase.mayorSpeechOpening) {
+      final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId ?? room.currentSpeakerId;
+      if (mayorId != null && mayorId.startsWith('bot_')) {
+        _botActionTimer = Timer(const Duration(milliseconds: 2200), () {
+          if (state.room?.phase == GamePhase.mayorSpeechOpening && (state.isHost || state.isAdmin)) {
+            concludeMayorSpeechOpening();
           }
         });
         return;
@@ -3147,6 +3303,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
               state.room?.currentSpeakerId == room.currentSpeakerId &&
               (state.isHost || state.isAdmin)) {
             passTurnDebate();
+          }
+        });
+        return;
+      }
+    }
+
+    // 5.B DISCOURS DE CLÔTURE DU MAIRE
+    if (phase == GamePhase.mayorSpeechClosing) {
+      final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId ?? room.currentSpeakerId;
+      if (mayorId != null && mayorId.startsWith('bot_')) {
+        _botActionTimer = Timer(const Duration(milliseconds: 2200), () {
+          if (state.room?.phase == GamePhase.mayorSpeechClosing && (state.isHost || state.isAdmin)) {
+            concludeMayorSpeechClosing();
           }
         });
         return;
@@ -3617,6 +3786,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final room = state.room!;
     if (room.pendingCaptainId != state.currentUserId &&
         room.captainId != state.currentUserId &&
+        room.expandedRolesState.mayorPlayerId != state.currentUserId &&
         !state.isAdmin) {
       return;
     }
@@ -3628,6 +3798,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'captainId': successorId,
       'players/$successorId/isCaptain': true,
       'pendingCaptainId': null,
+      'expandedRolesState': room.expandedRolesState.copyWith(
+        mayorPlayerId: successorId,
+        isMayorSuccessionPending: false,
+      ).toMap(),
     };
     // Retirer explicitement l'écharpe et le titre du capitaine défunt
     if (room.captainId != null && room.captainId != successorId) {
@@ -3640,7 +3814,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     final logs = List<String>.from(room.logs);
     logs.add(
-      '🎖️ Le défunt Capitaine remet son écharpe à ${successor.name}, nouveau chef du village !',
+      '🎖️ Le défunt Maire / Capitaine transmet son écharpe à ${successor.name}, nouveau chef du village !',
     );
 
     if (room.morningVictims.isNotEmpty) {
@@ -3668,9 +3842,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     );
 
     if (room.pendingCaptainId != null) {
-      updates['phase'] = GamePhase.captainSuccession.name;
-      updates['timerSeconds'] = 10;
-      logs.add('🎖️ Le Capitaine a péri ! Il dispose de 10s pour désigner son successeur.');
+      updates['phase'] = GamePhase.mayorSuccession.name;
+      updates['timerSeconds'] = 15;
+      logs.add('🎖️ Le Maire a péri ! Il dispose de 15s pour désigner son successeur.');
     } else if (room.morningVictims.isNotEmpty) {
       updates['phase'] = GamePhase.morningAnnouncement.name;
       updates['timerSeconds'] = 20;
@@ -3682,11 +3856,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await _syncState(updates);
   }
 
-  /// Résolution automatique de fin de temps pour le Capitaine (désignation par défaut)
+  /// Résolution automatique de fin de temps pour le Capitaine / Maire (désignation par défaut)
   Future<void> autoResolveCaptainTimeout() async {
     if (_currentRoomRef == null || state.room == null) return;
     final room = state.room!;
-    if (room.phase != GamePhase.captainSuccession) return;
+    if (room.phase != GamePhase.captainSuccession && room.phase != GamePhase.mayorSuccession) return;
 
     final updates = <String, dynamic>{
       'pendingCaptainId': null,
@@ -3695,9 +3869,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     final living = room.alivePlayers.toList();
     if (living.isNotEmpty) {
-      final successor = living.first;
+      final successorId = _phaseCoordinator.mayorCoordinator.autoPassOnTimeout(
+        players: room.players,
+        deceasedMayorId: room.pendingCaptainId ?? room.captainId ?? '',
+      );
+      final successor = room.players[successorId] ?? living.first;
       updates['captainId'] = successor.id;
       updates['players/${successor.id}/isCaptain'] = true;
+      updates['expandedRolesState'] = room.expandedRolesState.copyWith(
+        mayorPlayerId: successor.id,
+        isMayorSuccessionPending: false,
+      ).toMap();
       if (room.captainId != null && room.captainId != successor.id) {
         updates['players/${room.captainId}/isCaptain'] = false;
       }
@@ -3706,11 +3888,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         updates['players/${room.pendingCaptainId}/isCaptain'] = false;
       }
       logs.add(
-        '⏳ Faute de choix du défunt Capitaine, l\'écharpe est transmise d\'office à ${successor.name} !',
+        '⏳ Faute de choix du défunt Maire, l\'écharpe est transmise d\'office à ${successor.name} !',
       );
     } else {
       logs.add(
-        '⏳ Le Capitaine n\'a pas désigné de successeur et aucun survivant ne peut reprendre l\'écharpe.',
+        '⏳ Le Maire n\'a pas désigné de successeur et aucun survivant ne peut reprendre l\'écharpe.',
       );
     }
 
@@ -3725,62 +3907,46 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await _syncState(updates);
   }
 
+  Future<void> concludeMayorElection() => concludeCaptainElection();
+
   Future<void> concludeCaptainElection() async {
     if (!state.isHost || state.room == null) return;
     final room = state.room!;
 
-    final tally = <String, int>{};
+    final electionVotes = <String, String>{};
     for (final p in room.alivePlayers) {
       if (p.targetVoteId != null) {
-        tally[p.targetVoteId!] = (tally[p.targetVoteId!] ?? 0) + 1;
+        electionVotes[p.id] = p.targetVoteId!;
       }
     }
 
-    final updates = <String, dynamic>{};
-    final logs = List<String>.from(room.logs);
+    final electionResult = _phaseCoordinator.mayorCoordinator.electMayor(
+      players: room.players,
+      electionVotes: electionVotes,
+      fallbackId: room.alivePlayers.isNotEmpty ? room.alivePlayers.first.id : null,
+    );
 
-    if (tally.isNotEmpty) {
-      final winnerId = tally.entries
-          .reduce((a, b) => a.value > b.value ? a : b)
-          .key;
-      final winnerName = room.players[winnerId]?.name ?? 'Inconnu';
-      updates['captainId'] = winnerId;
-      updates['players/$winnerId/isCaptain'] = true;
-      logs.add(
-        '🎖️ $winnerName est élu Capitaine du Village par ses pairs ! Sa voix comptera double.',
-      );
-    } else {
-      final fallback = room.alivePlayers.first.id;
-      updates['captainId'] = fallback;
-      updates['players/$fallback/isCaptain'] = true;
-      logs.add(
-        '🎖️ ${room.players[fallback]?.name} est désigné Capitaine d\'office.',
-      );
-    }
+    final winnerId = electionResult.mayorId;
+    final winnerName = electionResult.mayorName;
+
+    final updates = <String, dynamic>{
+      'captainId': winnerId,
+      'players/$winnerId/isCaptain': true,
+      'expandedRolesState': room.expandedRolesState.copyWith(
+        mayorPlayerId: winnerId,
+        isMayorElected: true,
+      ).toMap(),
+    };
+    final logs = List<String>.from(room.logs);
+    logs.add(electionResult.logMessage);
 
     _resetAllVotes(updates);
 
-    // Le Capitaine est définitivement élu : passage direct au débat du Jour 1
-    final queue = List<String>.from(room.alivePlayers.map((p) => p.id));
-    while (queue.isNotEmpty && (room.players[queue.first]?.isMuted ?? false)) {
-      final mutedId = queue.removeAt(0);
-      final mutedName = room.players[mutedId]?.name ?? 'Un citoyen';
-      logs.add('🔇 $mutedName est bâillonné par les loups ! Son tour de parole est sauté.');
-    }
-    if (queue.isNotEmpty) {
-      updates['phase'] = GamePhase.dayDebate.name;
-      updates['debateQueue'] = queue;
-      updates['currentSpeakerId'] = queue.first;
-      updates['timerSeconds'] = 60;
-      final speakerName = room.players[queue.first]?.name ?? 'Inconnu';
-      logs.add(
-        '🎙️ Débat du village ouvert. Parole exclusive accordée à $speakerName (60s).',
-      );
-    } else {
-      updates['phase'] = GamePhase.dayVoting.name;
-      updates['currentPhase'] = 'JOUR_VOTE';
-      updates['timerSeconds'] = 15;
-    }
+    // Après l'élection : Prise de parole solennelle d'ouverture du Maire (15s)
+    updates['phase'] = GamePhase.mayorSpeechOpening.name;
+    updates['currentSpeakerId'] = winnerId;
+    updates['timerSeconds'] = 15;
+    logs.add('🎖️ $winnerName prend la parole pour son discours d\'ouverture (15s) !');
 
     updates['logs'] = logs;
     await _syncState(updates);
@@ -3854,14 +4020,18 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
       updates['logs'] = logs;
       await _syncState(updates);
-    } else if (phase == GamePhase.captainElection) {
+    } else if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) {
       await concludeCaptainElection();
     } else if (phase == GamePhase.hunterDeathChoice) {
       await autoResolveHunterTimeout();
-    } else if (phase == GamePhase.captainSuccession) {
+    } else if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) {
       await autoResolveCaptainTimeout();
+    } else if (phase == GamePhase.mayorSpeechOpening) {
+      await concludeMayorSpeechOpening();
+    } else if (phase == GamePhase.mayorSpeechClosing) {
+      await concludeMayorSpeechClosing();
     } else if (phase == GamePhase.dayDebate) {
-      // Expiration du timer global du débat : clôture immédiate et bascule automatique sur dayVote (JOUR_VOTE)
+      // Expiration du timer global du débat : clôture immédiate et bascule automatique sur vote ou clôture
       await endDebateAndOpenVote();
     } else if (phase == GamePhase.dayVoting ||
         phase == GamePhase.dayTieBreakVote) {
@@ -3896,6 +4066,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         'seerInspectedRole': null,
         'blackWolfTargetId': null,
         'timerSeconds': 45,
+        'expandedRolesState': state.room!.expandedRolesState.copyWith(
+          mayorSpeechOpeningDone: false,
+          mayorSpeechClosingDone: false,
+        ).toMap(),
         'logs': [
           ...?state.room?.logs,
           '🌑 La nuit $nextRound recouvre le village. Les habitants s\'endorment.',
@@ -4450,17 +4624,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         return !isEvil;
       case GamePhase.dayDebate:
       case GamePhase.dayDefense:
+      case GamePhase.mayorSpeechOpening:
+      case GamePhase.mayorSpeechClosing:
         return !isCurrentSpeaker;
       case GamePhase.dayVoting:
       case GamePhase.dayTieBreakVote:
       case GamePhase.dayResolution:
       case GamePhase.captainElection:
+      case GamePhase.mayorElection:
       case GamePhase.morningAnnouncement:
       case GamePhase.lobby:
         return false;
       case GamePhase.hunterDeathChoice:
         return pendingHunterId != currentUserId;
       case GamePhase.captainSuccession:
+      case GamePhase.mayorSuccession:
         return pendingCaptainId != currentUserId;
       default:
         return true;

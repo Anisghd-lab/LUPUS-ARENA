@@ -3750,7 +3750,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         } else {
           wolfIds = val.keys.map((k) => k.toString()).toSet();
         }
-        state = state.copyWith(wolfPlayerIds: wolfIds);
+        final isMeWolf = state.myRole.isEvil;
+        final isGodMode =
+            state.isGodModeActive || (state.room?.isDevRoom == true);
+        if (isMeWolf || isGodMode) {
+          state = state.copyWith(wolfPlayerIds: wolfIds);
+        } else {
+          state = state.copyWith(wolfPlayerIds: {});
+        }
       }
     } catch (_) {}
   }

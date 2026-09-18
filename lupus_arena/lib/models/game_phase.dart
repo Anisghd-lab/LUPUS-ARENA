@@ -12,6 +12,7 @@ enum GamePhase {
   nightBlackWolf, // Loup Noir (Réduit un joueur au silence)
   nightSeer, // Voyante
   nightWitch, // Sorcière
+  nightPiper, // Joueur de Flûte (Envoûte les villageois)
   nightPyromaniac, // Pyromane (Asperger ou Brûler)
 
   // --- MATIN & RÉSOLUTIONS DES DÉCÈS ---
@@ -38,6 +39,12 @@ enum GamePhase {
     if (phase == 'NUIT_SORCIERE' || phase == 'nightWitch') return GamePhase.nightWitch;
     if (phase == 'NUIT_VOYANTE' || phase == 'nightSeer') return GamePhase.nightSeer;
     if (phase == 'NUIT_LOUPS' || phase == 'nightWerewolves') return GamePhase.nightWerewolves;
+    if (phase == 'NUIT_JOUEUR_DE_FLUTE' || phase == 'nightPiper') return GamePhase.nightPiper;
+    if (phase == 'NUIT_VOLEUR' || phase == 'nightThief') return GamePhase.nightThief;
+    if (phase == 'NUIT_CUPIDON' || phase == 'nightCupid') return GamePhase.nightCupid;
+    if (phase == 'NUIT_SALVATEUR' || phase == 'nightDefender') return GamePhase.nightDefender;
+    if (phase == 'NUIT_LOUP_NOIR' || phase == 'nightBlackWolf') return GamePhase.nightBlackWolf;
+    if (phase == 'NUIT_PYROMANE' || phase == 'nightPyromaniac') return GamePhase.nightPyromaniac;
     if (phase == 'AUBE_BILAN' || phase == 'morningAnnouncement') return GamePhase.morningAnnouncement;
     if (phase == 'CREPUSCULE_BILAN' || phase == 'dayResolution') return GamePhase.dayResolution;
     if (phase == 'TERMINEE' || phase == 'gameOver') return GamePhase.gameOver;
@@ -77,6 +84,8 @@ enum GamePhase {
         return 'Nuit - Le Loup Noir réduit un joueur au silence';
       case GamePhase.nightWitch:
         return 'Nuit - La Sorcière utilise ses potions';
+      case GamePhase.nightPiper:
+        return 'Nuit - Le Joueur de Flûte charme';
       case GamePhase.nightPyromaniac:
         return 'Nuit - Tour du Pyromane';
       case GamePhase.morningAnnouncement:
@@ -122,6 +131,8 @@ enum GamePhase {
         return 'Le Loup Noir choisit un joueur vivant pour lui couper la parole (micro désactivé) toute la journée suivante.';
       case GamePhase.nightWitch:
         return 'La sorcière découvre la victime des loups et choisit d\'utiliser guérison ou poison.';
+      case GamePhase.nightPiper:
+        return 'Le Joueur de Flûte sélectionne deux villageois à envoûter par sa mélodie.';
       case GamePhase.nightPyromaniac:
         return 'Le pyromane choisit d\'asperger d\'huile une demeure ou d\'embraser tous les foyers aspergés.';
       case GamePhase.morningAnnouncement:
@@ -155,10 +166,11 @@ enum GamePhase {
         this == GamePhase.nightBlackWolf ||
         this == GamePhase.nightSeer ||
         this == GamePhase.nightWitch ||
+        this == GamePhase.nightPiper ||
         this == GamePhase.nightPyromaniac;
   }
 
-  /// Indice d'ordonnancement strict et irréversible pour la phase nocturne (1 à 9)
+  /// Indice d'ordonnancement strict et irréversible pour la phase nocturne (1 à 10)
   int get nightOrderIndex {
     switch (this) {
       case GamePhase.nightThief:
@@ -175,10 +187,12 @@ enum GamePhase {
         return 6;
       case GamePhase.nightWitch:
         return 7;
-      case GamePhase.nightPyromaniac:
+      case GamePhase.nightPiper:
         return 8;
-      case GamePhase.morningAnnouncement:
+      case GamePhase.nightPyromaniac:
         return 9;
+      case GamePhase.morningAnnouncement:
+        return 10;
       default:
         return 0;
     }
@@ -211,6 +225,8 @@ enum GamePhase {
         return Icons.volume_off_rounded;
       case GamePhase.nightWitch:
         return Icons.science_rounded;
+      case GamePhase.nightPiper:
+        return Icons.music_note_rounded;
       case GamePhase.nightPyromaniac:
         return Icons.local_fire_department_rounded;
       case GamePhase.morningAnnouncement:

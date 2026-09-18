@@ -858,6 +858,72 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       ),
                     ),
 
+                  // Badge Envoûté (Joueur de Flûte)
+                  if (player.isCharmed && (isMe || widget.myRole == GameRole.piper || isGodMode || isDead))
+                    Positioned(
+                      bottom: -4,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF06D6A0),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF06D6A0).withValues(alpha: 0.7),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.music_note_rounded, size: 9, color: Colors.black87),
+                      ),
+                    ),
+
+                  // Badge Infecté (Loup Infect)
+                  if (player.isInfected && (isMe || widget.myRole.isEvil || isGodMode || isDead))
+                    Positioned(
+                      top: 12,
+                      right: -5,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF84CC16),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF84CC16).withValues(alpha: 0.7),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.pest_control_rounded, size: 9, color: Colors.black),
+                      ),
+                    ),
+
+                  // Badge Bâillonné / Muté (Loup Noir)
+                  if (player.isMuted)
+                    Positioned(
+                      top: 12,
+                      left: -5,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF9333EA),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF9333EA).withValues(alpha: 0.7),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.volume_off_rounded, size: 9, color: Colors.white),
+                      ),
+                    ),
+
                   // Badge de votes reçus (avec étoile dorée si ciblé par le vote du Maire)
                   if (votes > 0)
                     Positioned(
@@ -916,6 +982,18 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                   ],
                   if (seerDiscoveredRole != null && !isMe) ...[
                     const Text('🔮', style: TextStyle(fontSize: 8.5)),
+                    const SizedBox(width: 2),
+                  ],
+                  if (player.isInfected && (isMe || isWolfPeer || isGodMode || isDead)) ...[
+                    const Text('🩸', style: TextStyle(fontSize: 8.5)),
+                    const SizedBox(width: 2),
+                  ],
+                  if (player.isCharmed && (isMe || widget.myRole == GameRole.piper || isGodMode || isDead)) ...[
+                    const Text('🎵', style: TextStyle(fontSize: 8.5)),
+                    const SizedBox(width: 2),
+                  ],
+                  if (player.isMuted) ...[
+                    const Text('🤫', style: TextStyle(fontSize: 8.5)),
                     const SizedBox(width: 2),
                   ],
                   Flexible(

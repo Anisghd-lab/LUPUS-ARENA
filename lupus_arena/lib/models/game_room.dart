@@ -20,6 +20,12 @@ class GameRoom {
   final String? seerInspectedRole;
   final String? blackWolfTargetId;
 
+  // Nuits Spéciales Avancées (Voleur, Flûte, Loup Infect)
+  final List<GameRole> thiefAvailableRoles;
+  final bool vileFatherInfectionUsed;
+  final String? infectedPlayerId;
+  final List<String> charmedPlayerIds;
+
   // Résolutions de Morts & Successions
   final List<String> morningVictims;
   final String? pendingHunterId;
@@ -60,6 +66,10 @@ class GameRoom {
     this.seerInspectedTargetId,
     this.seerInspectedRole,
     this.blackWolfTargetId,
+    this.thiefAvailableRoles = const [],
+    this.vileFatherInfectionUsed = false,
+    this.infectedPlayerId,
+    this.charmedPlayerIds = const [],
     this.morningVictims = const [],
     this.pendingHunterId,
     this.pendingCaptainId,
@@ -180,6 +190,11 @@ class GameRoom {
     String? seerInspectedRole,
     String? blackWolfTargetId,
     bool clearBlackWolfTargetId = false,
+    List<GameRole>? thiefAvailableRoles,
+    bool? vileFatherInfectionUsed,
+    String? infectedPlayerId,
+    bool clearInfectedPlayerId = false,
+    List<String>? charmedPlayerIds,
     List<String>? morningVictims,
     String? pendingHunterId,
     String? pendingCaptainId,
@@ -216,6 +231,13 @@ class GameRoom {
       blackWolfTargetId: clearBlackWolfTargetId
           ? null
           : (blackWolfTargetId ?? this.blackWolfTargetId),
+      thiefAvailableRoles: thiefAvailableRoles ?? this.thiefAvailableRoles,
+      vileFatherInfectionUsed:
+          vileFatherInfectionUsed ?? this.vileFatherInfectionUsed,
+      infectedPlayerId: clearInfectedPlayerId
+          ? null
+          : (infectedPlayerId ?? this.infectedPlayerId),
+      charmedPlayerIds: charmedPlayerIds ?? this.charmedPlayerIds,
       morningVictims: morningVictims ?? this.morningVictims,
       pendingHunterId: pendingHunterId,
       pendingCaptainId: pendingCaptainId,
@@ -258,6 +280,10 @@ class GameRoom {
       'seerInspectedTargetId': seerInspectedTargetId,
       'seerInspectedRole': seerInspectedRole,
       'blackWolfTargetId': blackWolfTargetId,
+      'thiefAvailableRoles': thiefAvailableRoles.map((r) => r.id).toList(),
+      'vileFatherInfectionUsed': vileFatherInfectionUsed,
+      'infectedPlayerId': infectedPlayerId,
+      'charmedPlayerIds': charmedPlayerIds,
       'morningVictims': morningVictims,
       'pendingHunterId': pendingHunterId,
       'pendingCaptainId': pendingCaptainId,
@@ -429,6 +455,24 @@ class GameRoom {
       }
     }
 
+    final rawThiefRoles = map['thiefAvailableRoles'];
+    final List<GameRole> parsedThiefRoles = [];
+    if (rawThiefRoles is List) {
+      for (final item in rawThiefRoles) {
+        if (item != null) {
+          parsedThiefRoles.add(GameRole.fromId(item.toString()));
+        }
+      }
+    }
+
+    final rawCharmed = map['charmedPlayerIds'];
+    final List<String> parsedCharmed = [];
+    if (rawCharmed is List) {
+      for (final item in rawCharmed) {
+        if (item != null) parsedCharmed.add(item.toString());
+      }
+    }
+
     final rawCurrent = map['currentPhase']?.toString();
     final rawPhase = map['phase']?.toString();
     GamePhase resolvedPhase;
@@ -467,6 +511,10 @@ class GameRoom {
       seerInspectedTargetId: map['seerInspectedTargetId']?.toString(),
       seerInspectedRole: map['seerInspectedRole']?.toString(),
       blackWolfTargetId: map['blackWolfTargetId']?.toString(),
+      thiefAvailableRoles: parsedThiefRoles,
+      vileFatherInfectionUsed: map['vileFatherInfectionUsed'] == true,
+      infectedPlayerId: map['infectedPlayerId']?.toString(),
+      charmedPlayerIds: parsedCharmed,
       morningVictims: parsedMorningVictims,
       pendingHunterId: map['pendingHunterId']?.toString(),
       pendingCaptainId: map['pendingCaptainId']?.toString(),

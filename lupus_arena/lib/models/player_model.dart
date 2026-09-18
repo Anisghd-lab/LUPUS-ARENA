@@ -10,6 +10,8 @@ class PlayerModel {
   final bool isAlive;
   final bool isHost;
   final bool isReady;
+  final bool isOnline;
+  final int? lastSeen;
   final bool isSpeaking;
   final bool isMuted;
   final String? targetVoteId;
@@ -39,6 +41,8 @@ class PlayerModel {
     this.isAlive = true,
     this.isHost = false,
     this.isReady = false,
+    this.isOnline = true,
+    this.lastSeen,
     this.isSpeaking = false,
     this.isMuted = false,
     this.targetVoteId,
@@ -77,6 +81,8 @@ class PlayerModel {
     bool? isAlive,
     bool? isHost,
     bool? isReady,
+    bool? isOnline,
+    int? lastSeen,
     bool? isSpeaking,
     bool? isMuted,
     String? targetVoteId,
@@ -106,6 +112,8 @@ class PlayerModel {
       isAlive: isAlive ?? this.isAlive,
       isHost: isHost ?? this.isHost,
       isReady: isReady ?? this.isReady,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeen: lastSeen ?? this.lastSeen,
       isSpeaking: isSpeaking ?? this.isSpeaking,
       isMuted: isMuted ?? this.isMuted,
       targetVoteId: targetVoteId,
@@ -155,6 +163,8 @@ class PlayerModel {
       'isAlive': isAlive,
       'isHost': isHost,
       'isReady': isReady,
+      'isOnline': isOnline,
+      if (lastSeen != null) 'lastSeen': lastSeen,
       'isSpeaking': isSpeaking,
       'isMuted': isMuted,
       'targetVoteId': targetVoteId,
@@ -221,6 +231,10 @@ class PlayerModel {
       isAlive: map['isAlive'] != false,
       isHost: map['isHost'] == true,
       isReady: map['isReady'] == true,
+      isOnline: map['isOnline'] != false,
+      lastSeen: (map['lastSeen'] is int)
+          ? map['lastSeen'] as int
+          : int.tryParse(map['lastSeen']?.toString() ?? ''),
       isSpeaking: map['isSpeaking'] == true,
       isMuted: map['isMuted'] == true,
       targetVoteId: map['targetVoteId']?.toString(),

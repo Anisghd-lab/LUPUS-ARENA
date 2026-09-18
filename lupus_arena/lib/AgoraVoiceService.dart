@@ -251,7 +251,13 @@ class AgoraVoiceService {
     }
   }
 
-  /// Rejoindre un canal vocal de jeu (UID int ou String userAccount) avec anti-boucle
+  /// Calcule un UID 32-bit entier positif déterministe et stable à partir de l'identifiant utilisateur unique
+  static int deriveUid(String userId) {
+    final hash = userId.hashCode.abs() % 100000000;
+    return hash == 0 ? 1 : hash;
+  }
+
+  /// Rejoindre un canal vocal de jeu (UID int ou String userAccount) avec anti-boucle et purge des sessions fantômes
   Future<bool> joinChannel({
     required String channelId,
     int? uid,
@@ -259,8 +265,14 @@ class AgoraVoiceService {
     String? token,
     bool initialMute = false,
   }) async {
-    // 1. Éviter toute reconnexion si déjà connecté sur ce salon précis
-    if (isConnected.value && currentChannel.value == channelId) {
+    // Calcul ou résolution de l'UID 32-bit stable dérivé du userId
+    int effectiveUid = (uid != null && uid > 0) ? uid : 0;
+    if (effectiveUid <= 0 && userAccount != null && userAccount.isNotEmpty) {
+      effectiveUid = deriveUid(userAccount);
+    }
+
+    // 1. Éviter toute reconnexion si déjà connecté sur ce salon précis avec le même UID
+    if (isConnected.value && currentChannel.value == channelId && (localUid.value == effectiveUid || effectiveUid == 0)) {
       return true;
     }
 
@@ -278,8 +290,26 @@ class AgoraVoiceService {
       }
     }
 
+    // 4. PURGE DES SESSIONS FANTÔMES :
+    // Vérifier si un canal est actif ou forcer leaveChannel() avant de rejoindre pour tuer toute session fantôme
+    try {
+      if (currentChannel.value != null || isConnected.value || _engine != null) {
+        addLog('Purge préalable d\'une session Agora active/fantôme (${currentChannel.value ?? "antérieure"})...');
+        await _engine?.leaveChannel();
+        isConnected.value = false;
+        currentChannel.value = null;
+        speakingUids.value = {};
+        remoteUids.value = {};
+        userVolumes.value = {};
+        connectionState.value = ConnectionStateType.connectionStateDisconnected;
+        await Future.delayed(const Duration(milliseconds: 80));
+      }
+    } catch (e) {
+      debugPrint('[AgoraVoiceService] Exception lors du leaveChannel préalable: $e');
+    }
+
     _lastChannelId = channelId;
-    _lastUid = uid;
+    _lastUid = effectiveUid;
     _lastInitialMute = initialMute;
     lastErrorMessage.value = null;
 
@@ -299,7 +329,7 @@ class AgoraVoiceService {
     connectionError.value = null;
 
     try {
-      addLog('Tentative de connexion au canal "$channelId"...');
+      addLog('Tentative de connexion au canal "$channelId" (UID: $effectiveUid)...');
       final effectiveToken =
           token ??
           (appCertificate.isNotEmpty
@@ -307,7 +337,7 @@ class AgoraVoiceService {
                   appId: defaultAppId,
                   appCertificate: appCertificate,
                   channelName: channelId,
-                  uid: uid ?? 0,
+                  uid: effectiveUid,
                 )
               : '');
 
@@ -321,7 +351,15 @@ class AgoraVoiceService {
         autoSubscribeAudio: true,
       );
 
-      if (userAccount != null && userAccount.isNotEmpty && (uid == null || uid <= 0)) {
+      if (effectiveUid > 0) {
+        debugPrint('[AgoraVoiceService] Appel joinChannel: UID $effectiveUid -> $channelId');
+        await _engine!.joinChannel(
+          token: effectiveToken,
+          channelId: channelId,
+          uid: effectiveUid,
+          options: options,
+        );
+      } else if (userAccount != null && userAccount.isNotEmpty) {
         debugPrint('[AgoraVoiceService] Appel joinChannelWithUserAccount: $userAccount -> $channelId');
         await _engine!.joinChannelWithUserAccount(
           token: effectiveToken,
@@ -467,12 +505,14 @@ class AgoraVoiceService {
   Future<void> leaveChannel() async {
     try {
       addLog('Déconnexion du canal en cours...');
+      _isConnecting = false;
       await _engine?.leaveChannel();
       isConnected.value = false;
       currentChannel.value = null;
       speakingUids.value = {};
       remoteUids.value = {};
       userVolumes.value = {};
+      connectionState.value = ConnectionStateType.connectionStateDisconnected;
     } catch (e) {
       addLog('❌ Erreur leaveChannel: $e');
       debugPrint('[AgoraVoiceService] Erreur leaveChannel: $e');

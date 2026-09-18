@@ -89,9 +89,10 @@ class GameRoom {
         }
       }
       for (final entry in players.entries) {
-        if (!seen.contains(entry.key)) {
+        if (!seen.contains(entry.key) && !seen.contains(entry.value.id)) {
           list.add(entry.value);
           seen.add(entry.key);
+          seen.add(entry.value.id);
         }
       }
       return list;
@@ -292,25 +293,42 @@ class GameRoom {
     if (rawPlayers is Map) {
       rawPlayers.forEach((key, val) {
         if (val is Map) {
-          parsedPlayers[key.toString()] = PlayerModel.fromMap(
+          final pid = (val['id'] ?? key).toString();
+          final player = PlayerModel.fromMap(
             val,
-            key.toString(),
+            pid,
             currentUserId,
             roomCodeStr,
           );
+          if (parsedPlayers.containsKey(pid)) {
+            final prev = parsedPlayers[pid]!;
+            final preferNew = (player.isOnline && !prev.isOnline) ||
+                ((player.lastSeen ?? 0) >= (prev.lastSeen ?? 0));
+            parsedPlayers[pid] = preferNew ? player : prev;
+          } else {
+            parsedPlayers[pid] = player;
+          }
         }
       });
     } else if (rawPlayers is List) {
       for (int i = 0; i < rawPlayers.length; i++) {
         final val = rawPlayers[i];
         if (val is Map) {
-          final id = val['id']?.toString() ?? 'player_$i';
-          parsedPlayers[id] = PlayerModel.fromMap(
+          final id = (val['id'] ?? 'player_$i').toString();
+          final player = PlayerModel.fromMap(
             val,
             id,
             currentUserId,
             roomCodeStr,
           );
+          if (parsedPlayers.containsKey(id)) {
+            final prev = parsedPlayers[id]!;
+            final preferNew = (player.isOnline && !prev.isOnline) ||
+                ((player.lastSeen ?? 0) >= (prev.lastSeen ?? 0));
+            parsedPlayers[id] = preferNew ? player : prev;
+          } else {
+            parsedPlayers[id] = player;
+          }
         }
       }
     }

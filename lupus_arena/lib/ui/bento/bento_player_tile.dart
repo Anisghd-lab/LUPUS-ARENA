@@ -183,6 +183,25 @@ class BentoPlayerTile extends StatelessWidget {
                     ),
                   ),
 
+                // Indicateur hors ligne (si déconnecté en cours de partie)
+                if (!player.isOnline && player.isAlive)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1E212D),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.wifi_off_rounded,
+                        color: Colors.amber,
+                        size: 11,
+                      ),
+                    ),
+                  ),
+
                 // Indicateur micro actif (ondes vertes)
                 if (isSpeaking && player.isAlive)
                   Positioned(

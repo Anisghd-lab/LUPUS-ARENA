@@ -265,8 +265,8 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
     }
 
     final event = _currentEvent!;
-    const double cardWidth = 78.0;
-    const double cardHeight = 94.0;
+    const double cardWidth = 70.0;
+    const double cardHeight = 84.0;
     const double maxContainerWidth = 92.0;
     const double maxContainerHeight = 138.0;
 

@@ -277,11 +277,17 @@ class GameRoom {
   }
 
   factory GameRoom.fromMap(
-    Map<dynamic, dynamic> map,
-    String code, [
+    dynamic first, [
+    dynamic second,
     String? currentUserId,
   ]) {
-    final roomCodeStr = (map['roomCode'] ?? code).toString();
+    final Map<dynamic, dynamic> map = first is Map
+        ? first
+        : (second is Map ? second : <dynamic, dynamic>{});
+    final String code = first is String
+        ? first
+        : (second is String ? second : (map['roomCode'] ?? map['code'] ?? 'DEV').toString());
+    final roomCodeStr = (map['roomCode'] ?? map['code'] ?? code).toString();
     final isDevRoom = map['isDevRoom'] == true ||
         code.toUpperCase().startsWith('TEST') ||
         code.toUpperCase().startsWith('DEV') ||

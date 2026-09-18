@@ -6,10 +6,12 @@ package com.lupusarena.engine
  * propage la révélation publique du rôle d'origine (roleInitial) dès tout décès.
  */
 class SuperviseurDeJeu(
-    val joueurs: MutableList<Joueur>,
+    joueurs: List<Joueur>,
     var roomId: String = "room-default"
 ) {
-    val agentSurveillance: AgentSurveillance = AgentSurveillance(joueurs)
+    val joueurs: MutableList<Joueur> = joueurs.toMutableList()
+
+    val agentSurveillance: AgentSurveillance = AgentSurveillance(this.joueurs)
 
     var phaseActuelle: PhaseJeu = PhaseJeu.EN_ATTENTE
         private set
@@ -20,6 +22,14 @@ class SuperviseurDeJeu(
     var actionNuitEnCours = ActionNuit()
         internal set
     private val votesDuVillage = mutableMapOf<String, String>()
+
+    var timerActuelSecondes: Int = 0
+        get() = when (phaseActuelle) {
+            PhaseJeu.JOUR_VOTE -> dureeVoteSecondes
+            PhaseJeu.CAPITAINE_SUCCESSION -> dureeSuccessionCapitaineSecondes
+            PhaseJeu.NUIT_SORCIERE -> dureeSorciereSecondes
+            else -> field
+        }
 
     val votesActuels: Map<String, String>
         get() = votesDuVillage.toMap()
@@ -283,11 +293,23 @@ class SuperviseurDeJeu(
         validerFinTourSorciere()
     }
 
+    fun definirVictimeNocturneDesLoups(cibleId: String) {
+        actionNuitEnCours.cibleLoupsId = cibleId
+    }
+
+    fun utiliserPotionMortSorciere(sorciereId: String, cibleId: String): Boolean {
+        return actionSorcierePoison(sorciereId, cibleId, cloturerTour = false)
+    }
+
+    fun cloturerPhaseSorciere() {
+        onJournalEvent?.invoke("Clôture de la phase de la Sorcière.")
+    }
+
     // ==========================================
     // RÉSOLUTION DE LA NUIT & PASSAGE AU JOUR
     // ==========================================
 
-    private fun resoudreNuitEtPasserALaube() {
+    fun resoudreNuitEtPasserALaube() {
         changerPhase(PhaseJeu.AUBE_BILAN)
         val mortsAExecuter = mutableSetOf<String>()
 
@@ -499,6 +521,28 @@ class SuperviseurDeJeu(
     }
 
     // ==========================================
+    // MÉTHODES PUBLIQUES & GESTION DES ÉTATS
+    // ==========================================
+
+    fun basculerEnPhase(nouvellePhase: PhaseJeu) {
+        if (nouvellePhase == PhaseJeu.JOUR_VOTE) {
+            votesDuVillage.clear()
+        }
+        changerPhase(nouvellePhase)
+    }
+
+    fun recupererJoueur(id: String): Joueur? = joueurs.find { it.id == id }
+
+    fun eliminerJoueur(joueurId: String, cause: CauseMort = CauseMort.MORSURE_LOUPS) {
+        val joueur = joueurs.find { it.id == joueurId } ?: return
+        val etaitCapitaine = joueur.estCapitaine || joueur.roleActif == Role.CAPITAINE
+        agentSurveillance.declarerMort(joueurId, cause)
+        if (etaitCapitaine && joueurs.any { it.estEnVie } && !agentSurveillance.isGameOver) {
+            demarrerSuccessionCapitaine(joueurId)
+        }
+    }
+
+    // ==========================================
     // SUCCESSION DU CAPITAINE (OPTION 1)
     // ==========================================
 
@@ -506,7 +550,7 @@ class SuperviseurDeJeu(
      * Déclenche la phase de succession du Capitaine (Option 1).
      * Ouvre une fenêtre d'agonie de 10 secondes.
      */
-    fun demarrerSuccessionCapitaine(capitaineId: String, onFin: () -> Unit) {
+    fun demarrerSuccessionCapitaine(capitaineId: String, onFin: () -> Unit = {}) {
         val capitaine = joueurs.find { it.id == capitaineId } ?: return
         val vivants = joueurs.filter { it.estEnVie }
 
@@ -515,6 +559,7 @@ class SuperviseurDeJeu(
             return
         }
 
+        capitaine.estCapitaine = false
         pendingCapitaineId = capitaine.id
         actionApresSuccession = onFin
         changerPhase(PhaseJeu.CAPITAINE_SUCCESSION)
@@ -531,12 +576,12 @@ class SuperviseurDeJeu(
      * Mute immédiatement estCapitaine, transmet le vote double (poids = 2) au nouvel élu
      * et reprend le cours normal de la partie.
      */
-    fun designerSuccesseurCapitaine(capitaineMourantId: String, successeurId: String): Boolean {
+    fun designerSuccesseurCapitaine(demandeurId: String, heritierId: String): Boolean {
         if (phaseActuelle != PhaseJeu.CAPITAINE_SUCCESSION) return false
-        if (pendingCapitaineId != null && pendingCapitaineId != capitaineMourantId) return false
+        if (pendingCapitaineId != null && pendingCapitaineId != demandeurId) return false
 
-        val defunt = joueurs.find { it.id == capitaineMourantId } ?: return false
-        val successeur = joueurs.find { it.id == successeurId && it.estEnVie && it.id != capitaineMourantId } ?: return false
+        val defunt = joueurs.find { it.id == demandeurId } ?: return false
+        val successeur = joueurs.find { it.id == heritierId && it.estEnVie && it.id != demandeurId } ?: return false
 
         // Transfert immédiat de l'écharpe
         defunt.estCapitaine = false

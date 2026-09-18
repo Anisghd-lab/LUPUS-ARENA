@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
+import 'ghost_death_badge.dart';
 import 'revealed_death_card_overlay.dart';
 
 /// Dimensions calculées dynamiquement pour l'agencement radial de la table
@@ -596,13 +597,16 @@ class _MysticRadialTableState extends State<MysticRadialTable>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Jeton de joueur
-                  Stack(
-                    alignment: Alignment.center,
-                    clipBehavior: Clip.none,
-                    children: [
-                      // 1. Onde de choc et halo néon pulsant pour celui qui a la parole (Isolé)
-                      if (isSpeaking)
+                  // Jeton de joueur avec animation spectrale de mort
+                  GhostDeathBadge(
+                    playerUid: player.id,
+                    isAlive: player.isAlive,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
+                      children: [
+                        // 1. Onde de choc et halo néon pulsant pour celui qui a la parole (Isolé)
+                        if (isSpeaking)
                         _SpeakingPulseHalo(
                           pulseAnimation: _pulseAnimation,
                           avatarSize: avatarSize,
@@ -963,7 +967,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                         ),
                     ],
                   ),
-                  const SizedBox(height: 2),
+                ),
+                const SizedBox(height: 2),
 
                   // Nom et numéro de siège avec icône loup si allié ou boule de cristal si sondé
                   Row(

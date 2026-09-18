@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
+import 'ghost_death_badge.dart';
 
 /// Carrousel horizontal de sélection de cibles inspiré du composant Stitch
 /// ("Choisissez votre victime • Phase d'accord").
@@ -199,58 +200,62 @@ class BentoTargetCarousel extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Avatar circulaire avec néon si parle ou rouge si allié loup
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: isWolfPeer
-                              ? const LinearGradient(
-                                  colors: [Color(0xFF8B1E1E), Color(0xFF3F0B0B)],
-                                )
-                              : (isSelected
-                                  ? const LinearGradient(
-                                      colors: [Color(0xFF947761), Color(0xFF5B4437)],
-                                    )
-                                  : const LinearGradient(
-                                      colors: [Color(0xFF3F4558), Color(0xFF232734)],
-                                    )),
-                          border: Border.all(
-                            color: isSpeaking
-                                ? const Color(0xFF00FF88)
+                      // Avatar circulaire avec néon si parle ou rouge si allié loup et animation spectrale
+                      GhostDeathBadge(
+                        playerUid: player.id,
+                        isAlive: player.isAlive,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: isWolfPeer
+                                ? const LinearGradient(
+                                    colors: [Color(0xFF8B1E1E), Color(0xFF3F0B0B)],
+                                  )
+                                : (isSelected
+                                    ? const LinearGradient(
+                                        colors: [Color(0xFF947761), Color(0xFF5B4437)],
+                                      )
+                                    : const LinearGradient(
+                                        colors: [Color(0xFF3F4558), Color(0xFF232734)],
+                                      )),
+                            border: Border.all(
+                              color: isSpeaking
+                                  ? const Color(0xFF00FF88)
+                                  : (isWolfPeer
+                                      ? const Color(0xFFFF2A4B)
+                                      : (isSelected
+                                          ? LupusColors.arcaneGold
+                                          : Colors.white.withValues(alpha: 0.2))),
+                              width: (isSpeaking || isWolfPeer) ? 2.2 : 1.5,
+                            ),
+                            boxShadow: isSpeaking
+                                ? const [
+                                    BoxShadow(
+                                      color: Color(0xFF00FF88),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ]
                                 : (isWolfPeer
-                                    ? const Color(0xFFFF2A4B)
-                                    : (isSelected
-                                        ? LupusColors.arcaneGold
-                                        : Colors.white.withValues(alpha: 0.2))),
-                            width: (isSpeaking || isWolfPeer) ? 2.2 : 1.5,
+                                    ? const [
+                                        BoxShadow(
+                                          color: Color(0xFFFF2A4B),
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                        ),
+                                      ]
+                                    : null),
                           ),
-                          boxShadow: isSpeaking
-                              ? const [
-                                  BoxShadow(
-                                    color: Color(0xFF00FF88),
-                                    blurRadius: 8,
-                                    spreadRadius: 1,
-                                  ),
-                                ]
-                              : (isWolfPeer
-                                  ? const [
-                                      BoxShadow(
-                                        color: Color(0xFFFF2A4B),
-                                        blurRadius: 8,
-                                        spreadRadius: 1,
-                                      ),
-                                    ]
-                                  : null),
-                        ),
-                        child: Center(
-                          child: Text(
-                            initials,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: isWolfPeer ? const Color(0xFFFFD4D4) : Colors.white,
+                          child: Center(
+                            child: Text(
+                              initials,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: isWolfPeer ? const Color(0xFFFFD4D4) : Colors.white,
+                              ),
                             ),
                           ),
                         ),

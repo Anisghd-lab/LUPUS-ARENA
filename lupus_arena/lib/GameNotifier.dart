@@ -14,6 +14,7 @@ import 'models/expanded_roles_state.dart';
 import 'models/game_phase.dart';
 import 'models/game_room.dart';
 import 'models/player_model.dart';
+import 'services/conditional_role_distributor.dart';
 import 'services/expanded_roles_coordinator.dart';
 import 'services/game_phase_coordinator.dart';
 import 'services/mayor_coordinator.dart';
@@ -4653,10 +4654,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final totalCount = state.room?.playerList.length ?? 0;
       final readyCount = readyList.length;
 
-      // 2. Mettre à jour Firebase de manière atomique
+      // 2. Mettre à jour Firebase de manière atomique (isReadyReplay et wantsRematch)
       await roomRef.update({
         'replayReadyUserIds': readyList,
         'players/$effectiveUserId/isReadyReplay': true,
+        'players/$effectiveUserId/wantsRematch': true,
         'replay_status_updated': {
           'event': 'replay_status_updated',
           'userId': effectiveUserId,
@@ -4673,7 +4675,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             Map<String, PlayerModel>.from(state.room!.players);
         if (updatedPlayers.containsKey(effectiveUserId)) {
           updatedPlayers[effectiveUserId] =
-              updatedPlayers[effectiveUserId]!.copyWith(isReadyReplay: true);
+              updatedPlayers[effectiveUserId]!.copyWith(
+            isReadyReplay: true,
+            wantsRematch: true,
+          );
         }
         state = state.copyWith(
           room: state.room!.copyWith(
@@ -4684,7 +4689,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
 
       // 3. Vérification du quorum : dès que tous les joueurs (ou le quorum) sont prêts,
-      // le serveur réinitialise la partie et redistribue les rôles
+      // le serveur réinitialise la partie et redistribue conditionnellement les rôles
       if (totalCount > 0 && readyCount >= totalCount) {
         await resetGameAndRedistributeRoles(effectiveRoomId);
       }
@@ -4716,6 +4721,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       await roomRef.update({
         'replayReadyUserIds': readyList,
         'players/$effectiveUserId/isReadyReplay': false,
+        'players/$effectiveUserId/wantsRematch': false,
         'replay_status_updated': {
           'event': 'replay_status_updated',
           'userId': effectiveUserId,
@@ -4732,7 +4738,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             Map<String, PlayerModel>.from(state.room!.players);
         if (updatedPlayers.containsKey(effectiveUserId)) {
           updatedPlayers[effectiveUserId] =
-              updatedPlayers[effectiveUserId]!.copyWith(isReadyReplay: false);
+              updatedPlayers[effectiveUserId]!.copyWith(
+            isReadyReplay: false,
+            wantsRematch: false,
+          );
         }
         state = state.copyWith(
           room: state.room!.copyWith(
@@ -4746,104 +4755,81 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
-  /// Réinitialise la salle pour une nouvelle partie (Rejouer) avec nouvelle attribution des rôles
+  /// Réinitialisation et redistribution aléatoire conditionnelle des rôles :
+  /// - Double Fisher-Yates cryptographiquement sécurisé
+  /// - Anti-répétition consécutive des rôles par UID
+  /// - Recalcul dynamique des quotas (visions = max(1, N ~/ 4), potions = max(1, N ~/ 10))
+  /// - PV = 100, isAlive = true, isMuted = false
+  /// - Émission de game_reset_to_lobby
   Future<void> resetGameAndRedistributeRoles(String roomCode) async {
+    final roomRef = _database.ref('rooms/');
+    final roomSnap = await roomRef.get();
+    if (!roomSnap.exists || roomSnap.value == null) return;
+
+    final roomData = roomSnap.value as Map<dynamic, dynamic>;
+    final currentRoom =
+        GameRoom.fromMap(roomData, roomCode, state.currentUserId);
+    final playersMap = currentRoom.players;
+    final count = playersMap.length;
+    if (count == 0) return;
+
+    // Récupérer les rôles de la manche précédente par UID pour l'anti-répétition
+    final Map<String, GameRole> previousRoles = {};
+    for (final p in playersMap.values) {
+      previousRoles[p.id] = p.trueOriginalRole;
+    }
+
+    // Role Pool effectif (salle de dev ou pool par défaut)
+    final effectiveRolePool = currentRoom.rolePool.isNotEmpty
+        ? currentRoom.rolePool
+        : GameNotifier.generateDefaultRolePool(count);
+
+    // Distribution conditionnelle optimisée
+    final distribution = ConditionalRoleDistributor.distribute(
+      currentPlayers: playersMap,
+      rolePool: effectiveRolePool,
+      roomCode: roomCode,
+      previousRoles: previousRoles,
+    );
+
+    final Map<String, dynamic> updatedPlayersMap = {};
+    final Map<String, dynamic> secretRolesMap = {};
+
+    distribution.updatedPlayers.forEach((uid, player) {
+      final pMap = player.toMap();
+      if (!currentRoom.isDevRoom) {
+        pMap['role'] = 'masked';
+      }
+      updatedPlayersMap[uid] = pMap;
+      secretRolesMap[uid] = {
+        'roleId': player.role.id,
+        'roleName': player.role.displayName,
+        'assignedAt': ServerValue.timestamp,
+      };
+    });
+
     try {
-      final roomRef = _database.ref('rooms/$roomCode');
-      final snapshot = await roomRef.get();
-      if (!snapshot.exists || snapshot.value == null) return;
+      // 1. Mettre à jour les rôles secrets et la meute chiffrée
+      await _database.ref('rooms//secret_roles').set(secretRolesMap);
+      await _database
+          .ref('rooms//wolf_pack')
+          .set({'data': distribution.encryptedWolfRoster});
 
-      final data = snapshot.value as Map<dynamic, dynamic>;
-      final playersData = data['players'] as Map<dynamic, dynamic>? ?? {};
-      final playerIds = playersData.keys.map((k) => k.toString()).toList();
-      final count = playerIds.length;
-
-      if (count < 4) return;
-
-      // 1. Génération et mélange aléatoire des rôles
-      final flatRoles = generateDefaultRolePool(count);
-      final List<GameRole> rolesList = [];
-      flatRoles.forEach((roleId, qty) {
-        final role = GameRole.fromId(roleId);
-        for (int i = 0; i < qty; i++) {
-          rolesList.add(role);
-        }
-      });
-      final secureRandom = Random.secure();
-      rolesList.shuffle(secureRandom);
-      rolesList.shuffle(secureRandom);
-
-      // 2. Nouveau placement aléatoire des sièges
-      final seatingOrder = List<String>.from(playerIds)..shuffle(secureRandom);
-
-      // 3. Préparation des rôles secrets et des joueurs réinitialisés
-      final Map<String, dynamic> secretRoles = {};
-      final List<String> wolfPlayerIds = [];
-      final Map<String, dynamic> updatedPlayers = {};
-
-      for (int i = 0; i < playerIds.length; i++) {
-        final pid = playerIds[i];
-        final assignedRole = rolesList[i];
-        final seatIdx = seatingOrder.indexOf(pid);
-
-        if (assignedRole.isEvil) {
-          wolfPlayerIds.add(pid);
-        }
-
-        secretRoles[pid] = {
-          'roleId': assignedRole.id,
-          'roleName': assignedRole.displayName,
-          'assignedAt': ServerValue.timestamp,
-        };
-
-        final existingMap = Map<String, dynamic>.from(
-          playersData[pid] as Map<dynamic, dynamic>? ?? {},
-        );
-
-        updatedPlayers[pid] = {
-          ...existingMap,
-          'role': 'masked',
-          'isAlive': true,
-          'isReady': true,
-          'isReadyReplay': false,
-          'targetVoteId': null,
-          'isCaptain': false,
-          'isLover': false,
-          'loverId': null,
-          'isCharmed': false,
-          'isDoused': false,
-          'hasUsedHealPotion': false,
-          'hasUsedPoisonPotion': false,
-          'seatIndex': seatIdx,
-        };
-      }
-
-      // 4. Écriture des rôles secrets et de la meute
-      await _database.ref('rooms/$roomCode/secret_roles').set(secretRoles);
-      if (wolfPlayerIds.isNotEmpty) {
-        final encryptedWolves =
-            RoleSecurityService.encryptWolfRoster(wolfPlayerIds, roomCode);
-        await _database
-            .ref('rooms/$roomCode/wolf_pack')
-            .set({'data': encryptedWolves});
-      }
-
-      // 5. Réinitialisation complète du salon avec événements atomiques intégrés
       final initialLogs = [
         '🔄 Nouvelle partie lancée ! Le village renaît de ses cendres.',
         'La Nuit 1 tombe... Les rôles secrets ont été redistribués.',
       ];
 
-      final roomResetUpdates = <String, dynamic>{
-        'phase': GamePhase.nightDefender.name,
-        'currentPhase': GamePhase.nightDefender.name,
+      // 2. Réinitialiser la salle au lobby
+      final Map<String, dynamic> roomResetUpdates = {
+        'phase': GamePhase.lobby.name,
         'round': 1,
         'winner': null,
-        'players': updatedPlayers,
-        'seatingOrder': seatingOrder,
+        'players': updatedPlayersMap,
+        'seatingOrder': distribution.seatingOrder,
         'replayReadyUserIds': <String>[],
         'logs': initialLogs,
-        'timerSeconds': 30,
+        'timerSeconds': 60,
         'captainId': null,
         'nightVictimId': null,
         'witchHealed': false,
@@ -4872,9 +4858,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         },
       };
 
-      // ── Écriture atomique unique de réinitialisation : rooms/$roomCode ──
+      // ── Écriture atomique unique de réinitialisation : rooms/ ──
       await roomRef.update(roomResetUpdates);
-
       state = state.copyWith(isVictoryVoiceExpired: false);
     } catch (e) {
       debugPrint('[Replay Reset Error] $e');

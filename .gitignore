@@ -1,7 +1,60 @@
+# Flutter / Dart
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/build/
+
+# Android / Gradle
+.gradle/
+**/android/.gradle/
+**/android/captures/
+**/android/gradle/
+**/android/local.properties
+**/android/**/build/
+
+# iOS / Xcode
+**/ios/.generated/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Pods/
+**/ios/Runner.xcworkspace/xcuserdata/
+**/ios/Runner.xcodeproj/xcuserdata/
+
+# OS and Desktop Residues
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Tt]humbs.db
+*.swp
+*.lock
+*~
+
+# IDE
 .idea/
 *.iml
+*.iws
+*.ipr
+.vscode/
+
+# Backups and Temporary dumps
+*BACKUP*
+*_BACKUP*
+LOUP GAROU ENHANCED_BACKUP/
+**/LOUP GAROU ENHANCED_BACKUP/
+*.bak
+*.tmp
+*.orig
 windows/
-.gradle/
-**/build/

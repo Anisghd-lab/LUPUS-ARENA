@@ -317,19 +317,27 @@ class _MysticRadialTableState extends State<MysticRadialTable>
 
                 // 4. Carte d'état de cible OU Séquence cinématique 3D des défunts au centre (Isolée)
                 RepaintBoundary(
-                  child: (widget.deathQueue != null &&
-                          widget.deathQueue!.isNotEmpty)
-                      ? RevealedDeathCardOverlay(
-                          key: ValueKey(widget.deathQueue!
-                              .map((e) => e.playerId)
-                              .join('_')),
-                          queue: widget.deathQueue!,
-                          onSequenceCompleted: widget.onDeathSequenceCompleted,
-                        )
-                      : _buildCenterTargetCard(
-                          selectedPlayer,
-                          isCompact: isDoubleRing,
-                        ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    switchInCurve: Curves.easeInOut,
+                    switchOutCurve: Curves.easeInOut,
+                    child: (widget.deathQueue != null &&
+                            widget.deathQueue!.isNotEmpty)
+                        ? RevealedDeathCardOverlay(
+                            key: ValueKey(widget.deathQueue!
+                                .map((e) => e.key)
+                                .join('_')),
+                            queue: widget.deathQueue!,
+                            onSequenceCompleted: widget.onDeathSequenceCompleted,
+                          )
+                        : KeyedSubtree(
+                            key: const ValueKey('center_target_card'),
+                            child: _buildCenterTargetCard(
+                              selectedPlayer,
+                              isCompact: isDoubleRing,
+                            ),
+                          ),
+                  ),
                 ),
 
                 // 5. Noeuds radiaux des joueurs disposés à 360° (avec transitions AnimatedPositioned et Hitbox 48x48)

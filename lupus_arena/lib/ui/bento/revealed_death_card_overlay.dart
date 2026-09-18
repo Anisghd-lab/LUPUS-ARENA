@@ -22,6 +22,8 @@ class DeathAnnouncementEvent {
     this.timestamp = 0,
   });
 
+  String get key => '${playerId}_${cause}_$timestamp';
+
   String get causeLabel {
     switch (cause.toUpperCase()) {
       case 'MORSURE_LOUPS':
@@ -94,13 +96,13 @@ class DeathAnnouncementEvent {
 
 /// Séquence cinématique 3D de révélation des défunts au centre de la table mystique.
 ///
-/// Contraintes impératives :
-/// 1. Confinement strict au centre du cercle (largeur max ~96-104px, hauteur max ~150px)
-///    pour ne jamais masquer les pastilles/avatars des joueurs sur le pourtour.
-/// 2. Traitement FIFO séquentiel : une carte à la fois si plusieurs morts.
-/// 3. Animation de retournement 3D (0° à 180°) avec perspective (setEntry(3, 2, 0.002)).
-/// 4. Temporisation stricte de 2 secondes d'exposition statique à 180° avec nom, rôle et cause.
-/// 5. Disparition fluide (fade out / scale down) puis clôture dès épuisement de la file.
+/// Spécifications & Anti-bouclage Firebase :
+/// 1. Confinement strict au centre du cercle pour ne jamais masquer les pastilles/avatars.
+/// 2. Traitement FIFO séquentiel avec traçabilité stricte des clés déjà affichées ([_playedKeys]).
+/// 3. Les snapshots et updates Firebase (speakerId, audio Agora) ne relancent JAMAIS les cartes déjà jouées.
+/// 4. Animation de retournement 3D (0° à 180°) avec perspective (setEntry(3, 2, 0.002)).
+/// 5. Temporisation d'exposition de 2.5 secondes par carte (3.5s durée totale par mort).
+/// 6. Disparition fluide et clôture définitive via [onSequenceCompleted] dès épuisement de la file.
 class RevealedDeathCardOverlay extends StatefulWidget {
   final List<DeathAnnouncementEvent> queue;
   final VoidCallback? onSequenceCompleted;
@@ -122,7 +124,8 @@ class RevealedDeathCardOverlay extends StatefulWidget {
 
 class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
     with TickerProviderStateMixin {
-  late final List<DeathAnnouncementEvent> _pendingQueue;
+  final List<DeathAnnouncementEvent> _pendingQueue = [];
+  final Set<String> _playedKeys = {};
   DeathAnnouncementEvent? _currentEvent;
 
   // Contrôleurs d'animation pour le cycle de vie de chaque carte
@@ -147,9 +150,9 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
         role: GameRole.fromString(ev.roleOriginal?.toString()),
         cause: ev.causeMort?.toString() ?? 'VOTE_VILLAGE',
       );
-      _pendingQueue = [deathEvent];
+      _pendingQueue.add(deathEvent);
     } else {
-      _pendingQueue = List<DeathAnnouncementEvent>.from(widget.queue);
+      _pendingQueue.addAll(widget.queue);
     }
 
     // 1. Retournement 3D (0° -> 180°) en 700ms avec courbe fluide
@@ -175,7 +178,7 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
 
     _flipController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        // La carte est à 180° : Démarrage du gel strict de 2 secondes
+        // La carte est à 180° : Démarrage du gel d'exposition de 2.5 secondes
         _startTwoSecondsFreeze();
       }
     });
@@ -194,11 +197,13 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
   @override
   void didUpdateWidget(RevealedDeathCardOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Si de nouveaux défunts sont ajoutés dynamiquement
+    // Filtrage strict : Ne JAMAIS réinjecter les défunts déjà joués ou en cours de lecture
     for (final ev in widget.queue) {
-      final alreadyQueued = _pendingQueue.any((e) => e.playerId == ev.playerId) ||
-          (_currentEvent?.playerId == ev.playerId);
-      if (!alreadyQueued) {
+      final key = ev.key;
+      final isAlreadyHandled = _playedKeys.contains(key) ||
+          _pendingQueue.any((e) => e.key == key) ||
+          (_currentEvent?.key == key);
+      if (!isAlreadyHandled) {
         _pendingQueue.add(ev);
       }
     }
@@ -219,8 +224,11 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
       return;
     }
 
+    final nextEvent = _pendingQueue.removeAt(0);
+    _playedKeys.add(nextEvent.key);
+
     setState(() {
-      _currentEvent = _pendingQueue.removeAt(0);
+      _currentEvent = nextEvent;
     });
 
     _exitController.reset();
@@ -229,8 +237,8 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
 
   void _startTwoSecondsFreeze() {
     _freezeTimer?.cancel();
-    // Temporisation stricte de 2.0 secondes (2000 ms) imposée par le cahier des charges
-    _freezeTimer = Timer(const Duration(milliseconds: 2000), () {
+    // Temporisation de 2.5 secondes pour une lecture claire et posée
+    _freezeTimer = Timer(const Duration(milliseconds: 2500), () {
       if (_isDisposed || !mounted) return;
       _exitController.forward(from: 0.0);
     });
@@ -264,7 +272,7 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
 
     return Center(
       child: Container(
-        key: const Key('death_card_container'),
+        key: ValueKey('death_card_${event.key}'),
         constraints: const BoxConstraints(
           maxWidth: maxContainerWidth,
           maxHeight: maxContainerHeight,

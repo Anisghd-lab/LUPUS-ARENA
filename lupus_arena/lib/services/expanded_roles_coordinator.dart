@@ -1,4 +1,5 @@
 import '../models/game_role.dart';
+import '../models/player_model.dart';
 
 /// Coordinateur et Arbitre pour les 17 Rôles Élargis de Lupus Arena
 /// Contient l'ensemble des algorithmes purs d'arbitrage canonique
@@ -82,7 +83,47 @@ class ExpandedRolesCoordinator {
     return false;
   }
 
+  /// Alias de compatibilité pour le Montreur d'Ours
+  static bool resolveBearTamerGrowl({
+    required String bearTamerPlayerId,
+    required List<String> alivePlayerIdsInOrder,
+    required Map<String, GameRole> playerRoles,
+    required String? infectedPlayerId,
+  }) {
+    return shouldBearGrowl(
+      bearTamerPlayerId: bearTamerPlayerId,
+      alivePlayerIdsInOrder: alivePlayerIdsInOrder,
+      playerRoles: playerRoles,
+      infectedPlayerId: infectedPlayerId,
+    );
+  }
+
   /// 4. DÉPOUILLEMENT DU VOTE DU JOUR : Intégration Corbeau & Bouc Émissaire
+  static Map<String, int> applyCrowBonusVotes({
+    required Map<String, int> baseVoteCounts,
+    required String? crowTargetId,
+  }) {
+    final result = Map<String, int>.from(baseVoteCounts);
+    if (crowTargetId != null) {
+      result[crowTargetId] = (result[crowTargetId] ?? 0) + 2;
+    }
+    return result;
+  }
+
+  /// Arbitrage de l'égalité : si un Bouc Émissaire est vivant, il est sacrifié
+  static String? resolveScapegoatTie({
+    required List<PlayerModel> alivePlayers,
+    Map<String, GameRole>? realRoles,
+    required List<String> tiedCandidates,
+  }) {
+    if (tiedCandidates.length <= 1) return null;
+    final scapegoat = alivePlayers.where((p) {
+      final role = realRoles?[p.id] ?? p.role;
+      return role == GameRole.scapegoat;
+    }).firstOrNull;
+    return scapegoat?.id;
+  }
+
   static Map<String, dynamic> tallyDayVotes({
     required Map<String, String> playerVotes, // voterId -> targetId
     required String? crowTargetId,
@@ -195,5 +236,22 @@ class ExpandedRolesCoordinator {
 
     // Victoire si aucun membre de l'équipe adverse n'est en vie
     return opposingTeam.every((id) => !alivePlayerIds.contains(id));
+  }
+
+  /// Vérifie la victoire de la secte via les joueurs en vie
+  static String? checkSectarianWin({
+    required List<PlayerModel> alivePlayers,
+    required List<String> sectarianTeamA,
+    required List<String> sectarianTeamB,
+  }) {
+    final sectarian = alivePlayers.where((p) => p.role == GameRole.sectLeader).firstOrNull;
+    if (sectarian == null) return null;
+    final aliveIds = alivePlayers.map((p) => p.id).toSet();
+    final isInA = sectarianTeamA.contains(sectarian.id);
+    final opposingTeam = isInA ? sectarianTeamB : sectarianTeamA;
+    if (opposingTeam.isNotEmpty && opposingTeam.every((id) => !aliveIds.contains(id))) {
+      return 'abominableSectarian';
+    }
+    return null;
   }
 }

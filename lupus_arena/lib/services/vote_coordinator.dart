@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import '../models/expanded_roles_state.dart';
-import '../models/game_role.dart';
 import '../models/player_model.dart';
 import 'expanded_roles_coordinator.dart';
 
@@ -54,8 +53,6 @@ class VoteCoordinator {
     String? captainId,
     Map<String, GameRole>? realRoles,
   }) {
-    GameRole getRole(PlayerModel p) => realRoles?[p.id] ?? p.role;
-
     final voteCounts = <String, int>{};
 
     for (final voter in players.values.where((p) => p.isAlive)) {

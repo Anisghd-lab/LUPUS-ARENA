@@ -17,6 +17,12 @@ class ExpandedRolesState {
   final Map<String, List<String>> sectarianTeams; // 'teamA' -> [ids], 'teamB' -> [ids]
   final Map<String, List<GameRole>> actorAvailableRoles; // playerId -> [rôles restants]
   final Set<String> bannedVotersForToday; // Choisi par le Bouc Émissaire
+  final bool angelWon;
+  final bool foxPowerActive;
+  final bool? lastFoxCheckResult;
+  final bool bearGrowledThisMorning;
+  final bool scapegoatNeedsToBan;
+  final bool hasUsedInfection;
 
   const ExpandedRolesState({
     this.infectedPlayerId,
@@ -33,7 +39,16 @@ class ExpandedRolesState {
     this.sectarianTeams = const {},
     this.actorAvailableRoles = const {},
     this.bannedVotersForToday = const {},
+    this.angelWon = false,
+    this.foxPowerActive = true,
+    this.lastFoxCheckResult,
+    this.bearGrowledThisMorning = false,
+    this.scapegoatNeedsToBan = false,
+    this.hasUsedInfection = false,
   });
+
+  List<String> get sectarianTeamA => sectarianTeams['teamA'] ?? const [];
+  List<String> get sectarianTeamB => sectarianTeams['teamB'] ?? const [];
 
   ExpandedRolesState copyWith({
     String? infectedPlayerId,
@@ -50,6 +65,12 @@ class ExpandedRolesState {
     Map<String, List<String>>? sectarianTeams,
     Map<String, List<GameRole>>? actorAvailableRoles,
     Set<String>? bannedVotersForToday,
+    bool? angelWon,
+    bool? foxPowerActive,
+    bool? lastFoxCheckResult,
+    bool? bearGrowledThisMorning,
+    bool? scapegoatNeedsToBan,
+    bool? hasUsedInfection,
   }) {
     return ExpandedRolesState(
       infectedPlayerId: infectedPlayerId ?? this.infectedPlayerId,
@@ -70,6 +91,13 @@ class ExpandedRolesState {
       sectarianTeams: sectarianTeams ?? this.sectarianTeams,
       actorAvailableRoles: actorAvailableRoles ?? this.actorAvailableRoles,
       bannedVotersForToday: bannedVotersForToday ?? this.bannedVotersForToday,
+      angelWon: angelWon ?? this.angelWon,
+      foxPowerActive: foxPowerActive ?? this.foxPowerActive,
+      lastFoxCheckResult: lastFoxCheckResult ?? this.lastFoxCheckResult,
+      bearGrowledThisMorning:
+          bearGrowledThisMorning ?? this.bearGrowledThisMorning,
+      scapegoatNeedsToBan: scapegoatNeedsToBan ?? this.scapegoatNeedsToBan,
+      hasUsedInfection: hasUsedInfection ?? this.hasUsedInfection,
     );
   }
 
@@ -91,6 +119,12 @@ class ExpandedRolesState {
         (key, roles) => MapEntry(key, roles.map((r) => r.id).toList()),
       ),
       'bannedVotersForToday': bannedVotersForToday.toList(),
+      'angelWon': angelWon,
+      'foxPowerActive': foxPowerActive,
+      'lastFoxCheckResult': lastFoxCheckResult,
+      'bearGrowledThisMorning': bearGrowledThisMorning,
+      'scapegoatNeedsToBan': scapegoatNeedsToBan,
+      'hasUsedInfection': hasUsedInfection,
     };
   }
 
@@ -157,6 +191,13 @@ class ExpandedRolesState {
       sectarianTeams: parsedSectarianTeams,
       actorAvailableRoles: parsedActorRoles,
       bannedVotersForToday: parsedBannedVoters,
+      angelWon: map['angelWon'] as bool? ?? false,
+      foxPowerActive: map['foxPowerActive'] as bool? ?? true,
+      lastFoxCheckResult: map['lastFoxCheckResult'] as bool?,
+      bearGrowledThisMorning:
+          map['bearGrowledThisMorning'] as bool? ?? false,
+      scapegoatNeedsToBan: map['scapegoatNeedsToBan'] as bool? ?? false,
+      hasUsedInfection: map['hasUsedInfection'] as bool? ?? false,
     );
   }
 }

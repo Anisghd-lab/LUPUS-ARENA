@@ -1,8 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
-import '../models/player_model.dart';
-
 /// Service dédié à la présence temps réel, statut de connectivité et voix (RoomPresenceService)
 class RoomPresenceService {
   final FirebaseDatabase _database;

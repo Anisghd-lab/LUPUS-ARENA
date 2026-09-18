@@ -1,7 +1,5 @@
 import 'dart:math';
 
-import '../models/expanded_roles_state.dart';
-import '../models/game_role.dart';
 import '../models/player_model.dart';
 import 'expanded_roles_coordinator.dart';
 
@@ -99,32 +97,32 @@ class RoleActionDispatcher {
   const RoleActionDispatcher();
 
   /// Résout le flair du Renard
-  FoxSniffResult resolveFoxSniff({
+  bool resolveFoxSniff({
     required String targetPlayerId,
-    required Map<String, PlayerModel> players,
-    Map<String, GameRole>? realRoles,
-    required List<String> seatingOrder,
+    required List<String> alivePlayerIdsInOrder,
+    required Map<String, GameRole> playerRoles,
+    String? infectedPlayerId,
   }) {
     return ExpandedRolesCoordinator.resolveFoxSniff(
       targetPlayerId: targetPlayerId,
-      players: players,
-      realRoles: realRoles,
-      seatingOrder: seatingOrder,
+      alivePlayerIdsInOrder: alivePlayerIdsInOrder,
+      playerRoles: playerRoles,
+      infectedPlayerId: infectedPlayerId,
     );
   }
 
   /// Résout le grognement du Montreur d'Ours
   bool resolveBearTamerGrowl({
-    required Map<String, PlayerModel> players,
-    Map<String, GameRole>? realRoles,
-    required List<String> seatingOrder,
-    required bool bearTamerInfected,
+    required String bearTamerPlayerId,
+    required List<String> alivePlayerIdsInOrder,
+    required Map<String, GameRole> playerRoles,
+    String? infectedPlayerId,
   }) {
-    return ExpandedRolesCoordinator.resolveBearTamerGrowl(
-      players: players,
-      realRoles: realRoles,
-      seatingOrder: seatingOrder,
-      bearTamerInfected: bearTamerInfected,
+    return ExpandedRolesCoordinator.shouldBearGrowl(
+      bearTamerPlayerId: bearTamerPlayerId,
+      alivePlayerIdsInOrder: alivePlayerIdsInOrder,
+      playerRoles: playerRoles,
+      infectedPlayerId: infectedPlayerId,
     );
   }
 }

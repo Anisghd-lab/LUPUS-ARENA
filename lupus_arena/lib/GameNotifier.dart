@@ -141,10 +141,11 @@ class LupusGameState {
 /// Moteur de règles canoniques des Loups-Garous de Thiercelieux
 class GameNotifier extends StateNotifier<LupusGameState> {
   final AgoraVoiceService _voiceService = AgoraVoiceService();
-  final GamePhaseCoordinator _phaseCoordinator = const GamePhaseCoordinator();
-  final VoteCoordinator _voteCoordinator = const VoteCoordinator();
-  final RoleActionDispatcher _roleDispatcher = const RoleActionDispatcher();
-  late final RoomPresenceService _presenceService = RoomPresenceService(_database);
+  final GamePhaseCoordinator phaseCoordinator = const GamePhaseCoordinator();
+  GamePhaseCoordinator get _phaseCoordinator => phaseCoordinator;
+  final VoteCoordinator voteCoordinator = const VoteCoordinator();
+  final RoleActionDispatcher roleDispatcher = const RoleActionDispatcher();
+  late final RoomPresenceService presenceService = RoomPresenceService(_database);
 
   StreamSubscription<DatabaseEvent>? _publicStateSubscription;
   StreamSubscription<DatabaseEvent>? _playersSubscription;
@@ -2578,7 +2579,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final updates = <String, dynamic>{
       'expandedRolesState': room.expandedRolesState.copyWith(crowTargetId: targetPlayerId).toMap(),
       'logs': [
-        ...?room.logs,
+        ...room.logs,
         '🦅 Le Corbeau a cloué un sinistre mot d\'accusation sur la porte de $targetName.',
       ],
     };
@@ -2595,7 +2596,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final updates = <String, dynamic>{
       'expandedRolesState': room.expandedRolesState.copyWith(wildChildModelId: modelId).toMap(),
       'logs': [
-        ...?room.logs,
+        ...room.logs,
         '🐾 L\'Enfant Sauvage a choisi $modelName comme modèle protecteur pour son existence.',
       ],
     };
@@ -2615,7 +2616,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         judgeSecondVoteAvailable: false,
       ).toMap(),
       'logs': [
-        ...?room.logs,
+        ...room.logs,
         '⚖️ Le Juge Bègue a fait le signe convenu : un second vote aura lieu immédiatement après le premier !',
       ],
     };
@@ -2632,7 +2633,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         sectarianTeams: {'teamA': teamA, 'teamB': teamB},
       ).toMap(),
       'logs': [
-        ...?room.logs,
+        ...room.logs,
         '🌀 L\'Abominable Sectaire a divisé en secret le village en deux factions opposées.',
       ],
     };
@@ -2650,7 +2651,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         bannedVotersForToday: bannedVoters,
       ).toMap(),
       'logs': [
-        ...?room.logs,
+        ...room.logs,
         '🐐 Dans son dernier souffle, le Bouc Émissaire a privé certains citoyens de leur droit de vote pour le prochain jour.',
       ],
     };
@@ -2675,7 +2676,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         actorAvailableRoles: updatedMap,
       ).toMap(),
       'logs': [
-        ...?room.logs,
+        ...room.logs,
         '🎭 Le Comédien endosse le costume d\'un nouveau rôle pour la nuit !',
       ],
     };

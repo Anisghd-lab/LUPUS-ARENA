@@ -23,6 +23,7 @@ import '../theme/lupus_assets.dart';
 import '../theme/lupus_theme.dart';
 import '../../services/app_translations.dart';
 import '../../services/locale_provider.dart';
+import '../../services/server_time_service.dart';
 import '../bento/language_dialog.dart';
 import 'lobby_screen.dart';
 import 'village_chronicles_screen.dart';
@@ -1636,6 +1637,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         return context.tr('phase_black_wolf_title');
       case GamePhase.nightWitch:
         return context.tr('phase_witch_title');
+      case GamePhase.nightPiper:
+        return context.tr('phase_night_piper_title');
       case GamePhase.nightPyromaniac:
         return context.tr('phase_pyromaniac_title');
       case GamePhase.morningAnnouncement:

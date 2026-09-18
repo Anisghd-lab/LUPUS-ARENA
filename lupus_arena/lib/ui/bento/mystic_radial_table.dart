@@ -277,8 +277,6 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       builder: (context, constraints) {
         final double screenWidth =
             MediaQuery.maybeSizeOf(context)?.width ?? 360.0;
-        final double screenHeight =
-            MediaQuery.maybeSizeOf(context)?.height ?? 640.0;
 
         final double availableWidth =
             constraints.maxWidth.isFinite && constraints.maxWidth > 0
@@ -848,7 +846,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       // Badge Envoûté (Joueur de Flûte)
                       if (player.isCharmed &&
                           (isMe ||
-                              widget.myRole == GameRole.piper ||
+                              widget.myRole == GameRole.piedPiper ||
                               isGodMode ||
                               isDead))
                         Positioned(
@@ -996,7 +994,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       ],
                       if (player.isCharmed &&
                           (isMe ||
-                              widget.myRole == GameRole.piper ||
+                              widget.myRole == GameRole.piedPiper ||
                               isGodMode ||
                               isDead)) ...[
                         const Text('🎵', style: TextStyle(fontSize: 8.0)),

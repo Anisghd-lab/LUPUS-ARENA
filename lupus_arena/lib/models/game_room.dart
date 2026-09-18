@@ -1,6 +1,5 @@
 import 'expanded_roles_state.dart';
 import 'game_phase.dart';
-import 'game_role.dart';
 import 'player_model.dart';
 
 class GameRoom {

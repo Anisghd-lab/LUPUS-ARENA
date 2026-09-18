@@ -363,7 +363,7 @@ void main() {
       isMuted: false,
       pv: 100,
       isReadyReplay: false,
-      targetVoteId: null,
+      clearTargetVote: true,
       isCaptain: false,
     );
 

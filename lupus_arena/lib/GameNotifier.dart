@@ -14,6 +14,7 @@ import 'models/game_phase.dart';
 import 'models/game_room.dart';
 import 'models/player_model.dart';
 import 'services/role_security_service.dart';
+import 'services/server_time_service.dart';
 
 /// URL spécifique de la Realtime Database configurée dans google-services.json
 const String kFirebaseDatabaseUrl =
@@ -141,6 +142,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   String? _lastAppliedVoiceChannel;
   GamePhase? _lastAppliedVoicePhase;
   bool _isTransitioningPhase = false;
+  Timer? _phaseExpirationTimer;
 
   GameNotifier()
       : super(
@@ -155,6 +157,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           }(),
         ) {
     loadSavedProfile();
+    ServerTimeService().initialize(_database);
   }
 
   /// Charge le profil utilisateur précédemment sauvegardé sur l'appareil
@@ -242,6 +245,32 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['phase'] = cp.name;
     }
 
+    // CALCUL DU COMPTE À REBOURS SERVEUR PUR (phaseEndsAt, phaseStartedAt, phaseDurationMs)
+    final bool isPhaseChanging = updates.containsKey('phase') || updates.containsKey('currentPhase');
+    final bool isTimerUpdating = updates.containsKey('timerSeconds');
+    final bool isSpeakerChanging = updates.containsKey('currentSpeakerId');
+
+    if (isPhaseChanging || isTimerUpdating || isSpeakerChanging) {
+      int durationSec = 30;
+      if (updates.containsKey('timerSeconds')) {
+        final tVal = updates['timerSeconds'];
+        if (tVal is num) durationSec = tVal.toInt();
+      } else if (state.room != null) {
+        durationSec = state.room!.timerSeconds;
+      }
+
+      final durationMs = durationSec * 1000;
+      final currentServerTime = ServerTimeService().currentServerEstimatedTime;
+
+      if (!updates.containsKey('phaseEndsAt')) {
+        updates['phaseEndsAt'] = currentServerTime + durationMs;
+      }
+      if (!updates.containsKey('phaseStartedAt')) {
+        updates['phaseStartedAt'] = currentServerTime;
+      }
+      updates['phaseDurationMs'] = durationMs;
+    }
+
     try {
       await _currentRoomRef!.update(updates);
       if (state.room != null) {
@@ -270,12 +299,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final provisionalRoom = state.room!.copyWith(
         phase: updatedPhase,
         timerSeconds: updatedTimer,
+        phaseEndsAt: updates.containsKey('phaseEndsAt')
+            ? (updates['phaseEndsAt'] as int?)
+            : state.room!.phaseEndsAt,
+        phaseStartedAt: updates.containsKey('phaseStartedAt')
+            ? (updates['phaseStartedAt'] as int?)
+            : state.room!.phaseStartedAt,
+        phaseDurationMs: updates.containsKey('phaseDurationMs')
+            ? (updates['phaseDurationMs'] as int?)
+            : state.room!.phaseDurationMs,
         currentSpeakerId: updates.containsKey('currentSpeakerId')
             ? updates['currentSpeakerId'] as String?
             : state.room!.currentSpeakerId,
       );
       state = state.copyWith(room: provisionalRoom);
       _applyVoiceRulesForPhase(provisionalRoom);
+      _syncPhaseExpirationSchedule(provisionalRoom);
     }
   }
 
@@ -447,7 +486,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         );
       }
 
-      final newRoom = GameRoom(
+        final nowMs = ServerTimeService().currentServerEstimatedTime;
+        const initialDurationMs = 25000;
+
+        final newRoom = GameRoom(
         roomCode: roomCode,
         hostId: state.currentUserId,
         phase: GamePhase.nightDefender, // Le Salvateur commence en premier
@@ -457,6 +499,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         rolePool: pool,
         isDevRoom: true,
         seatingOrder: seatingOrder,
+        timerSeconds: 25,
+        phaseEndsAt: nowMs + initialDurationMs,
+        phaseStartedAt: nowMs,
+        phaseDurationMs: initialDurationMs,
         logs: [
           'Partie de test Maître du Jeu initialisée (15 joueurs).',
           'Rôles et sièges distribués de manière 100% aléatoire.',
@@ -730,6 +776,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         players: players,
       );
 
+      final nowMs = ServerTimeService().currentServerEstimatedTime;
+      const initialNightDurationMs = 40000;
+
       final newRoom = GameRoom(
         roomCode: roomCode,
         hostId: state.currentUserId,
@@ -741,6 +790,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         isDevRoom: true,
         seatingOrder: seatingOrder,
         thiefAvailableRoles: thiefCards,
+        timerSeconds: 40,
+        phaseEndsAt: nowMs + initialNightDurationMs,
+        phaseStartedAt: nowMs,
+        phaseDurationMs: initialNightDurationMs,
         logs: [
           'Partie Sandbox Initialisée (${players.length} joueurs).',
           'Rôles configurés manuellement par le Maître du Jeu.',
@@ -3179,6 +3232,41 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
+  /// Synchronise l'ordonnancement automatique d'expiration de phase pour l'Hôte
+  /// Fonction pure du temps serveur : si le temps restant est nul ou négatif,
+  /// la phase progresse immédiatement sans dépendre de timers UI locaux.
+  void _syncPhaseExpirationSchedule(GameRoom room) {
+    _phaseExpirationTimer?.cancel();
+    _phaseExpirationTimer = null;
+
+    if (!state.isHost && !state.isAdmin) return;
+    if (room.phase == GamePhase.lobby || room.phase == GamePhase.gameOver) return;
+    if (room.phaseEndsAt == null) return;
+
+    final currentServerTime = ServerTimeService().currentServerEstimatedTime;
+    final remainingMs = room.phaseEndsAt! - currentServerTime;
+
+    if (remainingMs <= 0) {
+      debugPrint(
+        '[PhaseExpiration] Phase ${room.phase.name} déjà expirée (${remainingMs}ms). Avancement immédiat vers la phase suivante.',
+      );
+      if (!_isTransitioningPhase) {
+        nextPhase();
+      }
+    } else {
+      _phaseExpirationTimer = Timer(Duration(milliseconds: remainingMs), () {
+        if ((state.isHost || state.isAdmin) &&
+            state.room?.phase == room.phase &&
+            state.room?.round == room.round) {
+          debugPrint(
+            '[PhaseExpirationTimer] Expiration du temps serveur pour ${room.phase.name}. Déclenchement automatique nextPhase().',
+          );
+          nextPhase();
+        }
+      });
+    }
+  }
+
   void _subscribeToRoom(String roomCode) {
     _roomSubscription?.cancel();
     _roomSubscription = _currentRoomRef?.onValue.listen((event) {
@@ -3209,6 +3297,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       state = state.copyWith(room: updatedRoom);
 
       _applyVoiceRulesForPhase(updatedRoom);
+      _syncPhaseExpirationSchedule(updatedRoom);
 
       // Dépouillement anticipé dès que tous les vivants ont voté pendant dayVoting
       final aliveCount = updatedRoom.alivePlayers.length;
@@ -4146,6 +4235,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       _lastAppliedVoiceChannel = null;
       _lastAppliedVoicePhase = null;
       _currentRoomRef = null;
+      _phaseExpirationTimer?.cancel();
+      _phaseExpirationTimer = null;
 
       await _voiceService.leaveChannel();
       state = state.copyWith(clearRoom: true, isVictoryVoiceExpired: false);
@@ -4160,6 +4251,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   @override
   void dispose() {
+    _phaseExpirationTimer?.cancel();
     _roomSubscription?.cancel();
     _currentPhaseSubscription?.cancel();
     _secretRoleSubscription?.cancel();

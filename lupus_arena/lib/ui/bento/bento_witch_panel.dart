@@ -6,6 +6,8 @@ import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 
+import 'server_countdown_timer.dart';
+
 /// Panneau Bento complet à deux fioles (Vie & Mort) réservé à la Sorcière.
 /// Permet de sauver la victime des loups, d'empoisonner un suspect, ou de passer la nuit.
 class BentoWitchPanel extends StatefulWidget {
@@ -31,37 +33,12 @@ class BentoWitchPanel extends StatefulWidget {
 }
 
 class _BentoWitchPanelState extends State<BentoWitchPanel> {
-  Timer? _turnTimer;
-  int _secondsRemaining = 25;
   bool _ended = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _secondsRemaining = widget.room.timerSeconds > 0 ? widget.room.timerSeconds : 25;
-    _turnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      setState(() {
-        if (_secondsRemaining > 1) {
-          _secondsRemaining--;
-        } else {
-          _triggerEnd();
-        }
-      });
-    });
-  }
 
   void _triggerEnd() {
     if (_ended) return;
     _ended = true;
-    _turnTimer?.cancel();
     widget.onConfirmAndEndNight();
-  }
-
-  @override
-  void dispose() {
-    _turnTimer?.cancel();
-    super.dispose();
   }
 
   @override
@@ -129,31 +106,39 @@ class _BentoWitchPanelState extends State<BentoWitchPanel> {
                   ),
                 ],
               ),
-              // Minuteur dynamique 25s
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0x9905070F),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: _secondsRemaining <= 5 ? LupusColors.bloodRed : LupusColors.poisonGreen,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.timer_outlined, size: 14, color: LupusColors.textMuted),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${_secondsRemaining}s',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: _secondsRemaining <= 5 ? LupusColors.bloodRed : Colors.white,
+              // Minuteur dynamique réactif basé sur le temps serveur
+              ServerCountdownBuilder(
+                phaseEndsAt: widget.room.phaseEndsAt,
+                fallbackSeconds: widget.room.timerSeconds > 0 ? widget.room.timerSeconds : 25,
+                onTimerExpired: _triggerEnd,
+                builder: (context, secondsRemaining) {
+                  final isUrgent = secondsRemaining <= 5;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0x9905070F),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isUrgent ? LupusColors.bloodRed : LupusColors.poisonGreen,
                       ),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.timer_outlined, size: 14, color: LupusColors.textMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${secondsRemaining}s',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: isUrgent ? LupusColors.bloodRed : Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ],
           ),

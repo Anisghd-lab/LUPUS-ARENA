@@ -1,4 +1,3 @@
-import '../models/game_role.dart';
 import '../models/player_model.dart';
 
 /// Coordinateur et Arbitre pour les 17 Rôles Élargis de Lupus Arena

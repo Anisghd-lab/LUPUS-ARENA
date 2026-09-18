@@ -2619,7 +2619,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             onPressed: canCharm
                 ? () {
                     final targets = [
-                      target1!.id,
+                      target1.id,
                       if (target2 != null) target2.id,
                     ];
                     widget.onPiperCharm?.call(targets);

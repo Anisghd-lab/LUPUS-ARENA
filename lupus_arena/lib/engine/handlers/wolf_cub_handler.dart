@@ -2,7 +2,7 @@ import '../../models/game_role.dart';
 import '../../models/game_state.dart';
 import 'role_action_handler.dart';
 
-class WolfCubHandler implements RoleActionHandler {
+class WolfCubHandler extends RoleActionHandler {
   @override
   GameRole get role => GameRole.wolfCub;
 

@@ -2,7 +2,7 @@ import '../../models/game_role.dart';
 import '../../models/game_state.dart';
 import 'role_action_handler.dart';
 
-class SoulStealerHandler implements RoleActionHandler {
+class SoulStealerHandler extends RoleActionHandler {
   @override
   GameRole get role => GameRole.thiefOfHearts;
 

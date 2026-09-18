@@ -104,12 +104,16 @@ class DeathAnnouncementEvent {
 class RevealedDeathCardOverlay extends StatefulWidget {
   final List<DeathAnnouncementEvent> queue;
   final VoidCallback? onSequenceCompleted;
+  final VoidCallback? onCompleted;
+  final dynamic event;
 
   const RevealedDeathCardOverlay({
     super.key,
-    required this.queue,
+    List<DeathAnnouncementEvent>? queue,
     this.onSequenceCompleted,
-  });
+    this.onCompleted,
+    this.event,
+  }) : queue = queue ?? const [];
 
   @override
   State<RevealedDeathCardOverlay> createState() =>
@@ -135,7 +139,18 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
   @override
   void initState() {
     super.initState();
-    _pendingQueue = List<DeathAnnouncementEvent>.from(widget.queue);
+    if (widget.event != null) {
+      final ev = widget.event;
+      final deathEvent = DeathAnnouncementEvent(
+        playerId: ev.joueurId?.toString() ?? '',
+        playerName: ev.nomJoueur?.toString() ?? '',
+        role: GameRole.fromString(ev.roleOriginal?.toString()),
+        cause: ev.causeMort?.toString() ?? 'VOTE_VILLAGE',
+      );
+      _pendingQueue = [deathEvent];
+    } else {
+      _pendingQueue = List<DeathAnnouncementEvent>.from(widget.queue);
+    }
 
     // 1. Retournement 3D (0° -> 180°) en 700ms avec courbe fluide
     _flipController = AnimationController(
@@ -199,6 +214,7 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
           _currentEvent = null;
         });
         widget.onSequenceCompleted?.call();
+        widget.onCompleted?.call();
       }
       return;
     }
@@ -247,7 +263,8 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
     const double maxContainerHeight = 138.0;
 
     return Center(
-      child: ConstrainedBox(
+      child: Container(
+        key: const Key('death_card_container'),
         constraints: const BoxConstraints(
           maxWidth: maxContainerWidth,
           maxHeight: maxContainerHeight,

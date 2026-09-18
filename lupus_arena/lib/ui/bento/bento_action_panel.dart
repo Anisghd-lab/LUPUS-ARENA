@@ -11,18 +11,18 @@ import 'bento_player_tile.dart';
 /// Format compact sans overflow, sans narrations superflues,
 /// avec boutons d'actions directs et brefs.
 class BentoActionPanel extends StatefulWidget {
-  final GameRoom room;
-  final String currentUserId;
+  final GameRoom? room;
+  final String? currentUserId;
   final String? selectedTargetId;
   final GameRole? inspectedRole;
   final bool isHost;
-  final VoidCallback onNextPhase;
-  final ValueChanged<String?> onVote;
-  final ValueChanged<String> onInspect;
-  final VoidCallback onCompleteSeerTurn;
-  final VoidCallback onWitchSave;
-  final ValueChanged<String> onWitchPoison;
-  final VoidCallback onWitchPass;
+  final VoidCallback? onNextPhase;
+  final ValueChanged<String?>? onVote;
+  final ValueChanged<String>? onInspect;
+  final VoidCallback? onCompleteSeerTurn;
+  final VoidCallback? onWitchSave;
+  final ValueChanged<String>? onWitchPoison;
+  final VoidCallback? onWitchPass;
   final ValueChanged<String>? onDefenderProtect;
   final ValueChanged<String>? onBlackWolfSilence;
   final void Function(String p1, String p2)? onCupidBind;
@@ -37,21 +37,29 @@ class BentoActionPanel extends StatefulWidget {
   final ValueListenable<int>? countdownListenable;
   final ValueChanged<String>? onSelectTarget;
 
+  // Paramètres injectables pour les tests et la modularité
+  final bool? isCaptain;
+  final bool? isAlive;
+  final GamePhase? phase;
+  final int? timerSeconds;
+  final List<dynamic>? survivors;
+  final ValueChanged<String>? onSuccessorSelected;
+
   const BentoActionPanel({
     super.key,
-    required this.room,
-    required this.currentUserId,
-    required this.selectedTargetId,
+    this.room,
+    this.currentUserId,
+    this.selectedTargetId,
     this.inspectedRole,
-    required this.isHost,
+    this.isHost = false,
     this.isAdmin = false,
-    required this.onNextPhase,
-    required this.onVote,
-    required this.onInspect,
-    required this.onCompleteSeerTurn,
-    required this.onWitchSave,
-    required this.onWitchPoison,
-    required this.onWitchPass,
+    this.onNextPhase,
+    this.onVote,
+    this.onInspect,
+    this.onCompleteSeerTurn,
+    this.onWitchSave,
+    this.onWitchPoison,
+    this.onWitchPass,
     this.onDefenderProtect,
     this.onBlackWolfSilence,
     this.onCupidBind,
@@ -64,6 +72,12 @@ class BentoActionPanel extends StatefulWidget {
     this.onPassDebate,
     this.countdownListenable,
     this.onSelectTarget,
+    this.isCaptain,
+    this.isAlive,
+    this.phase,
+    this.timerSeconds,
+    this.survivors,
+    this.onSuccessorSelected,
   });
 
   @override
@@ -78,12 +92,65 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   // Sélection du successeur par le Capitaine défunt (Testament)
   String? _selectedCaptainSuccessorId;
 
+  GameRoom get effectiveRoom {
+    final effectiveUserId = widget.currentUserId ?? 'current_user';
+    final effectiveIsAlive = widget.isAlive ?? widget.room?.players[effectiveUserId]?.isAlive ?? true;
+    final effectiveIsCaptain = widget.isCaptain ?? widget.room?.players[effectiveUserId]?.isCaptain ?? false;
+    final effectivePhase = widget.phase ?? widget.room?.phase ?? GamePhase.lobby;
+    final effectiveTimerSeconds = widget.timerSeconds ?? widget.room?.timerSeconds ?? 10;
+
+    final Map<String, PlayerModel> effectivePlayers = Map<String, PlayerModel>.from(widget.room?.players ?? {});
+    if (!effectivePlayers.containsKey(effectiveUserId)) {
+      effectivePlayers[effectiveUserId] = PlayerModel(
+        id: effectiveUserId,
+        name: 'Moi',
+        isAlive: effectiveIsAlive,
+        isCaptain: effectiveIsCaptain,
+      );
+    }
+
+    if (widget.survivors != null) {
+      for (final s in widget.survivors!) {
+        if (s is Map) {
+          final sid = (s['id'] ?? '').toString();
+          final sname = (s['name'] ?? sid).toString();
+          effectivePlayers[sid] = PlayerModel(
+            id: sid,
+            name: sname,
+            isAlive: true,
+          );
+        } else if (s is PlayerModel) {
+          effectivePlayers[s.id] = s;
+        }
+      }
+    }
+
+    return widget.room?.copyWith(
+      phase: effectivePhase,
+      timerSeconds: effectiveTimerSeconds,
+      players: effectivePlayers,
+      captainId: effectiveIsCaptain ? effectiveUserId : widget.room?.captainId,
+      pendingCaptainId: (effectiveIsCaptain && !effectiveIsAlive) ? effectiveUserId : widget.room?.pendingCaptainId,
+    ) ?? GameRoom(
+      roomCode: 'TEST',
+      hostId: effectiveUserId,
+      phase: effectivePhase,
+      timerSeconds: effectiveTimerSeconds,
+      captainId: effectiveIsCaptain ? effectiveUserId : null,
+      pendingCaptainId: (effectiveIsCaptain && !effectiveIsAlive) ? effectiveUserId : null,
+      players: effectivePlayers,
+    );
+  }
+
   @override
   void didUpdateWidget(covariant BentoActionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Nettoyage impératif des sous-états lors des transitions de phase ou de round
-    if (oldWidget.room.phase != widget.room.phase ||
-        oldWidget.room.round != widget.room.round) {
+    final oldPhase = oldWidget.phase ?? oldWidget.room?.phase;
+    final newPhase = widget.phase ?? widget.room?.phase;
+    final oldRound = oldWidget.room?.round;
+    final newRound = widget.room?.round;
+    if (oldPhase != newPhase || oldRound != newRound) {
       _cupidLover1Id = null;
       _cupidLover2Id = null;
       _selectedCaptainSuccessorId = null;
@@ -92,17 +159,25 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final me = widget.room.players[widget.currentUserId];
-    if (me == null) return const SizedBox.shrink();
+    final room = effectiveRoom;
+    final currentUserId = widget.currentUserId ?? 'current_user';
+    final me = room.players[currentUserId] ??
+        PlayerModel(
+          id: currentUserId,
+          name: 'Moi',
+          isAlive: widget.isAlive ?? true,
+          isCaptain: widget.isCaptain ?? false,
+        );
 
-    final isAlive = me.isAlive;
+    final isAlive = widget.isAlive ?? me.isAlive;
     final role = me.role;
-    final phase = widget.room.phase;
-    final isDyingCaptain = (widget.room.pendingCaptainId == widget.currentUserId) ||
+    final phase = widget.phase ?? room.phase;
+    final isDyingCaptain = (widget.isCaptain == true && widget.isAlive == false) ||
+        (room.pendingCaptainId == currentUserId) ||
         (me.isCaptain && !isAlive) ||
-        (widget.room.captainId == widget.currentUserId && !isAlive);
+        (room.captainId == currentUserId && !isAlive);
     final selectedTarget = widget.selectedTargetId != null
-        ? widget.room.players[widget.selectedTargetId]
+        ? room.players[widget.selectedTargetId]
         : null;
 
     return BentoCard(
@@ -1376,7 +1451,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   /// Module Capitaine (Testament du Capitaine) : Vue dédiée pour le Capitaine mourant
   Widget _buildCaptainSuccessionSection(PlayerModel? selectedTarget) {
     final countdownListenable = widget.countdownListenable ??
-        ValueNotifier<int>(widget.room.timerSeconds > 0 ? widget.room.timerSeconds : 10);
+        ValueNotifier<int>(widget.timerSeconds ?? (effectiveRoom.timerSeconds > 0 ? effectiveRoom.timerSeconds : 10));
 
     return ValueListenableBuilder<int>(
       valueListenable: countdownListenable,
@@ -1416,18 +1491,32 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           );
         }
 
+        final survivors = widget.survivors != null
+            ? widget.survivors!.map((s) {
+                if (s is Map) {
+                  return PlayerModel(
+                    id: (s['id'] ?? '').toString(),
+                    name: (s['name'] ?? '').toString(),
+                    isAlive: true,
+                  );
+                }
+                return s as PlayerModel;
+              }).toList()
+            : effectiveRoom.alivePlayers
+                .where((p) => p.id != (widget.currentUserId ?? 'current_user'))
+                .toList();
+
         final effectiveSuccessorId =
             _selectedCaptainSuccessorId ?? selectedTarget?.id;
         final effectiveSuccessor = effectiveSuccessorId != null
-            ? widget.room.players[effectiveSuccessorId]
+            ? (survivors.cast<PlayerModel?>().firstWhere(
+                (p) => p?.id == effectiveSuccessorId,
+                orElse: () => effectiveRoom.players[effectiveSuccessorId],
+              ))
             : null;
         final isValidSuccessor = effectiveSuccessor != null &&
             effectiveSuccessor.isAlive &&
-            effectiveSuccessor.id != widget.currentUserId;
-
-        final survivors = widget.room.alivePlayers
-            .where((p) => p.id != widget.currentUserId)
-            .toList();
+            effectiveSuccessor.id != (widget.currentUserId ?? 'current_user');
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -1543,6 +1632,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       onTap: () {
                         setState(() => _selectedCaptainSuccessorId = survivor.id);
                         widget.onSelectTarget?.call(survivor.id);
+                        widget.onSuccessorSelected?.call(survivor.id);
                       },
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
@@ -1628,7 +1718,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                         elevation: isValidSuccessor ? 3 : 0,
                       ),
                       onPressed: isValidSuccessor
-                          ? () => widget.onCaptainPass?.call(effectiveSuccessor.id)
+                          ? () {
+                              widget.onSuccessorSelected?.call(effectiveSuccessor.id);
+                              widget.onCaptainPass?.call(effectiveSuccessor.id);
+                            }
                           : null,
                       icon: Icon(
                         Icons.military_tech_rounded,
@@ -1684,7 +1777,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   /// Module Spectateur / Village : Bandeau immersif non interactif avec compte à rebours synchronisé de 10s
   Widget _buildCaptainSuccessionSpectatorSection() {
     final countdownListenable = widget.countdownListenable ??
-        ValueNotifier<int>(widget.room.timerSeconds > 0 ? widget.room.timerSeconds : 10);
+        ValueNotifier<int>(widget.timerSeconds ?? (effectiveRoom.timerSeconds > 0 ? effectiveRoom.timerSeconds : 10));
 
     return ValueListenableBuilder<int>(
       valueListenable: countdownListenable,

@@ -21,6 +21,10 @@ enum class Role(val nomAffiche: String, val campParDefaut: Camp = Camp.VILLAGE) 
 
     val estLoup: Boolean get() = this == LOUP_GAROU || this == LOUP_BLANC
     val estVillageois: Boolean get() = !estLoup
+
+    companion object {
+        val VILLAGEOIS: Role get() = VILLAGEOIS_SIMPLE
+    }
 }
 
 /**

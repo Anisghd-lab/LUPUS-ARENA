@@ -6,7 +6,8 @@ package com.lupusarena.engine
  * propage la révélation publique du rôle d'origine (roleInitial) dès tout décès.
  */
 class SuperviseurDeJeu(
-    val joueurs: MutableList<Joueur>
+    val joueurs: MutableList<Joueur>,
+    var roomId: String = "room-default"
 ) {
     val agentSurveillance: AgentSurveillance = AgentSurveillance(joueurs)
 
@@ -20,6 +21,9 @@ class SuperviseurDeJeu(
         internal set
     private val votesDuVillage = mutableMapOf<String, String>()
 
+    val votesActuels: Map<String, String>
+        get() = votesDuVillage.toMap()
+
     // Callbacks d'événements pour l'UI, Firebase ou les logs
     var onPhaseChanged: ((PhaseJeu) -> Unit)? = null
     var onJournalEvent: ((String) -> Unit)? = null
@@ -27,6 +31,7 @@ class SuperviseurDeJeu(
     var onDiffuserCarteRetournee: ((RevelationCarteEvent) -> Unit)? = null
     var onJoueurSilence: ((JoueurSilenceEvent) -> Unit)? = null
     var onMortInstantanee: ((MortInstantaneeEvent) -> Unit)? = null
+    var onEmissionFirebase: ((path: String, value: Any) -> Unit)? = null
 
     var gestionnaireDebat: GestionnaireDebat? = null
         private set
@@ -290,46 +295,98 @@ class SuperviseurDeJeu(
         }
     }
 
+    val dureeVoteSecondes: Int = 15
+
     // ==========================================
     // GESTION DES VOTES DU JOUR
     // ==========================================
 
+    /**
+     * Ouvre instantanément le scrutin du village (JOUR_VOTE) sans action manuelle ni temps mort.
+     * - Réinitialise la table des votes du tour.
+     * - Mute la phase actuelle vers PhaseJeu.JOUR_VOTE.
+     * - Calibre le chronomètre à 15 secondes.
+     * - Émet la mise à jour temps réel vers Firebase (/rooms/{roomId}/currentPhase = "JOUR_VOTE", timerSeconds = 15).
+     */
     fun ouvrirVotesVillage() {
-        if (phaseActuelle == PhaseJeu.JOUR_DEBAT && !agentSurveillance.isGameOver) {
+        if ((phaseActuelle == PhaseJeu.JOUR_DEBAT || phaseActuelle == PhaseJeu.EN_ATTENTE) && !agentSurveillance.isGameOver) {
+            // 1. Réinitialiser la table des votes du tour
             votesDuVillage.clear()
+
+            // 2. Muter phaseActuelle vers PhaseJeu.JOUR_VOTE
             changerPhase(PhaseJeu.JOUR_VOTE)
+
+            // 3. Émettre la mise à jour temps réel vers Firebase
+            onEmissionFirebase?.invoke("/rooms/$roomId/currentPhase", PhaseJeu.JOUR_VOTE.name)
+            onEmissionFirebase?.invoke("/rooms/$roomId/timerSeconds", dureeVoteSecondes)
+            onJournalEvent?.invoke("Ouverture automatique du scrutin du village (JOUR_VOTE) pour exactement $dureeVoteSecondes secondes.")
         }
     }
 
+    /**
+     * Déclenche la clôture immédiate du débat en cas d'expiration du temps alloué,
+     * assurant la bascule automatique vers JOUR_VOTE sans exiger d'intervention manuelle.
+     */
+    fun forcerFinDebatSurExpirationTemps() {
+        if (phaseActuelle == PhaseJeu.JOUR_DEBAT) {
+            onJournalEvent?.invoke("Le temps de débat est écoulé. Clôture automatique et passage au vote.")
+            gestionnaireDebat?.forcerFinDebatParExpirationTemps() ?: ouvrirVotesVillage()
+        }
+    }
+
+    /**
+     * Enregistre le vote d'un joueur vivant contre une cible vivante.
+     * Dès que l'ensemble des joueurs vivants a voté, déclenche immédiatement le dépouillement
+     * et l'exécution sans attendre la fin du compte à rebours.
+     */
     fun enregistrerVote(votantId: String, cibleId: String) {
         if (phaseActuelle != PhaseJeu.JOUR_VOTE || agentSurveillance.isGameOver) return
         val votant = joueurs.find { it.id == votantId && it.estEnVie } ?: return
         val cible = joueurs.find { it.id == cibleId && it.estEnVie } ?: return
 
         votesDuVillage[votant.id] = cible.id
+        onJournalEvent?.invoke("${votant.nom} a voté contre ${cible.nom}.")
 
         val totalVivants = joueurs.count { it.estEnVie }
+        // Dépouillement immédiat dès que tous les vivants ont voté
         if (votesDuVillage.size >= totalVivants) {
-            depouillerVotes()
+            depouillerVotesEtExecuter()
         }
     }
 
-    private fun depouillerVotes() {
+    /**
+     * Dépouillement immédiat des votes et exécution de la cible majoritaire.
+     * - Compte les suffrages (avec voix double du Capitaine si vivant).
+     * - En cas de stricte majorité : élimine directement la cible via agentSurveillance.declarerMort.
+     * - En cas d'égalité stricte : aucun mort, diffuse l'égalité au journal.
+     * - Clôture le jour : réinitialise les silences, incrémente le tour et bascule vers la nuit suivante
+     *   (ou termine la partie si condition de victoire atteinte).
+     */
+    fun depouillerVotesEtExecuter() {
+        if (phaseActuelle != PhaseJeu.JOUR_VOTE) return
         changerPhase(PhaseJeu.CREPUSCULE_BILAN)
 
-        val compte = mutableMapOf<String, Int>()
-        votesDuVillage.values.forEach { cibleId ->
-            compte[cibleId] = (compte[cibleId] ?: 0) + 1
-        }
-
-        val maxVoix = compte.values.maxOrNull() ?: 0
-        val majoritaires = compte.filter { it.value == maxVoix }.keys
-
-        if (majoritaires.size == 1) {
-            val condamneId = majoritaires.first()
-            agentSurveillance.declarerMort(condamneId, CauseMort.VOTE_VILLAGE)
+        if (votesDuVillage.isEmpty()) {
+            onJournalEvent?.invoke("Aucun vote exprimé : aucun joueur n'est exécuté.")
         } else {
-            onJournalEvent?.invoke("Égalité des voix : aucun joueur n'est exécuté.")
+            val compte = mutableMapOf<String, Int>()
+            votesDuVillage.forEach { (votantId, cibleId) ->
+                val votant = joueurs.find { it.id == votantId }
+                val poids = if (votant != null && (votant.estCapitaine || votant.roleActif == Role.CAPITAINE)) 2 else 1
+                compte[cibleId] = (compte[cibleId] ?: 0) + poids
+            }
+
+            val maxVoix = compte.values.maxOrNull() ?: 0
+            val majoritaires = compte.filter { it.value == maxVoix }.keys
+
+            if (majoritaires.size == 1) {
+                val condamneId = majoritaires.first()
+                val condamne = joueurs.find { it.id == condamneId }
+                onJournalEvent?.invoke("Verdict du village : ${condamne?.nom ?: condamneId} est condamné(e) avec $maxVoix voix !")
+                agentSurveillance.declarerMort(condamneId, CauseMort.VOTE_VILLAGE)
+            } else {
+                onJournalEvent?.invoke("Égalité des voix : aucun joueur n'est exécuté.")
+            }
         }
 
         // Le silence prend fin à l'issue de la journée de vote
@@ -340,6 +397,21 @@ class SuperviseurDeJeu(
             tourNumero++
             onJournalEvent?.invoke("--- Nuit $tourNumero ---")
             passerANuit()
+        }
+    }
+
+    fun depouillerVotes() = depouillerVotesEtExecuter()
+
+    /**
+     * Expiration du temps (15s) alloué au scrutin :
+     * Si le timer de 15 secondes expire avant que tout le monde ait voté,
+     * dépouille immédiatement les voix enregistrées (les abstentionnistes ne votent pas)
+     * et applique l'exécution directement sans attendre.
+     */
+    fun forcerFinScrutinSurExpiration() {
+        if (phaseActuelle == PhaseJeu.JOUR_VOTE && !agentSurveillance.isGameOver) {
+            onJournalEvent?.invoke("Chronomètre de 15s écoulé ! Dépouillement immédiat des suffrages exprimés.")
+            depouillerVotesEtExecuter()
         }
     }
 

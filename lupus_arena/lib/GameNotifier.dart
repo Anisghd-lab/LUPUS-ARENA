@@ -132,6 +132,7 @@ class LupusGameState {
 class GameNotifier extends StateNotifier<LupusGameState> {
   final AgoraVoiceService _voiceService = AgoraVoiceService();
   StreamSubscription<DatabaseEvent>? _roomSubscription;
+  StreamSubscription<DatabaseEvent>? _currentPhaseSubscription;
   StreamSubscription<DatabaseEvent>? _secretRoleSubscription;
   StreamSubscription<DatabaseEvent>? _wolfPackSubscription;
   StreamSubscription<DatabaseEvent>? _replayStatusSubscription;
@@ -1382,7 +1383,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       );
     } else {
       updates['phase'] = GamePhase.dayVoting.name;
-      updates['timerSeconds'] = 60;
+      updates['currentPhase'] = 'JOUR_VOTE';
+      updates['timerSeconds'] = 15;
     }
   }
 
@@ -1421,11 +1423,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       logs.add('🎙️ $currentSpeakerName a cédé sa parole. La parole passe à $speakerName.');
     } else {
       updates['phase'] = GamePhase.dayVoting.name;
+      updates['currentPhase'] = 'JOUR_VOTE';
       updates['currentSpeakerId'] = null;
       updates['debateQueue'] = [];
-      updates['timerSeconds'] = 60;
+      updates['timerSeconds'] = 15;
       logs.add(
-        '⚖️ Les débats sont clos. Tous les citoyens doivent désigner un suspect au bûcher !',
+        '⚖️ Les débats sont clos. Scrutin de 15s ouvert pour désigner un suspect au bûcher !',
       );
     }
 
@@ -1434,6 +1437,27 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   Future<void> passDebate() => passTurnDebate();
+
+  /// Clôture immédiate du débat et bascule autoritaire sur le vote du village (JOUR_VOTE / dayVoting)
+  Future<void> endDebateAndOpenVote() async {
+    if (state.room == null) return;
+    final room = state.room!;
+    if (room.phase != GamePhase.dayDebate) return;
+
+    final updates = <String, dynamic>{
+      'phase': GamePhase.dayVoting.name,
+      'currentPhase': 'JOUR_VOTE',
+      'currentSpeakerId': null,
+      'debateQueue': [],
+      'timerSeconds': 15,
+      'logs': [
+        ...room.logs,
+        '⚖️ Temps de débat expiré : clôture automatique et ouverture immédiate du scrutin du bûcher (15s) !',
+      ],
+    };
+    _resetAllVotes(updates);
+    await _syncState(updates);
+  }
 
   Future<void> processDayVoteResolution() async {
     if (!state.isHost || state.room == null) return;
@@ -2386,7 +2410,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       );
     } else {
       updates['phase'] = GamePhase.dayVoting.name;
-      updates['timerSeconds'] = 60;
+      updates['currentPhase'] = 'JOUR_VOTE';
+      updates['timerSeconds'] = 15;
     }
 
     updates['logs'] = logs;
@@ -2462,7 +2487,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     } else if (phase == GamePhase.captainSuccession) {
       await autoResolveCaptainTimeout();
     } else if (phase == GamePhase.dayDebate) {
-      await passTurnDebate();
+      // Expiration du timer global du débat : clôture immédiate et bascule automatique sur dayVote (JOUR_VOTE)
+      await endDebateAndOpenVote();
     } else if (phase == GamePhase.dayVoting ||
         phase == GamePhase.dayTieBreakVote) {
       await processDayVoteResolution();
@@ -2550,6 +2576,30 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       state = state.copyWith(room: updatedRoom);
 
       _applyVoiceRulesForPhase(updatedRoom);
+
+      // Dépouillement anticipé dès que tous les vivants ont voté pendant dayVoting
+      final aliveCount = updatedRoom.alivePlayers.length;
+      final votedCount = updatedRoom.alivePlayers.where((p) => p.targetVoteId != null).length;
+      if (state.isHost &&
+          updatedRoom.phase == GamePhase.dayVoting &&
+          votedCount >= aliveCount &&
+          aliveCount > 0) {
+        processDayVoteResolution();
+      }
+    });
+
+    // Écoute dédiée sur currentPhase pour bascule instantanée sans latence vers JOUR_VOTE
+    _currentPhaseSubscription?.cancel();
+    _currentPhaseSubscription = _currentRoomRef?.child('currentPhase').onValue.listen((event) {
+      final rawPhase = event.snapshot.value?.toString();
+      if (rawPhase != null && state.room != null) {
+        final parsed = GamePhase.fromString(rawPhase);
+        if (state.room!.phase != parsed) {
+          final updatedRoom = state.room!.copyWith(phase: parsed);
+          state = state.copyWith(room: updatedRoom);
+          _applyVoiceRulesForPhase(updatedRoom);
+        }
+      }
     });
 
     // Écouter son propre rôle secret depuis la source confidentielle
@@ -3354,6 +3404,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   Future<void> leaveRoom() async {
     _roomSubscription?.cancel();
     _roomSubscription = null;
+    _currentPhaseSubscription?.cancel();
+    _currentPhaseSubscription = null;
     _secretRoleSubscription?.cancel();
     _secretRoleSubscription = null;
     _wolfPackSubscription?.cancel();
@@ -3377,6 +3429,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   @override
   void dispose() {
     _roomSubscription?.cancel();
+    _currentPhaseSubscription?.cancel();
     _secretRoleSubscription?.cancel();
     _wolfPackSubscription?.cancel();
     _replayStatusSubscription?.cancel();

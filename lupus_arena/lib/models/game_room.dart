@@ -231,6 +231,7 @@ class GameRoom {
       'roomCode': roomCode,
       'hostId': hostId,
       'phase': phase.name,
+      'currentPhase': phase == GamePhase.dayVoting ? 'JOUR_VOTE' : (phase == GamePhase.dayDebate ? 'JOUR_DEBAT' : phase.name),
       'round': round,
       'players': players.map((key, value) => MapEntry(key, value.toMap())),
       'captainId': captainId,
@@ -376,7 +377,7 @@ class GameRoom {
     return GameRoom(
       roomCode: (map['roomCode'] ?? code).toString(),
       hostId: (map['hostId'] ?? '').toString(),
-      phase: GamePhase.fromString(map['phase']?.toString()),
+      phase: GamePhase.fromString((map['currentPhase'] ?? map['phase'])?.toString()),
       round: (map['round'] is int)
           ? map['round'] as int
           : int.tryParse(map['round']?.toString() ?? '1') ?? 1,

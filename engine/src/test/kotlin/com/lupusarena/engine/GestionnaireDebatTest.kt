@@ -6,6 +6,229 @@ import org.junit.jupiter.api.Test
 
 class GestionnaireDebatTest {
 
+    // =========================================================================
+    // NOUVELLES RÈGLES DE PRÉSÉANCE DU CAPITAINE (JOUR_DEBAT)
+    // =========================================================================
+
+    @Test
+    @DisplayName("1. Capitaine vivant (C) et deux villageois (A, B) : ordre exact [C, A, B, C]")
+    fun testCapitaineVivantEtDeuxVillageoisOrdreExact() {
+        val joueurA = Joueur("A", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val joueurB = Joueur("B", "Bob", Role.VILLAGEOIS_SIMPLE)
+        val joueurC = Joueur("C", "Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true)
+
+        val orateurs = mutableListOf<String>()
+        val ouvertures = mutableListOf<Boolean>()
+        val clotures = mutableListOf<Boolean>()
+
+        val debat = GestionnaireDebat(listOf(joueurA, joueurB, joueurC)).apply {
+            onChangementOrateur = { orateur ->
+                orateurs.add(orateur.id)
+                ouvertures.add(estTourCapitaineOuverture)
+                clotures.add(estTourCapitaineCloture)
+            }
+        }
+
+        // Vérification de la liste ordonnée des tours planifiés
+        assertEquals(listOf("C", "A", "B", "C"), debat.ordreDeParole.map { it.id })
+        assertEquals(listOf("C", "A", "B", "C"), debat.orateursEffectifs.map { it.id })
+
+        // Déroulement pas à pas de la parole
+        debat.demarrerDebat()
+        while (debat.orateurActuel != null) {
+            debat.passerAuProchainOrateur()
+        }
+
+        // L'ordre effectif de prise de parole est strictement [C, A, B, C]
+        assertEquals(listOf("C", "A", "B", "C"), orateurs)
+
+        // Validation des états de tour :
+        // 1er tour (C) -> ouverture=true, cloture=false
+        // 2e tour (A)  -> ouverture=false, cloture=false
+        // 3e tour (B)  -> ouverture=false, cloture=false
+        // 4e tour (C)  -> ouverture=false, cloture=true
+        assertEquals(listOf(true, false, false, false), ouvertures)
+        assertEquals(listOf(false, false, false, true), clotures)
+    }
+
+    @Test
+    @DisplayName("2. Capitaine C reduit au silence : saute au debut et a la fin, ordre devenant [A, B]")
+    fun testCapitaineReduitAuSilenceSauteDebutEtFin() {
+        val joueurA = Joueur("A", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val joueurB = Joueur("B", "Bob", Role.VILLAGEOIS_SIMPLE)
+        val joueurC = Joueur("C", "Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true, estReduitAuSilence = true)
+
+        val orateurs = mutableListOf<String>()
+        val sautes = mutableListOf<String>()
+        var finDuDebatAppelee = false
+
+        val debat = GestionnaireDebat(listOf(joueurA, joueurB, joueurC)).apply {
+            onChangementOrateur = { orateurs.add(it.id) }
+            onOrateurSauteCarMuet = { sautes.add(it.id) }
+            onFinDuDebat = { finDuDebatAppelee = true }
+        }
+
+        // orateursEffectifs exclut le capitaine bâillonné
+        assertEquals(listOf("A", "B"), debat.orateursEffectifs.map { it.id })
+
+        debat.demarrerDebat()
+        while (debat.orateurActuel != null) {
+            debat.passerAuProchainOrateur()
+        }
+
+        // L'ordre effectif devient [A, B]
+        assertEquals(listOf("A", "B"), orateurs)
+
+        // Le Capitaine a été sauté 2 fois (ouverture et fermeture) sans bloquer la file
+        assertEquals(listOf("C", "C"), sautes)
+        assertTrue(finDuDebatAppelee)
+        assertNull(debat.orateurActuel)
+    }
+
+    @Test
+    @DisplayName("3. Villageois intermediaire (A) muet : ordre devient [C, B, C]")
+    fun testVillageoisIntermediaireMuetOrdreDevientCBC() {
+        val joueurA = Joueur("A", "Alice", Role.VILLAGEOIS_SIMPLE, estReduitAuSilence = true)
+        val joueurB = Joueur("B", "Bob", Role.VILLAGEOIS_SIMPLE)
+        val joueurC = Joueur("C", "Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true)
+
+        val orateurs = mutableListOf<String>()
+        val sautes = mutableListOf<String>()
+
+        val debat = GestionnaireDebat(listOf(joueurA, joueurB, joueurC)).apply {
+            onChangementOrateur = { orateurs.add(it.id) }
+            onOrateurSauteCarMuet = { sautes.add(it.id) }
+        }
+
+        // orateursEffectifs exclut le villageois A bâillonné
+        assertEquals(listOf("C", "B", "C"), debat.orateursEffectifs.map { it.id })
+
+        debat.demarrerDebat()
+        while (debat.orateurActuel != null) {
+            debat.passerAuProchainOrateur()
+        }
+
+        // L'ordre effectif devient [C, B, C]
+        assertEquals(listOf("C", "B", "C"), orateurs)
+        assertEquals(listOf("A"), sautes)
+    }
+
+    @Test
+    @DisplayName("Capitaine identifie via joueur.roleActif == Role.CAPITAINE")
+    fun testCapitaineIdentifieViaRoleActif() {
+        val joueurA = Joueur("A", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val joueurB = Joueur("B", "Bob", Role.VILLAGEOIS_SIMPLE)
+        val joueurC = Joueur("C", "Charlie", Role.CAPITAINE)
+
+        val debat = GestionnaireDebat(listOf(joueurA, joueurB, joueurC))
+        assertEquals(listOf("C", "A", "B", "C"), debat.ordreDeParole.map { it.id })
+
+        val orateurs = mutableListOf<String>()
+        debat.onChangementOrateur = { orateurs.add(it.id) }
+        debat.demarrerDebat()
+        while (debat.orateurActuel != null) {
+            debat.passerAuProchainOrateur()
+        }
+
+        assertEquals(listOf("C", "A", "B", "C"), orateurs)
+    }
+
+    @Test
+    @DisplayName("Capitaine mort : la file deroule les vivants standard [A, B]")
+    fun testCapitaineMortDeroulementStandard() {
+        val joueurA = Joueur("A", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val joueurB = Joueur("B", "Bob", Role.VILLAGEOIS_SIMPLE)
+        val joueurC = Joueur("C", "Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true, estEnVie = false)
+
+        val debat = GestionnaireDebat(listOf(joueurA, joueurB, joueurC))
+        assertEquals(listOf("A", "B"), debat.ordreDeParole.map { it.id })
+
+        val orateurs = mutableListOf<String>()
+        debat.onChangementOrateur = { orateurs.add(it.id) }
+        debat.demarrerDebat()
+        while (debat.orateurActuel != null) {
+            debat.passerAuProchainOrateur()
+        }
+
+        assertEquals(listOf("A", "B"), orateurs)
+    }
+
+    @Test
+    @DisplayName("Validation de l'etat UI DebatUiState avec badges Capitaine ouverture et cloture")
+    fun testDebatUiStateAvecBadgesCapitaine() {
+        val joueurA = Joueur("A", "Alice", Role.VILLAGEOIS_SIMPLE)
+        val joueurB = Joueur("B", "Bob", Role.VILLAGEOIS_SIMPLE)
+        val joueurC = Joueur("C", "Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true)
+
+        val debat = GestionnaireDebat(listOf(joueurA, joueurB, joueurC), dureeParoleSecondes = 30)
+
+        // Tour 1 : Capitaine C ouverture
+        debat.demarrerDebat()
+        val ui1 = debat.genererUiState(tempsRestantSecondes = 25)
+        assertEquals("C", ui1.orateurActuelId)
+        assertTrue(ui1.estTourCapitaineOuverture)
+        assertFalse(ui1.estTourCapitaineCloture)
+        assertTrue(ui1.participants.first { it.id == "C" }.estCapitaine)
+        assertEquals(3, ui1.participants.size)
+
+        // Tour 2 : Villageois A
+        debat.passerAuProchainOrateur()
+        val ui2 = debat.genererUiState(tempsRestantSecondes = 20)
+        assertEquals("A", ui2.orateurActuelId)
+        assertFalse(ui2.estTourCapitaineOuverture)
+        assertFalse(ui2.estTourCapitaineCloture)
+
+        // Tour 3 : Villageois B
+        debat.passerAuProchainOrateur()
+        val ui3 = debat.genererUiState(tempsRestantSecondes = 15)
+        assertEquals("B", ui3.orateurActuelId)
+        assertFalse(ui3.estTourCapitaineOuverture)
+        assertFalse(ui3.estTourCapitaineCloture)
+
+        // Tour 4 : Capitaine C cloture
+        debat.passerAuProchainOrateur()
+        val ui4 = debat.genererUiState(tempsRestantSecondes = 10)
+        assertEquals("C", ui4.orateurActuelId)
+        assertFalse(ui4.estTourCapitaineOuverture)
+        assertTrue(ui4.estTourCapitaineCloture)
+
+        // Fin du debat
+        debat.passerAuProchainOrateur()
+        assertNull(debat.orateurActuel)
+        val uiFin = debat.genererUiState(tempsRestantSecondes = 0)
+        assertNull(uiFin.orateurActuelId)
+        assertFalse(uiFin.estTourCapitaineOuverture)
+        assertFalse(uiFin.estTourCapitaineCloture)
+    }
+
+    @Test
+    @DisplayName("Tous reduits au silence : fin immediate sans cycle infini")
+    fun testTousReduitsAuSilencePasDeCycleInfini() {
+        val joueurA = Joueur("A", "Alice", Role.VILLAGEOIS_SIMPLE, estReduitAuSilence = true)
+        val joueurC = Joueur("C", "Charlie", Role.VILLAGEOIS_SIMPLE, estCapitaine = true, estReduitAuSilence = true)
+
+        var finDuDebatAppelee = false
+        val sautes = mutableListOf<String>()
+
+        val debat = GestionnaireDebat(listOf(joueurA, joueurC)).apply {
+            onOrateurSauteCarMuet = { sautes.add(it.id) }
+            onFinDuDebat = { finDuDebatAppelee = true }
+        }
+
+        debat.demarrerDebat()
+        assertNull(debat.orateurActuel)
+        assertTrue(finDuDebatAppelee)
+        assertEquals(listOf("C", "A", "C"), sautes)
+
+        // Appels subsequents a passerAuProchainOrateur restent sans effet
+        debat.passerAuProchainOrateur()
+        assertNull(debat.orateurActuel)
+    }
+
+    // =========================================================================
+    // TESTS EXISTANTS DE NON-RÉGRESSION
+    // =========================================================================
+
     @Test
     @DisplayName("La parole saute instantanement le joueur reduit au silence et va au suivant")
     fun `la parole saute instantanement le joueur reduit au silence et va au suivant`() {
@@ -129,7 +352,7 @@ class GestionnaireDebatTest {
         // Nuit : Voyante sonde
         superviseur.actionVoyante("v1", "l1")
 
-        // Loups attaquent personne (ou attaquent Bob... mais attaquent David et bâillonnent Charlie)
+        // Loups attaquent David et bâillonnent Charlie
         superviseur.actionVoteLoup("l1", "j1")
         superviseur.actionFaireTaireJoueur("l1", "s1") // Charlie la sorcière est bâillonnée !
         superviseur.validerFinTourLoups()

@@ -31,8 +31,9 @@ enum GamePhase {
 
   static GamePhase fromString(String? phase) {
     if (phase == null) return GamePhase.lobby;
-    // Compatibilité rétroactive
-    if (phase == 'dayDiscussion') return GamePhase.dayDebate;
+    // Compatibilité rétroactive et synchronisation State Machine (Kotlin / Firebase)
+    if (phase == 'JOUR_VOTE' || phase == 'dayVote' || phase == 'dayVoting') return GamePhase.dayVoting;
+    if (phase == 'JOUR_DEBAT' || phase == 'dayDebate' || phase == 'dayDiscussion') return GamePhase.dayDebate;
     if (phase == 'hunterTurn') return GamePhase.hunterDeathChoice;
 
     for (final p in GamePhase.values) {

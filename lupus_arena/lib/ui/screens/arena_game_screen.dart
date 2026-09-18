@@ -213,7 +213,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         _lastTrackedSpeaker = room.currentSpeakerId;
         _countdownNotifier.value = room.phase == GamePhase.dayVoting
             ? (room.timerSeconds > 0 ? room.timerSeconds : 15)
-            : (room.timerSeconds > 0 ? room.timerSeconds : 40);
+            : (room.phase == GamePhase.captainSuccession
+                ? (room.timerSeconds > 0 ? room.timerSeconds : 10)
+                : (room.timerSeconds > 0 ? room.timerSeconds : 40));
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _startCountdown();
         });

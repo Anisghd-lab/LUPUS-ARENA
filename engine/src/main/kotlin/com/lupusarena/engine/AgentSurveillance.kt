@@ -68,6 +68,7 @@ class AgentSurveillance(
             victime.estReduitAuSilence = false // Un mort n'a plus besoin d'être sous silence
 
             val cause = causeParJoueur[victime.id] ?: CauseMort.MORSURE_LOUPS
+            victime.causeMort = cause
 
             // Diffusion synchrone et instantanée du rôle d'origine
             val eventMort = MortInstantaneeEvent(
@@ -144,6 +145,7 @@ class AgentSurveillance(
             sorciere.potionsVie = gestionnaireSorciere.potionsVie
             // Si la victime avait sa carte révélée, elle est réanimée
             cible.carteEstRevelee = false
+            cible.causeMort = null
             verifierDecheanceSorciere(sorciere)
             auditerEtat()
             return true

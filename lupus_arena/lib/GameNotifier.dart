@@ -1310,8 +1310,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       } else if (pendingCaptain != null) {
         updates['phase'] = GamePhase.captainSuccession.name;
         updates['pendingCaptainId'] = pendingCaptain;
-        updates['timerSeconds'] = 25;
-        logs.add('🎖️ Le Capitaine est tombé ! Il doit nommer son héritier.');
+        updates['timerSeconds'] = 10;
+        logs.add('🎖️ Le Capitaine est tombé ! Il dispose de 10s pour nommer son héritier.');
       } else {
         updates['phase'] = GamePhase.morningAnnouncement.name;
         updates['timerSeconds'] = 20;
@@ -1660,9 +1660,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     } else if (pendingCaptain != null) {
       updates['phase'] = GamePhase.captainSuccession.name;
       updates['pendingCaptainId'] = pendingCaptain;
-      updates['timerSeconds'] = 25;
+      updates['timerSeconds'] = 10;
       logs.add(
-        '🎖️ Le Capitaine doit désigner son successeur avant de mourir.',
+        '🎖️ Le Capitaine doit désigner son successeur avant de mourir (10s).',
       );
     } else {
       _finishDayCycle(room, updates, logs);
@@ -2308,8 +2308,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     if (room.pendingCaptainId != null) {
       updates['phase'] = GamePhase.captainSuccession.name;
-      updates['timerSeconds'] = 25;
-      logs.add('🎖️ Le Capitaine a péri ! Il dispose de 25s pour désigner son successeur.');
+      updates['timerSeconds'] = 10;
+      logs.add('🎖️ Le Capitaine a péri ! Il dispose de 10s pour désigner son successeur.');
     } else if (room.morningVictims.isNotEmpty) {
       updates['phase'] = GamePhase.morningAnnouncement.name;
       updates['timerSeconds'] = 20;

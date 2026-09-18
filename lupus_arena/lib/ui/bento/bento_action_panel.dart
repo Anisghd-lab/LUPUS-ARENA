@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../models/game_phase.dart';
 import '../../models/game_room.dart';
@@ -1393,9 +1394,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: LupusColors.bloodRed.withOpacity(0.18),
+          color: LupusColors.bloodRed.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: LupusColors.bloodRed.withOpacity(0.6)),
+          border: Border.all(color: LupusColors.bloodRed.withValues(alpha: 0.6)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

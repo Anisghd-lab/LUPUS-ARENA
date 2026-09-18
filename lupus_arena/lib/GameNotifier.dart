@@ -2304,10 +2304,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await _syncState(updates);
   }
 
+  /// Alias officiel conforme à la spécification du Testament du Capitaine
+  Future<void> designateCaptainSuccessor(String successorId) =>
+      captainPassBadge(successorId);
+
   Future<void> captainPassBadge(String successorId) async {
     if (_currentRoomRef == null || state.room == null) return;
     final room = state.room!;
-    if (room.pendingCaptainId != state.currentUserId && !state.isAdmin) return;
+    if (room.pendingCaptainId != state.currentUserId &&
+        room.captainId != state.currentUserId &&
+        !state.isAdmin) return;
 
     final successor = room.players[successorId];
     if (successor == null || !successor.isAlive) return;
@@ -2317,6 +2323,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'players/$successorId/isCaptain': true,
       'pendingCaptainId': null,
     };
+    // Retirer explicitement l'écharpe et le titre du capitaine défunt
+    if (room.captainId != null && room.captainId != successorId) {
+      updates['players/${room.captainId}/isCaptain'] = false;
+    }
+    if (room.pendingCaptainId != null &&
+        room.pendingCaptainId != successorId) {
+      updates['players/${room.pendingCaptainId}/isCaptain'] = false;
+    }
+
     final logs = List<String>.from(room.logs);
     logs.add(
       '🎖️ Le défunt Capitaine remet son écharpe à ${successor.name}, nouveau chef du village !',
@@ -2377,6 +2392,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final successor = living.first;
       updates['captainId'] = successor.id;
       updates['players/${successor.id}/isCaptain'] = true;
+      if (room.captainId != null && room.captainId != successor.id) {
+        updates['players/${room.captainId}/isCaptain'] = false;
+      }
+      if (room.pendingCaptainId != null &&
+          room.pendingCaptainId != successor.id) {
+        updates['players/${room.pendingCaptainId}/isCaptain'] = false;
+      }
       logs.add(
         '⏳ Faute de choix du défunt Capitaine, l\'écharpe est transmise d\'office à ${successor.name} !',
       );

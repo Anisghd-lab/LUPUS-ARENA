@@ -31,7 +31,6 @@ class BentoActionPanel extends StatefulWidget {
   final ValueChanged<GameRole>? onThiefChooseRole;
   final ValueChanged<List<String>>? onPiperCharm;
   final ValueChanged<String>? onInfect;
-  final VoidCallback? onExecuteBotNightAction;
   final ValueChanged<String>? onHunterShoot;
   final ValueChanged<String>? onCaptainPass;
   final ValueChanged<String>? onPyromaniacDouse;
@@ -72,7 +71,6 @@ class BentoActionPanel extends StatefulWidget {
     this.onThiefChooseRole,
     this.onPiperCharm,
     this.onInfect,
-    this.onExecuteBotNightAction,
     this.onHunterShoot,
     this.onCaptainPass,
     this.onPyromaniacDouse,
@@ -323,11 +321,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 if (phase == GamePhase.hunterDeathChoice) ...[
                   if (widget.room.pendingHunterId == widget.currentUserId) ...[
                     _buildHunterSection(selectedTarget),
-                  ] else if (widget.room.pendingHunterId != null && widget.room.pendingHunterId!.startsWith('bot_')) ...[
-                    _buildBotActivityBanner(
-                      widget.room.players[widget.room.pendingHunterId!] ?? me,
-                      '🤖 Le Chasseur Bot ajuste son ultime tir...',
-                    ),
                   ] else ...[
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
@@ -349,11 +342,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 else if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) ...[
                   if (isDyingCaptain) ...[
                     _buildCaptainSuccessionSection(selectedTarget),
-                  ] else if ((widget.room.pendingCaptainId ?? widget.room.captainId ?? widget.room.expandedRolesState.mayorPlayerId)?.startsWith('bot_') == true) ...[
-                    _buildBotActivityBanner(
-                      widget.room.players[widget.room.pendingCaptainId ?? widget.room.captainId ?? widget.room.expandedRolesState.mayorPlayerId ?? ''] ?? me,
-                      '🤖 Le Maire Bot transmet son écharpe...',
-                    ),
                   ] else ...[
                     _buildCaptainSuccessionSpectatorSection(),
                   ],
@@ -379,40 +367,30 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 else if (phase == GamePhase.nightThief) ...[
                   if (role == GameRole.thief) ...[
                     _buildThiefSection(selectedTarget),
-                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
-                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
                   ],
                 ]
                 // 5. CUPIDON (NUIT 1)
                 else if (phase == GamePhase.nightCupid) ...[
                   if (role == GameRole.cupid) ...[
                     _buildCupidSection(selectedTarget),
-                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
-                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
                   ],
                 ]
                 // 6. VOYANTE
                 else if (phase == GamePhase.nightSeer) ...[
                   if (role == GameRole.seer) ...[
                     _buildSeerSection(selectedTarget),
-                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
-                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
                   ],
                 ]
                 // 7. SALVATEUR
                 else if (phase == GamePhase.nightDefender) ...[
                   if (role == GameRole.defender) ...[
                     _buildDefenderSection(selectedTarget),
-                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
-                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
                   ],
                 ]
                 // 8. LOUPS-GAROUS & LOUP NOIR
                 else if (phase == GamePhase.nightWerewolves || phase == GamePhase.nightBlackWolf) ...[
                   if (role.isEvil) ...[
                     _buildWerewolvesSection(me, selectedTarget),
-                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
-                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
                   ],
                 ]
                 // 9. SORCIÈRE
@@ -425,24 +403,18 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       ),
                       selectedTarget,
                     ),
-                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
-                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
                   ],
                 ]
                 // 9.B PYROMANE
                 else if (phase == GamePhase.nightPyromaniac) ...[
                   if (role == GameRole.pyromaniac) ...[
                     _buildPyromaniacSection(selectedTarget),
-                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
-                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
                   ],
                 ]
                 // 9.C JOUEUR DE FLÛTE
                 else if (phase == GamePhase.nightPiper) ...[
                   if (role == GameRole.piedPiper) ...[
                     _buildPiperSection(selectedTarget),
-                  ] else if (_getActiveNightPlayer(phase)?.id.startsWith('bot_') == true) ...[
-                    _buildBotActivityBanner(_getActiveNightPlayer(phase)!),
                   ],
                 ]
                 // 10. ÉLECTION DU CAPITAINE / MAIRE
@@ -2521,93 +2493,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           ),
         ),
       ],
-    );
-  }
-
-  PlayerModel? _getActiveNightPlayer(GamePhase phase) {
-    switch (phase) {
-      case GamePhase.nightThief:
-        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
-              (p) => p != null && p.role == GameRole.thief,
-              orElse: () => null,
-            );
-      case GamePhase.nightCupid:
-        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
-              (p) => p != null && p.role == GameRole.cupid,
-              orElse: () => null,
-            );
-      case GamePhase.nightDefender:
-        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
-              (p) => p != null && p.role == GameRole.defender,
-              orElse: () => null,
-            );
-      case GamePhase.nightWerewolves:
-      case GamePhase.nightBlackWolf:
-        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
-              (p) => p != null && p.role.isEvil,
-              orElse: () => null,
-            );
-      case GamePhase.nightSeer:
-        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
-              (p) => p != null && p.role == GameRole.seer,
-              orElse: () => null,
-            );
-      case GamePhase.nightWitch:
-        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
-              (p) => p != null && p.role == GameRole.witch,
-              orElse: () => null,
-            );
-      case GamePhase.nightPiper:
-        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
-              (p) => p != null && p.role == GameRole.piedPiper,
-              orElse: () => null,
-            );
-      case GamePhase.nightPyromaniac:
-        return widget.room.alivePlayers.cast<PlayerModel?>().firstWhere(
-              (p) => p != null && p.role == GameRole.pyromaniac,
-              orElse: () => null,
-            );
-      default:
-        return null;
-    }
-  }
-
-  Widget _buildBotActivityBanner(PlayerModel bot, [String? customAction]) {
-    final roleName = bot.role.displayNameFr;
-    final text = customAction ?? '🤖 ${bot.name} ($roleName) agit sous le contrôle de l\'IA...';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1405),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: LupusColors.arcaneGold.withValues(alpha: 0.4), width: 1.0),
-        boxShadow: LupusTheme.glowGold(opacity: 0.15),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.smart_toy_rounded, color: LupusColors.arcaneGold, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          const SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(strokeWidth: 2, color: LupusColors.arcaneGold),
-          ),
-        ],
-      ),
     );
   }
 

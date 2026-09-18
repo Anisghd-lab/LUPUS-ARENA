@@ -163,7 +163,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   GamePhase? _lastAppliedVoicePhase;
   bool _isTransitioningPhase = false;
   Timer? _phaseExpirationTimer;
-  Timer? _botActionTimer;
 
   GameNotifier()
       : super(
@@ -481,7 +480,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             'sock_${state.currentUserId}_${DateTime.now().millisecondsSinceEpoch}',
       );
 
-      final initialRolePool = generateDefaultRolePool(4);
+      final initialRolePool = generateDefaultRolePool(12);
       final newRoom = GameRoom(
         roomCode: roomCode,
         hostId: state.currentUserId,
@@ -525,437 +524,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Échec de création du salon: $e',
-      );
-      return false;
-    }
-  }
-
-  /// Créer un salon de test / simulation avec 15 joueurs pré-générés et rôles attribués
-  Future<bool> createTestRoom() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
-    try {
-      final roomCode = 'TEST${Random().nextInt(900) + 100}';
-      unlockAdmin('03031994');
-
-      final secureRandom = Random.secure();
-      final pool = generateDefaultRolePool(15);
-      final List<GameRole> flatRoles = [];
-      pool.forEach((roleId, qty) {
-        final role = GameRole.fromId(roleId);
-        for (int i = 0; i < qty; i++) {
-          flatRoles.add(role);
-        }
-      });
-      flatRoles.shuffle(secureRandom);
-      flatRoles.shuffle(secureRandom); // Double brassage cryptographique
-
-      final botNames = [
-        'Arthur',
-        'Morgane',
-        'Gauvain',
-        'Lancelot',
-        'Merlin',
-        'Perceval',
-        'Bohort',
-        'Ygraine',
-        'Guenièvre',
-        'Tristan',
-        'Iseult',
-        'Viviane',
-        'Léodagan',
-        'Dagonet',
-      ];
-      botNames.shuffle(secureRandom);
-
-      final List<String> participantIds = [
-        state.currentUserId,
-        for (int i = 1; i <= 14; i++) 'bot_$i',
-      ];
-      participantIds.shuffle(secureRandom);
-      final seatingOrder = List<String>.from(participantIds);
-
-      final Map<String, PlayerModel> players = {};
-      final List<String> wolfPlayerIds = [];
-      final Map<String, dynamic> secretRoles = {};
-      String? initialCaptainId;
-
-      final totalJoueurs = participantIds.length;
-      final maxPotions = max(1, totalJoueurs ~/ 10);
-      final maxVisions = totalJoueurs <= 4
-          ? 1
-          : totalJoueurs <= 9
-              ? 2
-              : totalJoueurs <= 14
-                  ? 3
-                  : totalJoueurs ~/ 4;
-
-      for (int i = 0; i < participantIds.length; i++) {
-        final id = participantIds[i];
-        final role = flatRoles[i];
-        final isLocal = id == state.currentUserId;
-        final name = isLocal
-            ? '${state.currentUserName} [Admin]'
-            : botNames[(i - 1 + botNames.length) % botNames.length];
-        final avatar = isLocal ? state.currentUserAvatar : (i % 6);
-        final seat = seatingOrder.indexOf(id);
-        final isCaptain = (i == 0);
-        if (isCaptain) initialCaptainId = id;
-
-        if (role.isEvil) {
-          wolfPlayerIds.add(id);
-        }
-
-        secretRoles[id] = {
-          'roleId': role.id,
-          'roleName': role.displayName,
-          'assignedAt': ServerValue.timestamp,
-        };
-
-        players[id] = PlayerModel(
-          id: id,
-          name: name,
-          avatarIndex: avatar,
-          role: role,
-          initialRole: role,
-          potionsVie: (role == GameRole.witch) ? maxPotions : 0,
-          potionsMort: (role == GameRole.witch) ? maxPotions : 0,
-          visionsRestantes: (role == GameRole.seer) ? maxVisions : 0,
-          isCaptain: isCaptain,
-          isHost: isLocal,
-          isReady: true,
-          isAlive: true,
-          seatIndex: seat,
-          agoraUid: isLocal ? state.agoraUid : 2000 + i,
-        );
-      }
-
-        final nowMs = ServerTimeService().currentServerEstimatedTime;
-        const initialDurationMs = 25000;
-
-        final newRoom = GameRoom(
-        roomCode: roomCode,
-        hostId: state.currentUserId,
-        phase: GamePhase.nightDefender, // Le Salvateur commence en premier
-        round: 1,
-        players: players,
-        captainId: initialCaptainId ?? 'bot_1',
-        rolePool: pool,
-        isDevRoom: true,
-        seatingOrder: seatingOrder,
-        timerSeconds: 25,
-        phaseEndsAt: nowMs + initialDurationMs,
-        phaseStartedAt: nowMs,
-        phaseDurationMs: initialDurationMs,
-        logs: [
-          'Partie de test Maître du Jeu initialisée (15 joueurs).',
-          'Rôles et sièges distribués de manière 100% aléatoire.',
-          'La première nuit tombe... Salvateur, réveillez-vous !',
-        ],
-      );
-
-      try {
-        await _database.ref('rooms/$roomCode/secret_roles').set(secretRoles);
-        final encryptedWolves =
-            RoleSecurityService.encryptWolfRoster(wolfPlayerIds, roomCode);
-        await _database
-            .ref('rooms/$roomCode/wolf_pack')
-            .set({'data': encryptedWolves});
-      } catch (e) {
-        debugPrint('[Firebase Test Room Error] $e');
-      }
-
-      _currentRoomRef = _database.ref('rooms/$roomCode');
-      await _currentRoomRef!.set(newRoom.toMap());
-
-      try {
-        await _currentRoomRef!
-            .child('players/${state.currentUserId}/isOnline')
-            .onDisconnect()
-            .set(false);
-        await _currentRoomRef!
-            .child('players/${state.currentUserId}/lastSeen')
-            .onDisconnect()
-            .set(ServerValue.timestamp);
-      } catch (_) {}
-
-      _subscribeToRoom(roomCode);
-
-      try {
-        await _voiceService.initialize();
-        await _voiceService.joinChannel(
-          channelId: 'lupus_$roomCode',
-          uid: state.agoraUid,
-          userAccount: state.currentUserId,
-        );
-      } catch (e) {
-        _voiceService.addLog('⚠️ Exception vocal test room: $e');
-      }
-
-      state = state.copyWith(
-        room: newRoom,
-        isLoading: false,
-        isAdmin: true,
-        isGodModeActive: true,
-      );
-      return true;
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Échec de création du salon test: $e',
-      );
-      return false;
-    }
-  }
-
-  /// Remplit le salon actuel avec des Bots configurables et leurs rôles assignés
-  Future<bool> populateRoomWithBots({
-    int totalCount = 8,
-    Map<String, GameRole>? customRoleAssignments,
-  }) async {
-    if (state.room == null) return false;
-    final room = state.room!;
-    final botNames = [
-      'Arthur', 'Morgane', 'Gauvain', 'Lancelot', 'Merlin',
-      'Perceval', 'Bohort', 'Ygraine', 'Guenièvre', 'Tristan',
-      'Iseult', 'Viviane', 'Léodagan', 'Dagonet',
-    ];
-    final secureRandom = Random.secure();
-    botNames.shuffle(secureRandom);
-
-    final updates = <String, dynamic>{};
-    final currentPlayers = Map<String, PlayerModel>.from(room.players);
-
-    final hostPlayer = currentPlayers[state.currentUserId] ??
-        PlayerModel(
-          id: state.currentUserId,
-          name: state.currentUserName,
-          isHost: true,
-          isAlive: true,
-          isReady: true,
-        );
-
-    final newPlayers = <String, PlayerModel>{
-      state.currentUserId: hostPlayer,
-    };
-    final newSeating = <String>[state.currentUserId];
-
-    final botsNeeded = max(3, totalCount - 1);
-    for (int i = 1; i <= botsNeeded; i++) {
-      final botId = 'bot_$i';
-      final assignedRole = customRoleAssignments?[botId] ??
-          GameRole.simpleVillager;
-      final name = botNames[(i - 1) % botNames.length];
-      newPlayers[botId] = PlayerModel(
-        id: botId,
-        name: '$name (Bot)',
-        role: assignedRole,
-        initialRole: assignedRole,
-        avatarIndex: (i % 6),
-        isAlive: true,
-        isReady: true,
-        seatIndex: i,
-        agoraUid: 3000 + i,
-      );
-      newSeating.add(botId);
-    }
-
-    final pool = <String, int>{};
-    for (final p in newPlayers.values) {
-      pool[p.role.id] = (pool[p.role.id] ?? 0) + 1;
-    }
-
-    updates['players'] = newPlayers.map((k, v) => MapEntry(k, v.toMap()));
-    updates['seatingOrder'] = newSeating;
-    updates['rolePool'] = pool;
-
-    await _syncState(updates);
-    return true;
-  }
-
-  /// Retire tous les bots du salon actuel
-  Future<bool> removeBotsFromRoom() async {
-    if (state.room == null) return false;
-    final room = state.room!;
-    final updates = <String, dynamic>{};
-    final remainingPlayers = <String, PlayerModel>{};
-    final remainingSeating = <String>[];
-
-    for (final entry in room.players.entries) {
-      if (!entry.key.startsWith('bot_')) {
-        remainingPlayers[entry.key] = entry.value;
-        remainingSeating.add(entry.key);
-      }
-    }
-
-    final pool = <String, int>{};
-    for (final p in remainingPlayers.values) {
-      pool[p.role.id] = (pool[p.role.id] ?? 0) + 1;
-    }
-
-    updates['players'] = remainingPlayers.map((k, v) => MapEntry(k, v.toMap()));
-    updates['seatingOrder'] = remainingSeating;
-    updates['rolePool'] = pool;
-
-    await _syncState(updates);
-    return true;
-  }
-
-  /// Lance immédiatement une vraie partie Sandbox / Testeur avec rôles forcés
-  Future<bool> startSandboxGame({
-    required Map<String, GameRole> roleAssignments,
-    GameRole? hostRole,
-    List<GameRole>? thiefExtraCards,
-  }) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
-    try {
-      unlockAdmin('03031994');
-      final secureRandom = Random.secure();
-      final roomCode = state.room?.roomCode ?? 'SBX${secureRandom.nextInt(900) + 100}';
-
-      final botNames = [
-        'Arthur', 'Morgane', 'Gauvain', 'Lancelot', 'Merlin',
-        'Perceval', 'Bohort', 'Ygraine', 'Guenièvre', 'Tristan',
-        'Iseult', 'Viviane', 'Léodagan', 'Dagonet',
-      ];
-      botNames.shuffle(secureRandom);
-
-      final Map<String, PlayerModel> players = {};
-      final Map<String, dynamic> secretRoles = {};
-      final List<String> wolfPlayerIds = [];
-      final List<String> seatingOrder = [];
-
-      // 1. Joueur local (Hôte / Admin)
-      final actualHostRole = hostRole ?? roleAssignments[state.currentUserId] ?? GameRole.seer;
-      seatingOrder.add(state.currentUserId);
-      if (actualHostRole.isEvil) {
-        wolfPlayerIds.add(state.currentUserId);
-      }
-      secretRoles[state.currentUserId] = {
-        'roleId': actualHostRole.id,
-        'roleName': actualHostRole.displayName,
-        'assignedAt': ServerValue.timestamp,
-      };
-
-      final totalJoueurs = roleAssignments.length;
-      final maxPotions = max(1, totalJoueurs ~/ 10);
-      final maxVisions = totalJoueurs <= 4 ? 1 : (totalJoueurs <= 9 ? 2 : 3);
-
-      players[state.currentUserId] = PlayerModel(
-        id: state.currentUserId,
-        name: '${state.currentUserName} [Admin]',
-        avatarIndex: state.currentUserAvatar,
-        role: actualHostRole,
-        initialRole: actualHostRole,
-        potionsVie: (actualHostRole == GameRole.witch) ? maxPotions : 0,
-        potionsMort: (actualHostRole == GameRole.witch) ? maxPotions : 0,
-        visionsRestantes: (actualHostRole == GameRole.seer) ? maxVisions : 0,
-        isCaptain: true,
-        isHost: true,
-        isReady: true,
-        isAlive: true,
-        seatIndex: 0,
-        agoraUid: state.agoraUid,
-      );
-
-      // 2. Bots assignés
-      int botIndex = 1;
-      roleAssignments.forEach((id, role) {
-        if (id == state.currentUserId) return;
-        final botId = id.startsWith('bot_') ? id : 'bot_$botIndex';
-        seatingOrder.add(botId);
-        if (role.isEvil) {
-          wolfPlayerIds.add(botId);
-        }
-        secretRoles[botId] = {
-          'roleId': role.id,
-          'roleName': role.displayName,
-          'assignedAt': ServerValue.timestamp,
-        };
-
-        final bName = botNames[(botIndex - 1) % botNames.length];
-        players[botId] = PlayerModel(
-          id: botId,
-          name: '$bName (Bot)',
-          avatarIndex: (botIndex % 6),
-          role: role,
-          initialRole: role,
-          potionsVie: (role == GameRole.witch) ? maxPotions : 0,
-          potionsMort: (role == GameRole.witch) ? maxPotions : 0,
-          visionsRestantes: (role == GameRole.seer) ? maxVisions : 0,
-          isCaptain: false,
-          isHost: false,
-          isReady: true,
-          isAlive: true,
-          seatIndex: seatingOrder.length - 1,
-          agoraUid: 3000 + botIndex,
-        );
-        botIndex++;
-      });
-
-      // Role Pool & Cartes Voleur
-      final pool = <String, int>{};
-      for (final p in players.values) {
-        pool[p.role.id] = (pool[p.role.id] ?? 0) + 1;
-      }
-
-      final thiefCards = thiefExtraCards ?? [
-        GameRole.simpleVillager,
-        GameRole.simpleWerewolf,
-      ];
-      if (players.values.any((p) => p.role == GameRole.thief)) {
-        for (final r in thiefCards) {
-          pool[r.id] = (pool[r.id] ?? 0) + 1;
-        }
-      }
-
-      // Première phase nocturne canonique
-      final firstPhase = _getNextNightPhase(
-        current: GamePhase.lobby,
-        round: 1,
-        players: players,
-      );
-
-      final nowMs = ServerTimeService().currentServerEstimatedTime;
-      const initialNightDurationMs = 40000;
-
-      final newRoom = GameRoom(
-        roomCode: roomCode,
-        hostId: state.currentUserId,
-        phase: firstPhase,
-        round: 1,
-        players: players,
-        captainId: state.currentUserId,
-        rolePool: pool,
-        isDevRoom: true,
-        seatingOrder: seatingOrder,
-        thiefAvailableRoles: thiefCards,
-        timerSeconds: 40,
-        phaseEndsAt: nowMs + initialNightDurationMs,
-        phaseStartedAt: nowMs,
-        phaseDurationMs: initialNightDurationMs,
-        logs: [
-          'Partie Sandbox Initialisée (${players.length} joueurs).',
-          'Rôles configurés manuellement par le Maître du Jeu.',
-          'La nuit tombe : ${firstPhase.titleFr}.',
-        ],
-      );
-
-      await _database.ref('rooms/$roomCode/secret_roles').set(secretRoles);
-      if (wolfPlayerIds.isNotEmpty) {
-        final encryptedWolves =
-            RoleSecurityService.encryptWolfRoster(wolfPlayerIds, roomCode);
-        await _database
-            .ref('rooms/$roomCode/wolf_pack')
-            .set({'data': encryptedWolves});
-      }
-      await _database.ref('rooms/$roomCode').set(newRoom.toMap());
-
-      await joinRoom(roomCode);
-      return true;
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Échec du lancement Sandbox : $e',
       );
       return false;
     }
@@ -1338,10 +906,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final playersList = state.room!.playerList;
     final count = playersList.length;
 
-    if (count < 4 || count > 30) {
+    if (count != 12) {
       state = state.copyWith(
         errorMessage:
-            'La partie nécessite entre 4 et 30 guerriers (actuellement $count).',
+            'La partie nécessite exactement 12 guerriers connectés (actuellement $count).',
       );
       return;
     }
@@ -1349,10 +917,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final pool = state.room!.rolePool;
     final totalChosen = state.room!.totalRolesInPool;
 
-    if (totalChosen != count) {
+    if (totalChosen != 12) {
       state = state.copyWith(
         errorMessage:
-            'Le total des rôles ($totalChosen) doit correspondre au nombre de joueurs connectés ($count).',
+            'Le total des cartes de rôles ($totalChosen) doit être exactement de 12 cartes.',
       );
       return;
     }
@@ -2914,429 +2482,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await processNightTransitions();
   }
 
-  Future<void> executeBotNightAction() async {
-    if (state.room == null || (!state.isHost && !state.isAdmin)) return;
-    final room = state.room!;
-    final phase = room.phase;
-    final random = Random();
-
-    switch (phase) {
-      case GamePhase.nightThief:
-        final choices = room.thiefAvailableRoles;
-        if (choices.isNotEmpty) {
-          final choice = choices[random.nextInt(choices.length)];
-          await thiefChooseRole(choice);
-        } else {
-          await processNightTransitions();
-        }
-        break;
-
-      case GamePhase.nightCupid:
-        final alive = room.alivePlayers.toList();
-        if (alive.length >= 2) {
-          alive.shuffle(random);
-          await cupidBindLovers(alive[0].id, alive[1].id);
-        } else {
-          await processNightTransitions();
-        }
-        break;
-
-      case GamePhase.nightDefender:
-        final candidates = room.alivePlayers
-            .where((p) => p.id != room.lastProtectedPlayerId)
-            .toList();
-        if (candidates.isNotEmpty) {
-          final target = candidates[random.nextInt(candidates.length)];
-          await defenderProtect(target.id);
-        } else {
-          await processNightTransitions();
-        }
-        break;
-
-      case GamePhase.nightWerewolves:
-      case GamePhase.nightBlackWolf:
-        final realRoles = await _resolveRealRoles(room);
-        final innocents = room.alivePlayers
-            .where((p) => !(realRoles[p.id] ?? p.role).isEvil)
-            .toList();
-        final victim = innocents.isNotEmpty
-            ? innocents[random.nextInt(innocents.length)]
-            : room.alivePlayers.first;
-
-        final updates = <String, dynamic>{
-          'nightVictimId': victim.id,
-        };
-
-        final hasBlackWolf = room.alivePlayers.any(
-          (p) => (realRoles[p.id] ?? p.role) == GameRole.blackWolf,
-        );
-        if (hasBlackWolf && room.alivePlayers.length >= 2) {
-          final silenceCandidates =
-              room.alivePlayers.where((p) => p.id != victim.id).toList();
-          if (silenceCandidates.isNotEmpty) {
-            final silenceTarget =
-                silenceCandidates[random.nextInt(silenceCandidates.length)];
-            updates['blackWolfTargetId'] = silenceTarget.id;
-          }
-        }
-
-        final hasInfectWolf = room.alivePlayers.any(
-          (p) => (realRoles[p.id] ?? p.role) == GameRole.vileFatherOfWolves,
-        );
-        if (hasInfectWolf && !room.vileFatherInfectionUsed && random.nextBool()) {
-          updates['infectedPlayerId'] = victim.id;
-        }
-
-        await _syncState(updates);
-        await processNightTransitions();
-        break;
-
-      case GamePhase.nightSeer:
-        final candidates = room.alivePlayers
-            .where((p) => p.id != state.currentUserId)
-            .toList();
-        if (candidates.isNotEmpty) {
-          final target = candidates[random.nextInt(candidates.length)];
-          await inspectPlayer(target.id);
-          await completeSeerTurn();
-        } else {
-          await processNightTransitions();
-        }
-        break;
-
-      case GamePhase.nightWitch:
-        final victimId = room.nightVictimId;
-        final witch = room.alivePlayers.firstWhere(
-          (p) => p.role == GameRole.witch,
-          orElse: () => room.alivePlayers.first,
-        );
-        if (victimId != null && witch.potionsVie > 0 && !room.witchHealed) {
-          if (random.nextDouble() < 0.7) {
-            await witchSaveVictim();
-          }
-        } else if (witch.potionsMort > 0 && random.nextDouble() < 0.3) {
-          final poisonCandidates = room.alivePlayers
-              .where((p) => p.role != GameRole.witch && p.id != victimId)
-              .toList();
-          if (poisonCandidates.isNotEmpty) {
-            final pTarget = poisonCandidates[random.nextInt(poisonCandidates.length)];
-            await witchPoison(pTarget.id);
-          }
-        }
-        await processNightTransitions();
-        break;
-
-      case GamePhase.nightPiper:
-        final uncharmed = room.alivePlayers.where((p) => !p.isCharmed).toList();
-        if (uncharmed.isNotEmpty) {
-          uncharmed.shuffle(random);
-          final toCharm = uncharmed.take(2).map((p) => p.id).toList();
-          await piperCharmPlayers(toCharm);
-        } else {
-          await processNightTransitions();
-        }
-        break;
-
-      case GamePhase.nightPyromaniac:
-        final undoused = room.alivePlayers.where((p) => !p.isDoused).toList();
-        final dousedCount = room.alivePlayers.where((p) => p.isDoused).length;
-        if (dousedCount >= 2 && random.nextBool()) {
-          await pyromaniacIgnite();
-        } else if (undoused.isNotEmpty) {
-          final target = undoused[random.nextInt(undoused.length)];
-          await pyromaniacDouse(target.id);
-        } else {
-          await pyromaniacPass();
-        }
-        break;
-
-      default:
-        await nextPhase();
-        break;
-    }
-  }
-
-  /// Exécution automatique du tir du Chasseur Bot
-  Future<void> _executeBotHunterAction() async {
-    if (state.room == null || (!state.isHost && !state.isAdmin)) return;
-    final room = state.room!;
-    if (room.phase != GamePhase.hunterDeathChoice) return;
-    final alive = room.alivePlayers.toList();
-    if (alive.isEmpty) return;
-    final random = Random();
-    final target = alive[random.nextInt(alive.length)];
-    await hunterShoot(target.id);
-  }
-
-  /// Exécution automatique de la passation de brassard par le Capitaine / Maire Bot défunt
-  Future<void> _executeBotCaptainSuccession() async {
-    if (state.room == null || (!state.isHost && !state.isAdmin)) return;
-    final room = state.room!;
-    if (room.phase != GamePhase.captainSuccession && room.phase != GamePhase.mayorSuccession) return;
-    final alive = room.alivePlayers.toList();
-    if (alive.isEmpty) return;
-    final random = Random();
-    final successor = alive[random.nextInt(alive.length)];
-    await captainPassBadge(successor.id);
-  }
-
-  /// Exécution automatique des votes des Bots pour l'Élection du Capitaine / Maire
-  Future<void> _executeBotCaptainElectionVotes() async {
-    if (state.room == null || (!state.isHost && !state.isAdmin)) return;
-    final room = state.room!;
-    if (room.phase != GamePhase.captainElection && room.phase != GamePhase.mayorElection) return;
-    final alivePlayers = room.alivePlayers.toList();
-    if (alivePlayers.isEmpty) return;
-
-    final random = Random();
-    final updates = <String, dynamic>{};
-
-    for (final bot in room.alivePlayers.where((p) => p.id.startsWith('bot_'))) {
-      if (bot.targetVoteId != null) continue;
-      final chosen = alivePlayers[random.nextInt(alivePlayers.length)];
-      updates['players/${bot.id}/targetVoteId'] = chosen.id;
-      updates['votes/${bot.id}'] = chosen.id;
-    }
-
-    if (updates.isNotEmpty) {
-      await _syncState(updates);
-      final updatedRoom = state.room;
-      if (updatedRoom != null) {
-        final allVoted = updatedRoom.alivePlayers.every((p) => p.targetVoteId != null);
-        if (allVoted) {
-          await concludeCaptainElection();
-        }
-      }
-    }
-  }
-
-  /// Exécution automatique des votes des Bots lors du Scrutin du Village
-  Future<void> _executeBotDayVotes() async {
-    if (state.room == null || (!state.isHost && !state.isAdmin)) return;
-    final room = state.room!;
-    if (room.phase != GamePhase.dayVoting && room.phase != GamePhase.dayTieBreakVote) return;
-    final alivePlayers = room.alivePlayers.toList();
-    if (alivePlayers.isEmpty) return;
-
-    final random = Random();
-    final realRoles = await _resolveRealRoles(room);
-    final updates = <String, dynamic>{};
-
-    for (final bot in room.alivePlayers.where((p) => p.id.startsWith('bot_'))) {
-      if (bot.targetVoteId != null) continue;
-
-      final botRole = realRoles[bot.id] ?? bot.role;
-      List<PlayerModel> candidates;
-      if (botRole.isEvil) {
-        // Les loups votent contre les villageois innocents
-        candidates = alivePlayers.where((p) => !(realRoles[p.id] ?? p.role).isEvil && p.id != bot.id).toList();
-      } else {
-        // Les villageois votent contre un autre joueur au hasard
-        candidates = alivePlayers.where((p) => p.id != bot.id).toList();
-      }
-      if (candidates.isEmpty) {
-        candidates = alivePlayers.where((p) => p.id != bot.id).toList();
-      }
-      if (candidates.isEmpty) continue;
-
-      final chosenTarget = candidates[random.nextInt(candidates.length)];
-      updates['players/${bot.id}/targetVoteId'] = chosenTarget.id;
-      updates['votes/${bot.id}'] = chosenTarget.id;
-    }
-
-    if (updates.isNotEmpty) {
-      await _syncState(updates);
-      final updatedRoom = state.room;
-      if (updatedRoom != null) {
-        final allVoted = updatedRoom.alivePlayers.every((p) => p.targetVoteId != null);
-        if (allVoted) {
-          await processDayVoteResolution();
-        }
-      }
-    }
-  }
-
-  /// Ordonnanceur intelligent d'autonomie des Bots (God Mode & Sandbox & Hôte)
-  void _scheduleBotTurnIfNeeded(GameRoom room) {
-    _botActionTimer?.cancel();
-    _botActionTimer = null;
-
-    if (!state.isHost && !state.isAdmin) return;
-    if (room.phase == GamePhase.lobby || room.phase == GamePhase.gameOver) return;
-
-    final phase = room.phase;
-
-    // 1. PHASES NOCTURNES
-    if (phase.isNight) {
-      PlayerModel? activeNightPlayer;
-      switch (phase) {
-        case GamePhase.nightThief:
-          activeNightPlayer = room.alivePlayers.cast<PlayerModel?>().firstWhere(
-                (p) => p != null && p.role == GameRole.thief,
-                orElse: () => null,
-              );
-          break;
-        case GamePhase.nightCupid:
-          activeNightPlayer = room.alivePlayers.cast<PlayerModel?>().firstWhere(
-                (p) => p != null && p.role == GameRole.cupid,
-                orElse: () => null,
-              );
-          break;
-        case GamePhase.nightDefender:
-          activeNightPlayer = room.alivePlayers.cast<PlayerModel?>().firstWhere(
-                (p) => p != null && p.role == GameRole.defender,
-                orElse: () => null,
-              );
-          break;
-        case GamePhase.nightWerewolves:
-          final evilPlayers = room.alivePlayers.where((p) => p.role.isEvil).toList();
-          final allEvilAreBots = evilPlayers.isNotEmpty && evilPlayers.every((p) => p.id.startsWith('bot_'));
-          if (allEvilAreBots) {
-            _botActionTimer = Timer(const Duration(milliseconds: 2000), () {
-              if (state.room?.phase == phase && (state.isHost || state.isAdmin)) {
-                executeBotNightAction();
-              }
-            });
-            return;
-          }
-          break;
-        case GamePhase.nightBlackWolf:
-          activeNightPlayer = room.alivePlayers.cast<PlayerModel?>().firstWhere(
-                (p) => p != null && p.role == GameRole.blackWolf,
-                orElse: () => null,
-              );
-          break;
-        case GamePhase.nightSeer:
-          activeNightPlayer = room.alivePlayers.cast<PlayerModel?>().firstWhere(
-                (p) => p != null && p.role == GameRole.seer,
-                orElse: () => null,
-              );
-          break;
-        case GamePhase.nightWitch:
-          activeNightPlayer = room.alivePlayers.cast<PlayerModel?>().firstWhere(
-                (p) => p != null && p.role == GameRole.witch,
-                orElse: () => null,
-              );
-          break;
-        case GamePhase.nightPiper:
-          activeNightPlayer = room.alivePlayers.cast<PlayerModel?>().firstWhere(
-                (p) => p != null && p.role == GameRole.piedPiper,
-                orElse: () => null,
-              );
-          break;
-        case GamePhase.nightPyromaniac:
-          activeNightPlayer = room.alivePlayers.cast<PlayerModel?>().firstWhere(
-                (p) => p != null && p.role == GameRole.pyromaniac,
-                orElse: () => null,
-              );
-          break;
-        default:
-          break;
-      }
-
-      if (activeNightPlayer != null && activeNightPlayer.id.startsWith('bot_')) {
-        _botActionTimer = Timer(const Duration(milliseconds: 1800), () {
-          if (state.room?.phase == phase && (state.isHost || state.isAdmin)) {
-            executeBotNightAction();
-          }
-        });
-        return;
-      }
-    }
-
-    // 2. DERNIER SOUFFLE DU CHASSEUR
-    if (phase == GamePhase.hunterDeathChoice) {
-      if (room.pendingHunterId != null && room.pendingHunterId!.startsWith('bot_')) {
-        _botActionTimer = Timer(const Duration(milliseconds: 2000), () {
-          if (state.room?.phase == phase && (state.isHost || state.isAdmin)) {
-            _executeBotHunterAction();
-          }
-        });
-        return;
-      }
-    }
-
-    // 3. SUCCESSION DU CAPITAINE / MAIRE
-    if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) {
-      final dyingCap = room.pendingCaptainId ?? room.captainId ?? room.expandedRolesState.mayorPlayerId;
-      if (dyingCap != null && dyingCap.startsWith('bot_')) {
-        _botActionTimer = Timer(const Duration(milliseconds: 2000), () {
-          if ((state.room?.phase == GamePhase.captainSuccession || state.room?.phase == GamePhase.mayorSuccession) && (state.isHost || state.isAdmin)) {
-            _executeBotCaptainSuccession();
-          }
-        });
-        return;
-      }
-    }
-
-    // 4. ÉLECTION DU CAPITAINE / MAIRE
-    if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) {
-      final hasBotsToVote = room.alivePlayers.any((p) => p.id.startsWith('bot_') && p.targetVoteId == null);
-      if (hasBotsToVote) {
-        _botActionTimer = Timer(const Duration(milliseconds: 1800), () {
-          if ((state.room?.phase == GamePhase.captainElection || state.room?.phase == GamePhase.mayorElection) && (state.isHost || state.isAdmin)) {
-            _executeBotCaptainElectionVotes();
-          }
-        });
-        return;
-      }
-    }
-
-    // 4.B DISCOURS D'OUVERTURE DU MAIRE
-    if (phase == GamePhase.mayorSpeechOpening) {
-      final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId ?? room.currentSpeakerId;
-      if (mayorId != null && mayorId.startsWith('bot_')) {
-        _botActionTimer = Timer(const Duration(milliseconds: 2200), () {
-          if (state.room?.phase == GamePhase.mayorSpeechOpening && (state.isHost || state.isAdmin)) {
-            concludeMayorSpeechOpening();
-          }
-        });
-        return;
-      }
-    }
-
-    // 5. DÉBAT TOUR PAR TOUR
-    if (phase == GamePhase.dayDebate) {
-      if (room.currentSpeakerId != null && room.currentSpeakerId!.startsWith('bot_')) {
-        _botActionTimer = Timer(const Duration(milliseconds: 2200), () {
-          if (state.room?.phase == phase &&
-              state.room?.currentSpeakerId == room.currentSpeakerId &&
-              (state.isHost || state.isAdmin)) {
-            passTurnDebate();
-          }
-        });
-        return;
-      }
-    }
-
-    // 5.B DISCOURS DE CLÔTURE DU MAIRE
-    if (phase == GamePhase.mayorSpeechClosing) {
-      final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId ?? room.currentSpeakerId;
-      if (mayorId != null && mayorId.startsWith('bot_')) {
-        _botActionTimer = Timer(const Duration(milliseconds: 2200), () {
-          if (state.room?.phase == GamePhase.mayorSpeechClosing && (state.isHost || state.isAdmin)) {
-            concludeMayorSpeechClosing();
-          }
-        });
-        return;
-      }
-    }
-
-    // 6. SCRUTIN DU VILLAGE (dayVoting & dayTieBreakVote)
-    if (phase == GamePhase.dayVoting || phase == GamePhase.dayTieBreakVote) {
-      final hasBotsToVote = room.alivePlayers.any((p) => p.id.startsWith('bot_') && p.targetVoteId == null);
-      if (hasBotsToVote) {
-        _botActionTimer = Timer(const Duration(milliseconds: 2000), () {
-          if ((state.room?.phase == GamePhase.dayVoting || state.room?.phase == GamePhase.dayTieBreakVote) &&
-              (state.isHost || state.isAdmin)) {
-            _executeBotDayVotes();
-          }
-        });
-        return;
-      }
-    }
-  }
-
   Future<void> cupidBindLovers(String p1Id, String p2Id) async {
     if ((state.myRole != GameRole.cupid && !state.isAdmin) ||
         _currentRoomRef == null) {
@@ -3554,9 +2699,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'blackWolfTargetId': targetPlayerId,
     });
     if (state.room != null) {
-      state = state.copyWith(
-        room: state.room!.copyWith(blackWolfTargetId: targetPlayerId),
-      );
+      final updatedRoom = state.room!.copyWith(blackWolfTargetId: targetPlayerId);
+      state = state.copyWith(room: updatedRoom);
+      _checkEarlyResolutionQuorum(updatedRoom);
     }
     return true;
   }
@@ -4134,6 +3279,57 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     } catch (_) {}
   }
 
+  /// Vérifie et déclenche l'anticipation instantanée (Fast-Track Quorum)
+  /// Dès que tous les acteurs requis ont validé leur décision / vote,
+  /// court-circuite immédiatement le timer restant sans aucune attente inutile.
+  void _checkEarlyResolutionQuorum(GameRoom updatedRoom) {
+    if (!state.isHost && !state.isAdmin) return;
+    if (_isTransitioningPhase) return;
+    final aliveCount = updatedRoom.alivePlayers.length;
+    if (aliveCount <= 0) return;
+
+    final votedCount =
+        updatedRoom.alivePlayers.where((p) => p.targetVoteId != null).length;
+
+    // 1. Scrutin diurne (Vote ordinaire du village ou Scrutin de ballottage)
+    if ((updatedRoom.phase == GamePhase.dayVoting ||
+            updatedRoom.phase == GamePhase.dayTieBreakVote) &&
+        votedCount >= aliveCount) {
+      debugPrint('[Quorum Fast-Track] Tous les vivants ont voté ($votedCount/$aliveCount). Résolution immédiate du scrutin.');
+      processDayVoteResolution();
+      return;
+    }
+
+    // 2. Élection solennelle du Capitaine / Maire (Matin Jour 1)
+    if ((updatedRoom.phase == GamePhase.captainElection ||
+            updatedRoom.phase == GamePhase.mayorElection) &&
+        votedCount >= aliveCount) {
+      debugPrint('[Quorum Fast-Track] Tous les vivants ont voté pour le Maire ($votedCount/$aliveCount). Élection immédiate.');
+      concludeCaptainElection();
+      return;
+    }
+
+    // 3. Nuit des Loups-Garous : tous les loups ont voté + cible de silence prête si loup noir présent
+    if (updatedRoom.phase == GamePhase.nightWerewolves) {
+      final aliveWolves = updatedRoom.alivePlayers
+          .where((p) => p.role.isEvil || p.role == GameRole.whiteWerewolf)
+          .toList();
+      final wolvesVoted =
+          aliveWolves.where((p) => p.targetVoteId != null).length;
+      if (aliveWolves.isNotEmpty && wolvesVoted >= aliveWolves.length) {
+        final hasBlackWolf =
+            aliveWolves.any((p) => p.role == GameRole.blackWolf);
+        if (!hasBlackWolf ||
+            updatedRoom.blackWolfTargetId != null ||
+            aliveCount < 2) {
+          debugPrint('[Quorum Fast-Track] Tous les loups ont voté ($wolvesVoted/${aliveWolves.length}). Transition nocturne immédiate.');
+          processNightTransitions();
+          return;
+        }
+      }
+    }
+  }
+
   /// Synchronise l'ordonnancement automatique d'expiration de phase pour l'Hôte
   /// Fonction pure du temps serveur : si le temps restant est nul ou négatif,
   /// la phase progresse immédiatement sans dépendre de timers UI locaux.
@@ -4143,9 +3339,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     if (!state.isHost && !state.isAdmin) return;
     if (room.phase == GamePhase.lobby || room.phase == GamePhase.gameOver) return;
-
-    // Ordonnancement automatique de l'action IA si le tour actif appartient à un Bot
-    _scheduleBotTurnIfNeeded(room);
 
     final currentServerTime = ServerTimeService().currentServerEstimatedTime;
     final targetEndsAt = room.phaseEndsAt ??
@@ -4178,8 +3371,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   void _cancelAllRoomSubscriptions() {
     _phaseExpirationTimer?.cancel();
     _phaseExpirationTimer = null;
-    _botActionTimer?.cancel();
-    _botActionTimer = null;
     _publicStateSubscription?.cancel();
     _publicStateSubscription = null;
     _playersSubscription?.cancel();
@@ -4379,16 +3570,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final updatedRoom = state.room!.copyWith(players: parsedPlayers);
       state = state.copyWith(room: updatedRoom);
 
-      // Dépouillement anticipé dès que tous les vivants ont voté pendant dayVoting
-      final aliveCount = updatedRoom.alivePlayers.length;
-      final votedCount =
-          updatedRoom.alivePlayers.where((p) => p.targetVoteId != null).length;
-      if (state.isHost &&
-          updatedRoom.phase == GamePhase.dayVoting &&
-          votedCount >= aliveCount &&
-          aliveCount > 0) {
-        processDayVoteResolution();
-      }
+      _checkEarlyResolutionQuorum(updatedRoom);
     });
 
     // 4. ── SOUSCRIPTION GRANULAIRE : votes (table dynamique des votes du tour) ──
@@ -4414,16 +3596,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           final updatedRoom = state.room!.copyWith(players: updatedPlayers);
           state = state.copyWith(room: updatedRoom);
 
-          final aliveCount = updatedRoom.alivePlayers.length;
-          final votedCount = updatedRoom.alivePlayers
-              .where((p) => p.targetVoteId != null)
-              .length;
-          if (state.isHost &&
-              updatedRoom.phase == GamePhase.dayVoting &&
-              votedCount >= aliveCount &&
-              aliveCount > 0) {
-            processDayVoteResolution();
-          }
+          _checkEarlyResolutionQuorum(updatedRoom);
         }
       }
     });
@@ -4618,15 +3791,26 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return true;
     }
 
-    // 4. Règles spécifiques par phase
+    // 4. Règles spécifiques par phase nocturne / diurne
+    if (phase.isNight) {
+      if (phase == GamePhase.nightWerewolves) {
+        return !isEvil; // Seuls les loups parlent dans le canal meute
+      }
+      // Toutes les autres sous-phases nocturnes (Voyante, Sorcière, Voleur, Salvateur, Cupidon, etc.) : micro coupé
+      return true;
+    }
+
     switch (phase) {
-      case GamePhase.nightWerewolves:
-        return !isEvil;
       case GamePhase.dayDebate:
       case GamePhase.dayDefense:
       case GamePhase.mayorSpeechOpening:
       case GamePhase.mayorSpeechClosing:
         return !isCurrentSpeaker;
+      case GamePhase.hunterDeathChoice:
+        return pendingHunterId != currentUserId;
+      case GamePhase.captainSuccession:
+      case GamePhase.mayorSuccession:
+        return pendingCaptainId != currentUserId;
       case GamePhase.dayVoting:
       case GamePhase.dayTieBreakVote:
       case GamePhase.dayResolution:
@@ -4635,11 +3819,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       case GamePhase.morningAnnouncement:
       case GamePhase.lobby:
         return false;
-      case GamePhase.hunterDeathChoice:
-        return pendingHunterId != currentUserId;
-      case GamePhase.captainSuccession:
-      case GamePhase.mayorSuccession:
-        return pendingCaptainId != currentUserId;
       default:
         return true;
     }
@@ -4657,8 +3836,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final mainChannel = 'lupus_$roomCode';
     final wolfChannel = 'lupus_${roomCode}_wolves';
 
+    // 1. Joueur éliminé : micro strictement coupé
     if (!me.isAlive && room.phase != GamePhase.gameOver) {
       await _voiceService.setMute(true);
+      // Les morts peuvent écouter les phases de jour mais sont isolés la nuit
+      if (room.phase.isNight) {
+        await _voiceService.muteSpeaker(true);
+      } else {
+        await _voiceService.muteSpeaker(false);
+      }
       return;
     }
 
@@ -4699,10 +3885,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     await _voiceService.setMute(shouldMute);
 
-    // Contrôle du haut-parleur (muteSpeaker) :
-    // Pendant la nuit des loups, couper le flux entrant pour tous les non-loups (!isWolf)
-    // Sauf si la petite fille espionne. Pour tous les autres cas/phases, réactiver l'audio.
-    if (room.phase == GamePhase.nightWerewolves && !isWolf && !canSpy) {
+    // Contrôle strict du haut-parleur (muteSpeaker / deafen) :
+    // - Nuit des Loups-Garous : seuls les loups et l'espionne (Petite Fille / Admin) écoutent le canal de la meute.
+    // - Autres nuits solitaires (Voyante, Sorcière, etc.) : silence complet pour tous (muteSpeaker = true).
+    // - Phases de jour / Débat / Vote / Aube / GameOver : haut-parleur actif pour tous les survivants (muteSpeaker = false).
+    if (room.phase == GamePhase.nightWerewolves) {
+      if (isWolf || canSpy) {
+        await _voiceService.muteSpeaker(false);
+      } else {
+        await _voiceService.muteSpeaker(true);
+      }
+    } else if (room.phase.isNight) {
       await _voiceService.muteSpeaker(true);
     } else {
       await _voiceService.muteSpeaker(false);

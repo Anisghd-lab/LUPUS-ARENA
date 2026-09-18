@@ -10,9 +10,8 @@ import '../bento/bento_card.dart';
 import '../bento/lupus_permission_dialog.dart';
 import '../bento/role_card_image.dart';
 import '../theme/lupus_theme.dart';
-import 'sandbox_bot_config_dialog.dart';
 
-/// Feuille de contrôle Maître du Jeu (God Mode / Debug Panel) stylisée Dark Medieval Modern
+/// Feuille de contrôle Maître du Jeu (DEV-MOD / Debug Panel) stylisée Dark Medieval Modern
 /// Permet de visualiser tous les secrets de la partie et de forcer les états en direct sur Firebase.
 class AdminControlSheet extends ConsumerStatefulWidget {
   const AdminControlSheet({super.key});
@@ -31,7 +30,7 @@ class AdminControlSheet extends ConsumerStatefulWidget {
 }
 
 class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
-  int _selectedTab = 0; // 0: God View, 1: Phases, 2: Joueurs, 3: Audio
+  int _selectedTab = 0; // 0: Dev View, 1: Phases, 2: Joueurs, 3: Audio
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +56,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
       ),
       child: Column(
         children: [
-          // Poignée et En-tête God Mode
+          // Poignée et En-tête DEV-MOD
           _buildHeader(context, room),
 
           // Barre d'onglets Bento
@@ -118,7 +117,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'PANNEAU MAÎTRE DU JEU',
+                            '👑 DEV-MOD • MAÎTRE DU JEU',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -130,7 +129,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                             ),
                           ),
                           Text(
-                            'God Mode • Mutations Directes Firebase',
+                            'DEV-MOD • Mutations Directes Firebase',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -157,7 +156,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
 
   Widget _buildTabs() {
     final tabs = [
-      {'icon': '👁️', 'label': 'God View'},
+      {'icon': '👁️', 'label': 'Dev View'},
       {'icon': '⏳', 'label': 'Phases'},
       {'icon': '👥', 'label': 'Joueurs'},
       {'icon': '🎙️', 'label': 'Audio'},
@@ -1490,7 +1489,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
             ),
           ),
 
-          // En-tête God Mode
+          // En-tête DEV-MOD
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -1515,7 +1514,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'PANNEAU MAÎTRE DU JEU',
+                              '👑 DEV-MOD • CONTRÔLE ADMIN',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1527,7 +1526,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                               ),
                             ),
                             Text(
-                              'CODE SECRET 03031994 ACTIF',
+                              'CODE SECRET 03031994 ACTIF • PARTIES 100% HUMAINES',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1561,104 +1560,9 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Carte 0 : CONFIGURATION SANDBOX & BOTS SUR MESURE
+                  // Carte : Créer un salon multijoueur réel (12 Joueurs)
                   BentoCard(
-                    borderColor: LupusColors.arcaneGold,
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0x44B45309),
-                        Color(0x33422006),
-                        Color(0x221E1405),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: LupusColors.arcaneGold.withValues(alpha: 0.25),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: LupusColors.arcaneGold, width: 1.2),
-                              ),
-                              child: const Text('🤖', style: TextStyle(fontSize: 22)),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'CONFIGURATION SANDBOX & BOTS',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 13.5,
-                                      color: LupusColors.arcaneGold,
-                                      letterSpacing: 0.8,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Assignation précise de chaque rôle (Voleur, Infect, Flûte...)',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: LupusColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Configurez manuellement les rôles des Bots pour tester et contrôler chaque phase nocturne (Voleur, Cupidon, Loup Infect, Loup Noir, Voyante, Sorcière, Joueur de Flûte, Pyromane).',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: LupusColors.textSecondary,
-                            height: 1.35,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: LupusColors.arcaneGold,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(vertical: 11),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () {
-                              Navigator.pop(context);
-                              SandboxBotConfigDialog.show(context);
-                            },
-                            icon: const Icon(Icons.tune_rounded, size: 18),
-                            label: const Text(
-                              'OUVRIR LA CONFIGURATION SANDBOX',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 11.5,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Carte 1 : SIMULATION TEST 15 JOUEURS
-                  BentoCard(
-                    borderColor: LupusColors.arcaneGold,
+                    borderColor: LupusColors.arcaneGold.withValues(alpha: 0.6),
                     gradient: const LinearGradient(
                       colors: [
                         Color(0x33B45309),
@@ -1679,7 +1583,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                                 color: LupusColors.arcaneGold.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.play_circle_filled_rounded,
+                              child: const Icon(Icons.group_add_rounded,
                                   color: LupusColors.arcaneGold, size: 28),
                             ),
                             const SizedBox(width: 12),
@@ -1688,7 +1592,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'LANCER UNE PARTIE DE TEST (15 JOUEURS)',
+                                    'CRÉER UN SALON MULTIJOUEUR (12 JOUEURS)',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w900,
                                       fontSize: 13,
@@ -1698,7 +1602,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                                   ),
                                   SizedBox(height: 2),
                                   Text(
-                                    'Test instantané du God Mode sans attendre d\'autres joueurs',
+                                    'Pour faire jouer 12 guerriers humains en direct',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: LupusColors.textSecondary,
@@ -1711,7 +1615,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'Génère 14 guerriers simulés avec rôles attribués (Loups, Voyante, Sorcière, Chasseur, Cupidon, etc.), lance la Nuit 1 et ouvre immédiatement l\'Arène avec le God Mode complet.',
+                          'Créez un salon de jeu officiel avec un deck canonique de 12 rôles équilibrés. Dès que 12 guerriers se sont rassemblés, le Maître du Jeu peut lancer la partie.',
                           style: TextStyle(
                             fontSize: 12,
                             color: LupusColors.textSecondary,
@@ -1734,88 +1638,15 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                               Navigator.pop(context);
                               await ref
                                   .read(gameNotifierProvider.notifier)
-                                  .createTestRoom();
+                                  .createRoom();
                             },
-                            icon: const Icon(Icons.flash_on_rounded, size: 20),
+                            icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
                             label: const Text(
-                              'LANCER LA SIMULATION MAINTENANT',
+                              'CRÉER LE SALON MULTIJOUEUR',
                               style: TextStyle(
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.0,
                               ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Carte 2 : Créer un salon multijoueur réel
-                  BentoCard(
-                    borderColor: LupusColors.moonIndigo.withValues(alpha: 0.5),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: LupusColors.moonIndigo.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.group_add_rounded,
-                                  color: LupusColors.moonIndigo, size: 28),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'CRÉER UN SALON MULTIJOUEUR',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                      color: LupusColors.textPrimary,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Pour faire jouer de vrais joueurs avec vous',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: LupusColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: LupusColors.moonIndigo,
-                              side: const BorderSide(color: LupusColors.moonIndigo),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () async {
-                              Navigator.pop(context);
-                              await ref
-                                  .read(gameNotifierProvider.notifier)
-                                  .createRoom();
-                            },
-                            child: const Text(
-                              'CRÉER UN NOUVEAU SALON',
-                              style: TextStyle(fontWeight: FontWeight.w800),
                             ),
                           ),
                         ),

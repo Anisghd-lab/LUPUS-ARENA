@@ -176,9 +176,10 @@ class GameRoom {
   Map<String, int> get voteCounts {
     final counts = <String, int>{};
     final isDayVote = phase == GamePhase.dayVoting || phase == GamePhase.dayTieBreakVote;
+    final livingCount = alivePlayers.length;
     for (final player in alivePlayers) {
       if (player.targetVoteId != null && player.targetVoteId!.isNotEmpty) {
-        final weight = (isDayVote && player.isCaptain) ? 2 : 1;
+        final weight = (isDayVote && player.isCaptain && livingCount > 3) ? 2 : 1;
         counts[player.targetVoteId!] = (counts[player.targetVoteId!] ?? 0) + weight;
       }
     }

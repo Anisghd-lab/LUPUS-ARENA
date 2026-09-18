@@ -553,9 +553,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           onInfect: (victimId) => ref
                               .read(gameNotifierProvider.notifier)
                               .infectWolfInfect(victimId),
-                          onExecuteBotNightAction: () => ref
-                              .read(gameNotifierProvider.notifier)
-                              .executeBotNightAction(),
                           onHunterShoot: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
                               .hunterShoot(targetId),

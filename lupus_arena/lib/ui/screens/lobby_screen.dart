@@ -9,7 +9,6 @@ import '../../models/game_phase.dart';
 import '../../models/game_room.dart';
 import '../admin/admin_control_sheet.dart';
 import '../admin/admin_secret_dialog.dart';
-import '../admin/sandbox_bot_config_dialog.dart';
 import '../bento/bento_card.dart';
 import '../bento/bento_voice_controls.dart';
 import '../bento/medieval_fantasy_button.dart';
@@ -249,77 +248,38 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ),
           ),
 
-          // 4. Indicateur / Badges Admin & Sandbox si le God Mode est activé (position fixe droite)
+          // 4. Indicateur / Badge DEV-MOD si l'Admin est activé (position fixe droite)
           if (gameState.isAdmin)
             Positioned(
               right: 18,
               top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: () => SandboxBotConfigDialog.show(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: LupusColors.arcaneCyan, width: 1.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: LupusColors.arcaneCyan.withValues(alpha: 0.35),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('🤖', style: TextStyle(fontSize: 13)),
-                          SizedBox(width: 4),
-                          Text(
-                            'SANDBOX',
-                            style: TextStyle(
-                              color: LupusColors.arcaneCyan,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 10,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+              child: GestureDetector(
+                onTap: () => AdminControlSheet.show(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1405),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: LupusColors.arcaneGold, width: 1.5),
+                    boxShadow: LupusTheme.glowGold(opacity: 0.45),
                   ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => AdminControlSheet.show(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1405),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: LupusColors.arcaneGold, width: 1.5),
-                        boxShadow: LupusTheme.glowGold(opacity: 0.45),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('👑', style: TextStyle(fontSize: 14)),
+                      SizedBox(width: 6),
+                      Text(
+                        'DEV-MOD',
+                        style: TextStyle(
+                          color: LupusColors.arcaneGold,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 10,
+                          letterSpacing: 0.8,
+                        ),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('👑', style: TextStyle(fontSize: 14)),
-                          SizedBox(width: 6),
-                          Text(
-                            'GOD MODE',
-                            style: TextStyle(
-                              color: LupusColors.arcaneGold,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 10,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
 
@@ -1071,7 +1031,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   ),
                 ],
 
-                // Bannière Maître du Jeu (God Mode) si actif
+                // Bannière Maître du Jeu (DEV-MOD) si actif
                 if (gameState.isAdmin) ...[
                   GestureDetector(
                     onTap: () => AdminControlSheet.show(context),
@@ -1088,23 +1048,16 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         border: Border.all(color: LupusColors.arcaneGold, width: 1.5),
                         boxShadow: LupusTheme.glowGold(opacity: 0.35),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: LupusColors.arcaneGold.withValues(alpha: 0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Text('👑', style: TextStyle(fontSize: 20)),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
+                          Text('👑', style: TextStyle(fontSize: 20)),
+                          SizedBox(width: 12),
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'PANNEAU MAÎTRE DU JEU ACTIF',
+                                  '👑 DEV-MOD MAÎTRE DU JEU ACTIF',
                                   style: TextStyle(
                                     color: LupusColors.arcaneGold,
                                     fontWeight: FontWeight.w900,
@@ -1114,13 +1067,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                 ),
                                 SizedBox(height: 2),
                                 Text(
-                                  'Toucher pour ouvrir le God Mode & la simulation',
+                                  'Toucher pour ouvrir le panneau DEV-MOD',
                                   style: TextStyle(color: LupusColors.textSecondary, fontSize: 11),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios_rounded,
+                          Icon(Icons.arrow_forward_ios_rounded,
                               color: LupusColors.arcaneGold, size: 16),
                         ],
                       ),
@@ -1178,7 +1131,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
                 const SizedBox(height: 14),
 
-                // Liste des Guerriers connectés
+                // Liste des Guerriers connectés (12 Joueurs stricts)
                 BentoCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1187,7 +1140,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'JOUEURS RASSEMBLÉS (${room.playerList.length}/30)',
+                            'GUERRIERS RASSEMBLÉS (${room.playerList.length}/12)',
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
@@ -1198,19 +1151,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: (room.playerList.length >= 4 && room.playerList.length <= 30)
+                              color: room.playerList.length == 12
                                   ? LupusColors.poisonGreen.withValues(alpha: 0.2)
                                   : LupusColors.bloodRed.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              (room.playerList.length >= 4 && room.playerList.length <= 30)
-                                  ? 'Prêt à lancer'
-                                  : (room.playerList.length < 4 ? 'Min. 4 joueurs' : 'Max 30 joueurs'),
+                              room.playerList.length == 12
+                                  ? '12/12 Prêt à lancer'
+                                  : '${room.playerList.length}/12 Guerriers',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
-                                color: (room.playerList.length >= 4 && room.playerList.length <= 30)
+                                color: room.playerList.length == 12
                                     ? LupusColors.poisonGreen
                                     : LupusColors.bloodRed,
                               ),
@@ -1262,73 +1215,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
                 const SizedBox(height: 14),
 
-                // Bouton Configuration Sandbox & Bots (Host / Godmode)
-                if (gameState.isHost || gameState.isAdmin) ...[
-                  InkWell(
-                    onTap: () => SandboxBotConfigDialog.show(context),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1E1405), Color(0xFF0F172A)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: LupusColors.arcaneGold.withValues(alpha: 0.8),
-                          width: 1.3,
-                        ),
-                        boxShadow: LupusTheme.glowGold(opacity: 0.25),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: LupusColors.arcaneGold.withValues(alpha: 0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Text('🤖', style: TextStyle(fontSize: 18)),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'CONFIGURATION SANDBOX & BOTS',
-                                  style: TextStyle(
-                                    color: LupusColors.arcaneGold,
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Injecter des bots et assigner manuellement leurs rôles',
-                                  style: TextStyle(
-                                    color: LupusColors.textSecondary,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(
-                            Icons.tune_rounded,
-                            color: LupusColors.arcaneGold,
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-
                 // Panneau Bento de composition du Deck de rôles (Deck Builder)
                 RoleSelectorBento(
                   room: room,
@@ -1343,16 +1229,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     builder: (context) {
                       final totalRoles = room.totalRolesInPool;
                       final totalPlayers = room.playerList.length;
-                      final isBalanced = totalRoles == totalPlayers;
-                      final hasMinPlayers = totalPlayers >= 4;
-                      final isUnderMax = totalPlayers <= 30;
-                      final isValidPlayerCount = hasMinPlayers && isUnderMax;
-                      final canLaunch = isBalanced && isValidPlayerCount;
+                      final is12Players = totalPlayers == 12;
+                      final is12Roles = totalRoles == 12;
+                      final canLaunch = is12Players && is12Roles;
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (!hasMinPlayers) ...[
+                          if (totalPlayers < 12) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               margin: const EdgeInsets.only(bottom: 10),
@@ -1368,7 +1252,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Il faut au moins 4 guerriers connectés pour lancer la partie ($totalPlayers/4, max 30)',
+                                      'En attente de 12 guerriers connectés ($totalPlayers/12)',
                                       style: const TextStyle(
                                         color: LupusColors.bloodRed,
                                         fontSize: 11.5,
@@ -1379,7 +1263,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                 ],
                               ),
                             ),
-                          ] else if (!isUnderMax) ...[
+                          ] else if (totalPlayers > 12) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               margin: const EdgeInsets.only(bottom: 10),
@@ -1395,7 +1279,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Le salon dépasse la limite de 30 guerriers ($totalPlayers/30)',
+                                      'Le salon dépasse la limite de 12 guerriers ($totalPlayers/12)',
                                       style: const TextStyle(
                                         color: LupusColors.bloodRed,
                                         fontSize: 11.5,
@@ -1406,7 +1290,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                 ],
                               ),
                             ),
-                          ] else if (!isBalanced) ...[
+                          ] else if (!is12Roles) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               margin: const EdgeInsets.only(bottom: 10),
@@ -1422,7 +1306,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Le total des rôles ($totalRoles) doit correspondre au nombre de joueurs connectés ($totalPlayers)',
+                                      'Le total des cartes de rôles ($totalRoles) doit être exactement de 12 cartes',
                                       style: const TextStyle(
                                         color: LupusColors.sunAmber,
                                         fontSize: 11.5,

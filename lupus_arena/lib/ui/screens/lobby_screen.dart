@@ -13,6 +13,7 @@ import '../admin/sandbox_bot_config_dialog.dart';
 import '../bento/bento_card.dart';
 import '../bento/bento_player_tile.dart';
 import '../bento/bento_voice_controls.dart';
+import '../bento/medieval_fantasy_button.dart';
 import '../bento/role_selector_bento.dart';
 import '../bento/lupus_permission_dialog.dart';
 import '../bento/app_update_dialog.dart';
@@ -163,13 +164,23 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           // 1. Image d'arrière-plan en plein écran avec BoxFit.cover (garantit 0 vide noir)
           Positioned.fill(
             child: Image.asset(
-              LupusAssets.lobbyCleanBgAsset,
+              LupusAssets.lobbyFantasyBgAsset,
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
               errorBuilder: (context, error, stackTrace) => Image.asset(
-                LupusAssets.villageNightBgAssetFallback,
+                LupusAssets.lobbyFantasyBgAltAsset,
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
+                errorBuilder: (context, error, stackTrace) => Image.asset(
+                  LupusAssets.lobbyCleanBgAsset,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  errorBuilder: (context, error, stackTrace) => Image.asset(
+                    LupusAssets.villageNightBgAssetFallback,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                  ),
+                ),
               ),
             ),
           ),
@@ -657,27 +668,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   Widget _buildActionPanel(LupusGameState gameState) {
     return Container(
       margin: EdgeInsets.zero,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF381559),
-            Color(0xFF19092B),
-            Color(0xFF0C0416),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFF0F0B1E).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFFA855F7).withValues(alpha: 0.85),
-          width: 1.8,
+          color: const Color(0xFF6B4A8E).withValues(alpha: 0.7),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFA855F7).withValues(alpha: 0.45),
-            blurRadius: 24,
-            spreadRadius: 2,
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
+            blurRadius: 20,
+            spreadRadius: 1,
           ),
           const BoxShadow(
             color: Colors.black87,
@@ -690,143 +693,102 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // GAUCHE : Bouton "CRÉER UN SALON"
+            // GAUCHE : Bouton "CRÉER UN SALON" (Améthyste Somptueux)
             Expanded(
               flex: 13,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: gameState.isLoading
-                      ? null
-                      : () => ref.read(gameNotifierProvider.notifier).createRoom(),
-                  borderRadius: BorderRadius.circular(16),
-                  splashColor: const Color(0xFFA855F7).withValues(alpha: 0.4),
-                  highlightColor: const Color(0xFFA855F7).withValues(alpha: 0.2),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF4C1D82),
-                          Color(0xFF280C4B),
-                          Color(0xFF16042E),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFA855F7).withValues(alpha: 0.85),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFA855F7).withValues(alpha: 0.35),
-                          blurRadius: 12,
+              child: MedievalFantasyButton.amethyst(
+                onTap: gameState.isLoading
+                    ? null
+                    : () => ref.read(gameNotifierProvider.notifier).createRoom(),
+                enabled: !gameState.isLoading,
+                borderRadius: 16,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Croix / Sceau runique doré et lumineux
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFA855F7).withValues(alpha: 0.85),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Croix runique stylisée en violet lumineux
-                        Container(
-                          width: 46,
-                          height: 46,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFA855F7).withValues(alpha: 0.85),
-                                blurRadius: 18,
-                                spreadRadius: 3,
+                        child: const Center(
+                          child: Text(
+                            '᛭',
+                            style: TextStyle(
+                              color: Color(0xFFF5E8FF),
+                              fontSize: 34,
+                              fontWeight: FontWeight.w900,
+                              height: 1.0,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (gameState.isLoading)
+                        const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Color(0xFFE9D5FF),
+                          ),
+                        )
+                      else ...[
+                        Text(
+                          context.tr('create_room').toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
                               ),
                             ],
                           ),
-                          child: const Center(
-                            child: Text(
-                              '᛭',
-                              style: TextStyle(
-                                color: Color(0xFFF3E8FF),
-                                fontSize: 36,
-                                fontWeight: FontWeight.w900,
-                                height: 1.0,
-                              ),
-                            ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          context.tr('become_host'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFD8B4FE),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        if (gameState.isLoading)
-                          const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Color(0xFFA855F7),
-                            ),
-                          )
-                        else ...[
-                          Text(
-                            context.tr('create_room').toUpperCase(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            context.tr('become_host'),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFFC084FC),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
             ),
 
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
 
             // DROITE : Zone Code & Rejoindre (empilés)
             Expanded(
               flex: 11,
               child: Column(
                 children: [
-                  // Champ "CODE" (vrai TextField fonctionnel, sans Text superposé, hintText effaçable)
+                  // Champ "CODE" dans le bouton Ardoise/Pierre taillée
                   Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF33374B),
-                            Color(0xFF222638),
-                            Color(0xFF171926),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: const Color(0xFF64748B),
-                          width: 1.5,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black54,
-                            blurRadius: 6,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
+                    child: MedievalFantasyButton.stone(
+                      borderRadius: 12,
                       child: Center(
                         child: TextField(
                           controller: _codeController,
@@ -836,17 +798,24 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           cursorColor: const Color(0xFFA855F7),
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 3.5,
+                            letterSpacing: 3.0,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black87,
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
                           ),
                           decoration: InputDecoration(
                             hintText: context.tr('enter_room_code').toUpperCase(),
                             hintStyle: const TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
+                              letterSpacing: 1.2,
                             ),
                             counterText: '',
                             border: InputBorder.none,
@@ -859,55 +828,32 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
 
-                  // Bouton "REJOINDRE" (dégradé rouge bordeaux sombre et bordure)
+                  // Bouton "REJOINDRE" (Rubis Flamboyant Biseauté)
                   Expanded(
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: gameState.isLoading ? null : _handleJoinOrAdmin,
-                        borderRadius: BorderRadius.circular(14),
-                        splashColor: const Color(0xFFEF4444).withValues(alpha: 0.4),
-                        highlightColor: const Color(0xFFEF4444).withValues(alpha: 0.2),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFFB91C1C),
-                                Color(0xFF881313),
-                                Color(0xFF530A0A),
-                              ],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: const Color(0xFFEF4444),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFDC2626).withValues(alpha: 0.5),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
+                    child: MedievalFantasyButton.ruby(
+                      onTap: gameState.isLoading ? null : _handleJoinOrAdmin,
+                      enabled: !gameState.isLoading,
+                      borderRadius: 12,
+                      child: Center(
+                        child: Text(
+                          context.tr('join_room').toUpperCase(),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
                               ),
                             ],
-                          ),
-                          alignment: Alignment.center,
-                          child: Center(
-                            child: Text(
-                              context.tr('join_room').toUpperCase(),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
                           ),
                         ),
                       ),
@@ -1483,37 +1429,62 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           ],
                           SizedBox(
                             height: 52,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: canLaunch
-                                    ? LupusColors.bloodRed
-                                    : LupusColors.surfaceLight,
-                                foregroundColor: canLaunch
-                                    ? Colors.white
-                                    : LupusColors.textMuted,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                elevation: canLaunch ? 4 : 0,
-                              ),
-                              onPressed: canLaunch
-                                  ? () => ref.read(gameNotifierProvider.notifier).startGame()
-                                  : null,
-                              icon: Icon(
-                                canLaunch ? Icons.play_arrow_rounded : Icons.lock_rounded,
-                                size: 22,
-                              ),
-                              label: Text(
-                                canLaunch
-                                    ? context.tr('start_game').toUpperCase()
-                                    : '${context.tr('start_game').toUpperCase()} ($totalRoles / $totalPlayers)',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ),
+                            child: canLaunch
+                                ? MedievalFantasyButton.ruby(
+                                    borderRadius: 16,
+                                    onTap: () => ref.read(gameNotifierProvider.notifier).startGame(),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.play_arrow_rounded,
+                                          color: Colors.white,
+                                          size: 22,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          context.tr('start_game').toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.8,
+                                            shadows: [
+                                              Shadow(
+                                                color: Colors.black,
+                                                blurRadius: 4,
+                                                offset: Offset(0, 1),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : MedievalFantasyButton.stone(
+                                    borderRadius: 16,
+                                    enabled: false,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.lock_rounded,
+                                          color: Color(0xFF94A3B8),
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${context.tr('start_game').toUpperCase()} ($totalRoles / $totalPlayers)',
+                                          style: const TextStyle(
+                                            color: Color(0xFF94A3B8),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.8,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                           ),
                         ],
                       );

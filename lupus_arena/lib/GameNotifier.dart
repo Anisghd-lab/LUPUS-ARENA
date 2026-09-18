@@ -2397,7 +2397,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final room = state.room!;
     if (room.pendingCaptainId != state.currentUserId &&
         room.captainId != state.currentUserId &&
-        !state.isAdmin) return;
+        !state.isAdmin) {
+      return;
+    }
 
     final successor = room.players[successorId];
     if (successor == null || !successor.isAlive) return;

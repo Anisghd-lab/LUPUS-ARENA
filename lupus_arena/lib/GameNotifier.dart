@@ -10,9 +10,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'AgoraVoiceService.dart';
+import 'models/expanded_roles_state.dart';
 import 'models/game_phase.dart';
 import 'models/game_room.dart';
 import 'models/player_model.dart';
+import 'services/expanded_roles_coordinator.dart';
 import 'services/role_security_service.dart';
 import 'services/server_time_service.dart';
 
@@ -80,6 +82,9 @@ class LupusGameState {
     if (!isLover || currentPlayer?.loverId == null || room == null) return null;
     return room!.players[currentPlayer!.loverId!]?.name;
   }
+
+  ExpandedRolesState get expandedRolesState =>
+      room?.expandedRolesState ?? const ExpandedRolesState();
 
   LupusGameState copyWith({
     String? currentUserId,
@@ -1569,7 +1574,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
                 RoleSecurityService.encryptWolfRoster(wolfIds, room.roomCode);
           } catch (_) {}
         } else {
-          effectiveDeaths.add(wolfVictimId);
+          final victimRole = room.players[wolfVictimId]?.role;
+          final ancientLives = room.expandedRolesState.ancientLives[wolfVictimId] ?? 2;
+          if (victimRole == GameRole.elder && ancientLives > 1) {
+            final updatedLives = Map<String, int>.from(room.expandedRolesState.ancientLives);
+            updatedLives[wolfVictimId] = ancientLives - 1;
+            updates['expandedRolesState'] = room.expandedRolesState.copyWith(ancientLives: updatedLives).toMap();
+            logs.add('🛡️ L\'Ancien (${room.players[wolfVictimId]?.name}) résiste à la morsure des loups grâce à sa robustesse légendaire ! (1 vie restante)');
+          } else {
+            effectiveDeaths.add(wolfVictimId);
+          }
         }
       }
 
@@ -1676,14 +1690,104 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['nightVictimId'] = null;
       updates['witchHealed'] = false;
       updates['witchPoisonVictimId'] = null;
+
+      final realRoles = await _resolveRealRoles(room);
+
+      // Montreur d'Ours : grogne à l'aube si un loup est adjacent
+      final bearTamer = room.alivePlayers.cast<PlayerModel?>().firstWhere(
+            (p) => p != null && (realRoles[p.id] ?? p.role) == GameRole.bearTamer,
+            orElse: () => null,
+          );
+      if (bearTamer != null && !allDeaths.contains(bearTamer.id)) {
+        final growl = ExpandedRolesCoordinator.shouldBearGrowl(
+          bearTamerPlayerId: bearTamer.id,
+          alivePlayerIdsInOrder: room.seatingOrder
+              .where((id) => room.players[id]?.isAlive == true && !allDeaths.contains(id))
+              .toList(),
+          playerRoles: realRoles,
+          infectedPlayerId: room.expandedRolesState.infectedPlayerId ?? room.infectedPlayerId,
+        );
+        if (growl) {
+          logs.add('🐻 Le grognement caverneux de l\'ours résonne dans tout le village ! Au moins un loup se tapit parmi ses voisins directs.');
+        }
+      }
+
+      // Chevalier à l'Épée Rouillée : contamination du loup à gauche
+      for (final id in allDeaths) {
+        final r = realRoles[id] ?? room.players[id]?.role;
+        if (r == GameRole.knightRustySword) {
+          final contaminatedWolf = ExpandedRolesCoordinator.findWolfToContaminate(
+            knightPlayerId: id,
+            alivePlayerIdsInOrder: room.seatingOrder.where((pid) => room.players[pid]?.isAlive == true).toList(),
+            playerRoles: realRoles,
+            infectedPlayerId: room.expandedRolesState.infectedPlayerId ?? room.infectedPlayerId,
+          );
+          if (contaminatedWolf != null) {
+            final wName = room.players[contaminatedWolf]?.name ?? contaminatedWolf;
+            logs.add('🗡️ L\'Épée Rouillée a entaillé $wName lors de l\'assaut nocturne ! Le venin le foudroiera la nuit prochaine.');
+            updates['expandedRolesState'] = room.expandedRolesState.copyWith(
+              rustyKnightContaminatedWolfId: contaminatedWolf,
+              rustyKnightDeathNight: room.round + 1,
+            ).toMap();
+          }
+        }
+      }
+
+      // Chevalier à l'Épée Rouillée : résolution de la mort différée du loup contaminé
+      final contaminatedWolfId = room.expandedRolesState.rustyKnightContaminatedWolfId;
+      final deathNight = room.expandedRolesState.rustyKnightDeathNight;
+      if (contaminatedWolfId != null && deathNight != null && room.round >= deathNight) {
+        final cWolf = room.players[contaminatedWolfId];
+        if (cWolf != null && cWolf.isAlive) {
+          allDeaths.add(contaminatedWolfId);
+          updates['players/$contaminatedWolfId/isAlive'] = false;
+          logs.add('🗡️ Le venin de l\'Épée Rouillée a terrassé ${cWolf.name} ! Le loup expire dans d\'atroces souffrances.');
+          updates['expandedRolesState'] = room.expandedRolesState.copyWith(
+            rustyKnightContaminatedWolfId: null,
+            rustyKnightDeathNight: null,
+          ).toMap();
+        }
+      }
+
+      // Enfant Sauvage : transformation si son modèle périt cette nuit
+      final wildModelId = room.expandedRolesState.wildChildModelId;
+      if (wildModelId != null && allDeaths.contains(wildModelId)) {
+        final wildChild = room.alivePlayers.cast<PlayerModel?>().firstWhere(
+              (p) => p != null && (realRoles[p.id] ?? p.role) == GameRole.wildChild,
+              orElse: () => null,
+            );
+        if (wildChild != null && !allDeaths.contains(wildChild.id)) {
+          logs.add('🐺 Son modèle ayant péri cette nuit, l\'Enfant Sauvage (${wildChild.name}) succombe à sa rage bestiale et rejoint la meute !');
+          updates['players/${wildChild.id}/role'] = GameRole.simpleWerewolf.id;
+          updates['expandedRolesState'] = room.expandedRolesState.copyWith(wildChildTransformed: true).toMap();
+        }
+      // Chiot de Loup : double meurtre pour la meute la nuit prochaine s'il périt
+      for (final id in allDeaths) {
+        final r = realRoles[id] ?? room.players[id]?.role;
+        if (r == GameRole.wolfCub) {
+          logs.add('🐺 Le Chiot de Loup a succombé cette nuit ! La meute enragée dévorera deux victimes la nuit prochaine.');
+          updates['expandedRolesState'] = (updates['expandedRolesState'] != null
+                  ? ExpandedRolesState.fromMap(updates['expandedRolesState'] as Map)
+                  : room.expandedRolesState)
+              .copyWith(cubDiedYesterday: true)
+              .toMap();
+        }
+      }
+
+      if (room.expandedRolesState.cubDiedYesterday) {
+        updates['expandedRolesState'] = (updates['expandedRolesState'] != null
+                ? ExpandedRolesState.fromMap(updates['expandedRolesState'] as Map)
+                : room.expandedRolesState)
+            .copyWith(cubDiedYesterday: false)
+            .toMap();
+      }
+
       updates['morningVictims'] = allDeaths.toList();
 
       _resetAllVotes(updates);
 
       String? pendingHunter;
       String? pendingCaptain;
-
-      final realRoles = await _resolveRealRoles(room);
 
       for (final id in allDeaths) {
         final p = room.players[id];
@@ -1871,6 +1975,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     }
 
+    // 1. Bonus de 2 voix du Corbeau
+    final crowTarget = room.expandedRolesState.crowTargetId;
+    if (crowTarget != null && room.players[crowTarget]?.isAlive == true) {
+      voteTally[crowTarget] = (voteTally[crowTarget] ?? 0) + 2;
+      logs.add('🦅 Malédiction du Corbeau : 2 voix d\'office accablent ${room.players[crowTarget]?.name ?? crowTarget} !');
+      updates['expandedRolesState'] = room.expandedRolesState.copyWith(crowTargetId: null).toMap();
+    }
+
     if (voteTally.isEmpty) {
       logs.add(
         '🕊️ Aucun vote exprimé. Le village s\'endort sans condamnation.',
@@ -1894,6 +2006,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     logs.add(
       '⚖️ Égalité parfaite au scrutin (${topCandidates.length} accusés à $maxVotes voix) !',
     );
+
+    // 2. Sacrifice canonique du Bouc Émissaire en cas d'égalité
+    final scapegoat = room.alivePlayers.cast<PlayerModel?>().firstWhere(
+          (p) => p != null && p.role == GameRole.scapegoat,
+          orElse: () => null,
+        );
+    if (scapegoat != null) {
+      logs.add(
+        '🐐 Égalité des suffrages ! Le Bouc Émissaire ${scapegoat.name} est désigné coupable expiatoire d\'office et trépasse pour le village !',
+      );
+      await _executeCondemnedPlayer(scapegoat.id, room, updates, logs);
+      return;
+    }
 
     final captain = room.players[room.captainId];
     if (captain != null &&
@@ -2030,6 +2155,41 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       condemnedId,
       ?deadPartnerId,
     };
+
+    // Ancien : Déchéance des pouvoirs si exécuté par le village
+    if (ExpandedRolesCoordinator.checkElderDeathConsequences(
+      killedPlayerId: condemnedId,
+      killedRole: condemnedRealRole,
+      eliminationSource: 'vote',
+    )) {
+      logs.add('📜 Malédiction de l\'Ancien : Condamné par le village, l\'Ancien maudit Thiercelieux ! Tous les villageois perdent leurs pouvoirs.');
+      updates['expandedRolesState'] = room.expandedRolesState.copyWith(ancientPowerLost: true).toMap();
+    }
+
+    // Enfant Sauvage : transformation en loup si son modèle périt
+    final wildModelId = room.expandedRolesState.wildChildModelId;
+    if (wildModelId != null && allDeaths.contains(wildModelId)) {
+      final wildChild = room.alivePlayers.cast<PlayerModel?>().firstWhere(
+            (p) => p != null && p.role == GameRole.wildChild,
+            orElse: () => null,
+          );
+      if (wildChild != null && !allDeaths.contains(wildChild.id)) {
+        logs.add('🐺 Son modèle ayant péri, l\'Enfant Sauvage (${wildChild.name}) succombe à sa rage bestiale et rejoint la meute !');
+        updates['players/${wildChild.id}/role'] = GameRole.simpleWerewolf.id;
+        updates['expandedRolesState'] = room.expandedRolesState.copyWith(wildChildTransformed: true).toMap();
+      }
+    }
+
+    // Chiot de Loup : double meurtre pour la meute la nuit prochaine s'il est lynché
+    if (condemnedRealRole == GameRole.wolfCub) {
+      logs.add('🐺 Le Chiot de Loup a été lynché par le village ! La meute enragée dévorera deux victimes la nuit prochaine.');
+      updates['expandedRolesState'] = (updates['expandedRolesState'] != null
+              ? ExpandedRolesState.fromMap(updates['expandedRolesState'] as Map)
+              : room.expandedRolesState)
+          .copyWith(cubDiedYesterday: true)
+          .toMap();
+    }
+
     String? pendingHunter;
     String? pendingCaptain;
 
@@ -2072,6 +2232,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       logs.add(
         '🎖️ Le Capitaine doit désigner son successeur avant de mourir (10s).',
       );
+    } else if (room.expandedRolesState.isSecondVoteTriggered) {
+      logs.add('⚖️ Le Juge Bègue a exigé un second vote consécutif ! Le village retourne immédiatement aux urnes.');
+      updates['phase'] = GamePhase.dayVoting.name;
+      updates['timerSeconds'] = 30;
+      updates['expandedRolesState'] = room.expandedRolesState.copyWith(
+        isSecondVoteTriggered: false,
+        judgeSecondVoteAvailable: false,
+      ).toMap();
+      _resetAllVotes(updates);
     } else {
       _finishDayCycle(room, updates, logs);
     }
@@ -2089,6 +2258,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     updates['timerSeconds'] = 10;
     updates['isTieBreakActive'] = false;
     updates['tiedPlayerIds'] = [];
+    if (room.expandedRolesState.bannedVotersForToday.isNotEmpty) {
+      updates['expandedRolesState'] = (updates['expandedRolesState'] != null
+              ? ExpandedRolesState.fromMap(updates['expandedRolesState'] as Map)
+              : room.expandedRolesState)
+          .copyWith(bannedVotersForToday: const {})
+          .toMap();
+    }
     _resetAllVotes(updates);
   }
 
@@ -2185,12 +2361,29 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     }
 
+    // 2b. Victoire Solitaire : Abominable Sectaire (éradication du clan adverse)
+    final sectarian = alive.cast<PlayerModel?>().firstWhere(
+          (p) => p != null && getRole(p) == GameRole.sectLeader,
+          orElse: () => null,
+        );
+    if (sectarian != null && room.expandedRolesState.sectarianTeams.isNotEmpty) {
+      final isSectarianVictor = ExpandedRolesCoordinator.checkSectarianVictory(
+        sectarianPlayerId: sectarian.id,
+        alivePlayerIds: alive.map((p) => p.id).toList(),
+        sectarianTeams: room.expandedRolesState.sectarianTeams,
+      );
+      if (isSectarianVictor) {
+        return 'abominableSectarian';
+      }
+    }
+
     // 3. Victoires Solitaires au Dernier Survivant (Loup Blanc ou Pyromane)
     if (alive.length == 1) {
       final survivor = alive.first;
       final role = getRole(survivor);
       if (role == GameRole.whiteWerewolf) return 'whiteWerewolf';
       if (role == GameRole.pyromaniac) return 'pyromaniac';
+      if (role == GameRole.sectLeader) return 'abominableSectarian';
       if (role.isEvil) return 'werewolves';
       return 'village';
     }
@@ -2248,6 +2441,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         return '🐺 Victoire solitaire du Loup-Garou Blanc ! Il a massacré meute et village sans pitié.';
       case 'pyromaniac':
         return '🔥 Victoire solitaire du Pyromane ! Le village entier n\'est plus qu\'un tas de cendres.';
+      case 'abominableSectarian':
+      case 'sectLeader':
+        return '🌀 Victoire de l\'Abominable Sectaire ! Seuls les adeptes de son culte ont survécu.';
       default:
         return '🏁 Fin de partie : Égalité funeste, aucun survivant ne subsiste.';
     }
@@ -2351,6 +2547,153 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await _syncState({
       'infectedPlayerId': targetPlayerId,
     });
+  }
+
+  Future<bool> foxSniff(String targetPlayerId) async {
+    if (state.room == null || _currentRoomRef == null) return false;
+    final room = state.room!;
+    if (state.myRole != GameRole.fox && !state.isAdmin) return false;
+    if (room.expandedRolesState.ancientPowerLost) return false;
+
+    final realRoles = await _resolveRealRoles(room);
+    final seatingOrder = room.seatingOrder.isNotEmpty
+        ? room.seatingOrder
+        : room.players.keys.toList();
+    final aliveIds = seatingOrder.where((id) => room.players[id]?.isAlive == true).toList();
+
+    final hasWolf = ExpandedRolesCoordinator.resolveFoxSniff(
+      targetPlayerId: targetPlayerId,
+      alivePlayerIdsInOrder: aliveIds,
+      playerRoles: realRoles,
+      infectedPlayerId: room.expandedRolesState.infectedPlayerId ?? room.infectedPlayerId,
+    );
+
+    final updates = <String, dynamic>{};
+    final logs = List<String>.from(room.logs);
+
+    if (hasWolf) {
+      logs.add('🦊 Le Renard a flairé une odeur suspecte ! Au moins un loup se cache dans le groupe observé.');
+    } else {
+      logs.add('🦊 Le Renard n\'a rien senti d\'anormal... Son flair s\'éteint à tout jamais.');
+    }
+    updates['logs'] = logs;
+    await _syncState(updates);
+    await processNightTransitions();
+    return hasWolf;
+  }
+
+  Future<void> crowDesignate(String targetPlayerId) async {
+    if (state.room == null || _currentRoomRef == null) return;
+    final room = state.room!;
+    if (state.myRole != GameRole.raven && !state.isAdmin) return;
+
+    final targetName = room.players[targetPlayerId]?.name ?? targetPlayerId;
+    final updates = <String, dynamic>{
+      'expandedRolesState': room.expandedRolesState.copyWith(crowTargetId: targetPlayerId).toMap(),
+      'logs': [
+        ...?room.logs,
+        '🦅 Le Corbeau a cloué un sinistre mot d\'accusation sur la porte de $targetName.',
+      ],
+    };
+    await _syncState(updates);
+    await processNightTransitions();
+  }
+
+  Future<void> wildChildChooseModel(String modelId) async {
+    if (state.room == null || _currentRoomRef == null) return;
+    final room = state.room!;
+    if (state.myRole != GameRole.wildChild && !state.isAdmin) return;
+
+    final modelName = room.players[modelId]?.name ?? modelId;
+    final updates = <String, dynamic>{
+      'expandedRolesState': room.expandedRolesState.copyWith(wildChildModelId: modelId).toMap(),
+      'logs': [
+        ...?room.logs,
+        '🐾 L\'Enfant Sauvage a choisi $modelName comme modèle protecteur pour son existence.',
+      ],
+    };
+    await _syncState(updates);
+    await processNightTransitions();
+  }
+
+  Future<void> stutteringJudgeTriggerSecondVote() async {
+    if (state.room == null || _currentRoomRef == null) return;
+    final room = state.room!;
+    if (state.myRole != GameRole.stutteringJudge && !state.isAdmin) return;
+    if (!room.expandedRolesState.judgeSecondVoteAvailable) return;
+
+    final updates = <String, dynamic>{
+      'expandedRolesState': room.expandedRolesState.copyWith(
+        isSecondVoteTriggered: true,
+        judgeSecondVoteAvailable: false,
+      ).toMap(),
+      'logs': [
+        ...?room.logs,
+        '⚖️ Le Juge Bègue a fait le signe convenu : un second vote aura lieu immédiatement après le premier !',
+      ],
+    };
+    await _syncState(updates);
+  }
+
+  Future<void> sectarianFormTeams(List<String> teamA, List<String> teamB) async {
+    if (state.room == null || _currentRoomRef == null) return;
+    final room = state.room!;
+    if (state.myRole != GameRole.sectLeader && !state.isAdmin) return;
+
+    final updates = <String, dynamic>{
+      'expandedRolesState': room.expandedRolesState.copyWith(
+        sectarianTeams: {'teamA': teamA, 'teamB': teamB},
+      ).toMap(),
+      'logs': [
+        ...?room.logs,
+        '🌀 L\'Abominable Sectaire a divisé en secret le village en deux factions opposées.',
+      ],
+    };
+    await _syncState(updates);
+    await processNightTransitions();
+  }
+
+  Future<void> scapegoatBanVoters(Set<String> bannedVoters) async {
+    if (state.room == null || _currentRoomRef == null) return;
+    final room = state.room!;
+    if (state.myRole != GameRole.scapegoat && !state.isAdmin) return;
+
+    final updates = <String, dynamic>{
+      'expandedRolesState': room.expandedRolesState.copyWith(
+        bannedVotersForToday: bannedVoters,
+      ).toMap(),
+      'logs': [
+        ...?room.logs,
+        '🐐 Dans son dernier souffle, le Bouc Émissaire a privé certains citoyens de leur droit de vote pour le prochain jour.',
+      ],
+    };
+    await _syncState(updates);
+  }
+
+  Future<void> actorChooseRole(GameRole chosenRole) async {
+    if (state.room == null || _currentRoomRef == null) return;
+    final room = state.room!;
+    if (state.myRole != GameRole.actor && !state.isAdmin) return;
+
+    final actorId = state.currentUserId;
+    final currentRoles = List<GameRole>.from(room.expandedRolesState.actorAvailableRoles[actorId] ?? []);
+    currentRoles.remove(chosenRole);
+
+    final updatedMap = Map<String, List<GameRole>>.from(room.expandedRolesState.actorAvailableRoles);
+    updatedMap[actorId] = currentRoles;
+
+    final updates = <String, dynamic>{
+      'players/$actorId/role': chosenRole.id,
+      'expandedRolesState': room.expandedRolesState.copyWith(
+        actorAvailableRoles: updatedMap,
+      ).toMap(),
+      'logs': [
+        ...?room.logs,
+        '🎭 Le Comédien endosse le costume d\'un nouveau rôle pour la nuit !',
+      ],
+    };
+    await _syncState(updates);
+    await processNightTransitions();
   }
 
   Future<void> executeBotNightAction() async {
@@ -2652,6 +2995,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> castVote(String? targetId) async {
     if (_currentRoomRef == null || (!state.isAlive && !state.isAdmin)) return;
+    if (state.room?.phase == GamePhase.dayVoting &&
+        state.room?.expandedRolesState.bannedVotersForToday.contains(state.currentUserId) == true) {
+      return;
+    }
     await _currentRoomRef!
         .child('players/${state.currentUserId}/targetVoteId')
         .set(targetId);

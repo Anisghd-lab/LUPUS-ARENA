@@ -9,6 +9,43 @@ import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 import 'role_card_image.dart';
 
+/// Données d'affichage UI canoniques pour les 30 rôles
+final Map<GameRole, Map<String, dynamic>> roleUIData = {
+  // Rôles existants préservés
+  GameRole.villager: {'name': 'Simple Villageois', 'camp': Camp.village, 'desc': 'Ne possède aucun pouvoir particulier. Utilise sa déduction.'},
+  GameRole.werewolf: {'name': 'Loup-Garou', 'camp': Camp.wolves, 'desc': 'Dévore un villageois chaque nuit en meute.'},
+  GameRole.seer: {'name': 'Voyante', 'camp': Camp.village, 'desc': 'Découvre l\'identité secrète d\'un joueur chaque nuit.'},
+  GameRole.witch: {'name': 'Sorcière', 'camp': Camp.village, 'desc': 'Possède deux potions : une de vie et une de mort.'},
+  GameRole.hunter: {'name': 'Chasseur', 'camp': Camp.village, 'desc': 'Tire un coup de fusil fatal s\'il est éliminé.'},
+  GameRole.cupid: {'name': 'Cupidon', 'camp': Camp.village, 'desc': 'Désigne deux amoureux la première nuit.'},
+  GameRole.littleGirl: {'name': 'Petite Fille', 'camp': Camp.village, 'desc': 'Espionne secrètement les loups la nuit.'},
+  GameRole.bodyguard: {'name': 'Salvateur', 'camp': Camp.village, 'desc': 'Protège un joueur contre l\'attaque des loups chaque nuit.'},
+  GameRole.thief: {'name': 'Voleur', 'camp': Camp.neutral, 'desc': 'Vole une carte ou choisit son camp la première nuit.'},
+  GameRole.blackWolf: {'name': 'Loup Noir', 'camp': Camp.wolves, 'desc': 'Réduit au silence un joueur pour la journée suivante.'},
+  GameRole.pyromaniac: {'name': 'Pyromane', 'camp': Camp.neutral, 'desc': 'Asperge d\'essence et brûle ses victimes.'},
+  GameRole.villageIdiot: {'name': 'Idiot du Village', 'camp': Camp.village, 'desc': 'Gracié par le village mais perd son droit de vote.'},
+  GameRole.angel: {'name': 'Ange', 'camp': Camp.neutral, 'desc': 'Gagne immédiatement s\'il est éliminé au premier vote.'},
+
+  // Rôles ajoutés :
+  GameRole.twoSisters: {'name': 'Deux Sœurs', 'camp': Camp.village, 'desc': 'Se réveillent ensemble la première nuit.'},
+  GameRole.threeBrothers: {'name': 'Trois Frères', 'camp': Camp.village, 'desc': 'Se concertent ensemble la première nuit.'},
+  GameRole.fox: {'name': 'Renard', 'camp': Camp.village, 'desc': 'Flairera un loup parmi un groupe de trois joueurs.'},
+  GameRole.bearTamer: {'name': 'Montreur d\'Ours', 'camp': Camp.village, 'desc': 'L\'ours grogne au matin si un loup est adjacent.'},
+  GameRole.stutteringJudge: {'name': 'Juge Bègue', 'camp': Camp.village, 'desc': 'Peut exiger un second vote consécutif le jour.'},
+  GameRole.rustySwordKnight: {'name': 'Chevalier à l\'Épée Rouillée', 'camp': Camp.village, 'desc': 'Empoisonne le loup à sa gauche s\'il est dévoré.'},
+  GameRole.devotedServant: {'name': 'Servante Dévouée', 'camp': Camp.village, 'desc': 'Peut voler le rôle du condamné avant sa mort.'},
+  GameRole.actor: {'name': 'Comédien', 'camp': Camp.village, 'desc': 'Emprunte chaque nuit le pouvoir d\'une carte écartée.'},
+  GameRole.scapegoat: {'name': 'Bouc Émissaire', 'camp': Camp.village, 'desc': 'Éliminé en cas d\'égalité ; gère les votes du lendemain.'},
+  GameRole.elder: {'name': 'Ancien', 'camp': Camp.village, 'desc': 'Survit à une première attaque de loup. Punition si exécuté.'},
+  GameRole.bigBadWolf: {'name': 'Grand Méchant Loup', 'camp': Camp.wolves, 'desc': 'Dévore une 2e victime tant qu\'aucun loup n\'est mort.'},
+  GameRole.infectFatherOfWolves: {'name': 'Infect Père des Loups', 'camp': Camp.wolves, 'desc': 'Peut infecter la victime au lieu de la tuer.'},
+  GameRole.wolfCub: {'name': 'Chiot Loup', 'camp': Camp.wolves, 'desc': 'Sa mort donne deux victimes aux loups la nuit suivante.'},
+  GameRole.wildChild: {'name': 'Enfant Sauvage', 'camp': Camp.neutral, 'desc': 'Choisit un modèle. Devient loup si son modèle meurt.'},
+  GameRole.crow: {'name': 'Corbeau', 'camp': Camp.village, 'desc': 'Désigne un joueur qui aura 2 voix d\'office au vote.'},
+  GameRole.abominableSectarian: {'name': 'Abominable Sectaire', 'camp': Camp.neutral, 'desc': 'Divise le village et gagne si son clan survit.'},
+  GameRole.soulStealer: {'name': 'Voleur d\'Âmes', 'camp': Camp.neutral, 'desc': 'Échange son destin avec un joueur en début de partie.'},
+};
+
 /// Panneau Bento Grid de Composition du Deck de Rôles (Deck Builder)
 /// Permet à l'Hôte d'ajuster les quantités de chaque carte en temps réel sur Firebase.
 /// Affiche pour tous les joueurs le compteur d'équilibre (Cartes / Joueurs connectés).
@@ -363,9 +400,12 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  isMultiple
-                      ? context.tr('role_multiple_desc')
-                      : context.tr('role_unique_desc'),
+                  (roleUIData[role]?['desc'] as String?) ??
+                      (isMultiple
+                          ? context.tr('role_multiple_desc')
+                          : context.tr('role_unique_desc')),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 9.5,
                     color: LupusColors.textMuted.withValues(alpha: 0.8),

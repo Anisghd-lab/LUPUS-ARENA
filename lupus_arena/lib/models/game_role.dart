@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
 import '../services/app_translations.dart';
 
+enum Camp { village, wolves, neutral }
+
+enum ActionType {
+  passive,
+  firstNightOnly,
+  everyNight,
+  dayTrigger,
+  onDeath,
+  voteModifier,
+}
+
 enum Team {
   village,
   werewolves,
@@ -68,6 +79,9 @@ enum GameRole {
   String getDescription([BuildContext? context]) =>
       AppTranslations.getRoleDesc(id, context);
   Team get defaultTeam => GameRoleExtension(this).defaultTeam;
+  Camp get camp => GameRoleExtension(this).camp;
+  ActionType get actionType => GameRoleExtension(this).actionType;
+  int? get nightPriority => GameRoleExtension(this).nightPriority;
   bool get isEvil => GameRoleExtension(this).isEvil;
   bool get isWolf => isEvil;
   bool get isWolfTeam => isEvil;
@@ -77,11 +91,21 @@ enum GameRole {
   IconData get icon => GameRoleExtension(this).icon;
   GameRole get seerPerception => GameRoleExtension(this).seerPerception;
 
+  // --- ALIAS CANONIQUES ---
+  static GameRole get villager => GameRole.simpleVillager;
+  static GameRole get simpleVillageois => GameRole.simpleVillager;
+  static GameRole get werewolf => GameRole.simpleWerewolf;
   static GameRole get loupBlanc => GameRole.whiteWerewolf;
   static GameRole get whiteWolf => GameRole.whiteWerewolf;
   static GameRole get loupNoir => GameRole.blackWolf;
-  static GameRole get simpleVillageois => GameRole.simpleVillager;
-  static GameRole get villager => GameRole.simpleVillager;
+  static GameRole get bodyguard => GameRole.defender;
+  static GameRole get villageIdiot => GameRole.idiot;
+  static GameRole get infectFatherOfWolves => GameRole.vileFatherOfWolves;
+  static GameRole get crow => GameRole.raven;
+  static GameRole get abominableSectarian => GameRole.sectLeader;
+  static GameRole get soulStealer => GameRole.thiefOfHearts;
+  static GameRole get rustySwordKnight => GameRole.knightRustySword;
+  static GameRole get devotedServant => GameRole.servantMaid;
 
   static GameRole fromId(String id) => GameRoleExtension.fromId(id);
   static GameRole fromString(String? role) => GameRoleExtension.fromString(role);
@@ -343,6 +367,95 @@ extension GameRoleExtension on GameRole {
     }
   }
 
+  Camp get camp {
+    switch (this) {
+      case GameRole.simpleWerewolf:
+      case GameRole.blackWolf:
+      case GameRole.bigBadWolf:
+      case GameRole.vileFatherOfWolves:
+      case GameRole.wolfCub:
+        return Camp.wolves;
+
+      case GameRole.angel:
+      case GameRole.wildChild:
+      case GameRole.sectLeader:
+      case GameRole.thiefOfHearts:
+      case GameRole.pyromaniac:
+      case GameRole.thief:
+      case GameRole.whiteWerewolf:
+      case GameRole.piedPiper:
+        return Camp.neutral;
+
+      default:
+        return Camp.village;
+    }
+  }
+
+  ActionType get actionType {
+    switch (this) {
+      case GameRole.thief:
+      case GameRole.thiefOfHearts:
+      case GameRole.cupid:
+      case GameRole.wildChild:
+      case GameRole.twoSisters:
+      case GameRole.threeBrothers:
+      case GameRole.sectLeader:
+        return ActionType.firstNightOnly;
+
+      case GameRole.seer:
+      case GameRole.defender:
+      case GameRole.simpleWerewolf:
+      case GameRole.bigBadWolf:
+      case GameRole.whiteWerewolf:
+      case GameRole.blackWolf:
+      case GameRole.witch:
+      case GameRole.fox:
+      case GameRole.raven:
+      case GameRole.piedPiper:
+      case GameRole.actor:
+      case GameRole.pyromaniac:
+        return ActionType.everyNight;
+
+      case GameRole.stutteringJudge:
+      case GameRole.servantMaid:
+        return ActionType.dayTrigger;
+
+      case GameRole.hunter:
+      case GameRole.knightRustySword:
+      case GameRole.scapegoat:
+        return ActionType.onDeath;
+
+      default:
+        return ActionType.passive;
+    }
+  }
+
+  /// Ordre chronologique officiel de réveil nocturne (null = pas de réveil actif)
+  int? get nightPriority {
+    switch (this) {
+      case GameRole.thief: return 10;
+      case GameRole.thiefOfHearts: return 15;
+      case GameRole.cupid: return 20;
+      case GameRole.wildChild: return 30;
+      case GameRole.sectLeader: return 35;
+      case GameRole.twoSisters: return 40;
+      case GameRole.threeBrothers: return 45;
+      case GameRole.defender: return 50;
+      case GameRole.seer: return 60;
+      case GameRole.fox: return 70;
+      case GameRole.actor: return 75;
+      case GameRole.simpleWerewolf: return 100; // Inclut WolfCub & InfectFather
+      case GameRole.vileFatherOfWolves: return 105; // Choix d'infection post-délibération
+      case GameRole.bigBadWolf: return 110;
+      case GameRole.blackWolf: return 115;
+      case GameRole.witch: return 120;
+      case GameRole.pyromaniac: return 130;
+      case GameRole.raven: return 140;
+      case GameRole.piedPiper: return 145;
+      default: return null;
+    }
+  }
+
   Color get accentColor {
     switch (this) {
       case GameRole.simpleWerewolf:
@@ -511,7 +624,29 @@ extension GameRoleExtension on GameRole {
         return GameRole.pyromaniac;
       case 'raven':
       case 'corbeau':
+      case 'crow':
         return GameRole.raven;
+      case 'bodyguard':
+      case 'salvateur':
+        return GameRole.defender;
+      case 'villageidiot':
+      case 'village_idiot':
+        return GameRole.idiot;
+      case 'infectfatherofwolves':
+      case 'infect_father_of_wolves':
+        return GameRole.vileFatherOfWolves;
+      case 'abominablesectarian':
+      case 'abominable_sectarian':
+        return GameRole.sectLeader;
+      case 'soulstealer':
+      case 'soul_stealer':
+        return GameRole.thiefOfHearts;
+      case 'rustyswordknight':
+      case 'rusty_sword_knight':
+        return GameRole.knightRustySword;
+      case 'devotedservant':
+      case 'devoted_servant':
+        return GameRole.servantMaid;
       default:
         for (final r in GameRole.values) {
           if (r.name.toLowerCase() == clean || r.id.toLowerCase() == clean) {

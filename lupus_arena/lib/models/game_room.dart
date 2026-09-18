@@ -1,4 +1,6 @@
+import 'expanded_roles_state.dart';
 import 'game_phase.dart';
+import 'game_role.dart';
 import 'player_model.dart';
 
 class GameRoom {
@@ -54,6 +56,7 @@ class GameRoom {
   final bool isDevRoom;
   final List<String> seatingOrder;
   final List<String> replayReadyUserIds;
+  final ExpandedRolesState expandedRolesState;
 
   const GameRoom({
     required this.roomCode,
@@ -94,6 +97,7 @@ class GameRoom {
     this.isDevRoom = false,
     this.seatingOrder = const [],
     this.replayReadyUserIds = const [],
+    this.expandedRolesState = const ExpandedRolesState(),
   });
 
   /// Temps restant en millisecondes calculé de manière pure par rapport à l'heure serveur estimée
@@ -237,6 +241,7 @@ class GameRoom {
     bool? isDevRoom,
     List<String>? seatingOrder,
     List<String>? replayReadyUserIds,
+    ExpandedRolesState? expandedRolesState,
   }) {
     return GameRoom(
       roomCode: roomCode ?? this.roomCode,
@@ -284,6 +289,7 @@ class GameRoom {
       isDevRoom: isDevRoom ?? this.isDevRoom,
       seatingOrder: seatingOrder ?? this.seatingOrder,
       replayReadyUserIds: replayReadyUserIds ?? this.replayReadyUserIds,
+      expandedRolesState: expandedRolesState ?? this.expandedRolesState,
     );
   }
 
@@ -332,6 +338,7 @@ class GameRoom {
       'isDevRoom': isDevRoom,
       'seatingOrder': seatingOrder,
       'replayReadyUserIds': replayReadyUserIds,
+      'expandedRolesState': expandedRolesState.toMap(),
       'config': {
         'rolePool': rolePool,
       },
@@ -574,6 +581,7 @@ class GameRoom {
       isDevRoom: isDevRoom,
       seatingOrder: parsedSeatingOrder,
       replayReadyUserIds: parsedReplayReady,
+      expandedRolesState: ExpandedRolesState.fromMap(map['expandedRolesState'] as Map?),
     );
   }
 }

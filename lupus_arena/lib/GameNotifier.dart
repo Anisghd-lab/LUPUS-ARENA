@@ -1747,6 +1747,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           updates['players/${wildChild.id}/role'] = GameRole.simpleWerewolf.id;
           updates['expandedRolesState'] = room.expandedRolesState.copyWith(wildChildTransformed: true).toMap();
         }
+      }
       // Chiot de Loup : double meurtre pour la meute la nuit prochaine s'il périt
       for (final id in allDeaths) {
         final r = realRoles[id] ?? room.players[id]?.role;
@@ -4786,7 +4787,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     _voiceService.dispose();
     super.dispose();
   }
-}
 }
 
 final gameNotifierProvider =

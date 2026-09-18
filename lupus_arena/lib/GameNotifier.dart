@@ -3920,7 +3920,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     }
 
-    final electionResult = _phaseCoordinator.mayorCoordinator.electMayor(
+    final MayorElectionResult electionResult = _phaseCoordinator.mayorCoordinator.electMayor(
       players: room.players,
       electionVotes: electionVotes,
       fallbackId: room.alivePlayers.isNotEmpty ? room.alivePlayers.first.id : null,

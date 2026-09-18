@@ -219,7 +219,10 @@ enum GamePhase {
 
   bool get isDay {
     return this == GamePhase.captainElection ||
+        this == GamePhase.mayorElection ||
+        this == GamePhase.mayorSpeechOpening ||
         this == GamePhase.dayDebate ||
+        this == GamePhase.mayorSpeechClosing ||
         this == GamePhase.dayVoting ||
         this == GamePhase.dayDefense ||
         this == GamePhase.dayTieBreakVote ||
@@ -253,9 +256,13 @@ enum GamePhase {
       case GamePhase.hunterDeathChoice:
         return Icons.crisis_alert_rounded;
       case GamePhase.captainSuccession:
+      case GamePhase.mayorSuccession:
       case GamePhase.captainElection:
+      case GamePhase.mayorElection:
         return Icons.military_tech_rounded;
+      case GamePhase.mayorSpeechOpening:
       case GamePhase.dayDebate:
+      case GamePhase.mayorSpeechClosing:
         return Icons.record_voice_over_rounded;
       case GamePhase.dayVoting:
       case GamePhase.dayTieBreakVote:

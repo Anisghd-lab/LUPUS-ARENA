@@ -304,7 +304,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                         ],
                       ),
                     ),
-                  _buildTimerBadge(),
                 ],
               ),
             ],

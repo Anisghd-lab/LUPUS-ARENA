@@ -1489,13 +1489,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     bool hasAliveWerewolves() =>
         players.values.any((p) => p.isAlive && getRole(p).isEvil);
 
+    // ═══════════════════════════════════════════════════════════════
+    // RÈGLE CANONIQUE : La Sorcière est active tant qu'elle a AU MOINS
+    // une potion restante (vie OU mort). Scalant : max(1, N÷10) potions.
+    // Identique à GestionnaireSorciere.aEncoreDesPotions du moteur Kotlin.
+    // ═══════════════════════════════════════════════════════════════
     bool hasActiveWitch() {
       final witch = players.values.cast<PlayerModel?>().firstWhere(
-            (p) => p != null && p.isAlive && getRole(p) == GameRole.witch,
+            (p) => p != null && p.isAlive && (getRole(p) == GameRole.witch || p.roleInitial == GameRole.witch),
             orElse: () => null,
           );
-      return witch != null &&
-          (!witch.hasUsedHealPotion || !witch.hasUsedPoisonPotion);
+      if (witch == null) return false;
+      // Stock réel des potions (scalant dès startGame via max(1, N÷10))
+      final hasVie = witch.potionsVie > 0 && !witch.hasUsedHealPotion;
+      final hasMort = witch.potionsMort > 0 && !witch.hasUsedPoisonPotion;
+      return hasVie || hasMort;
     }
 
     GamePhase findNext(int afterIndex) {
@@ -1511,7 +1519,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (afterIndex < 4 && hasAliveWerewolves()) {
         return GamePhase.nightWerewolves;
       }
-      if (afterIndex < 6 && hasAlive(GameRole.seer)) {
+      // Voyante active UNIQUEMENT si elle a encore des visions restantes (quota scalant)
+      bool hasActiveSeer() {
+        final seer = players.values.cast<PlayerModel?>().firstWhere(
+          (p) => p != null && p.isAlive && (getRole(p) == GameRole.seer || p.roleInitial == GameRole.seer),
+          orElse: () => null,
+        );
+        return seer != null && seer.visionsRestantes > 0;
+      }
+      if (afterIndex < 6 && hasActiveSeer()) {
         return GamePhase.nightSeer;
       }
       if (afterIndex < 7 && hasActiveWitch()) {
@@ -2929,6 +2945,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final target = state.room?.players[targetId];
     if (target == null) return null;
 
+    // Résolution du vrai rôle depuis Firebase (rôle chiffré ou devMode)
     GameRole discoveredRole = target.role;
     final roomCode = state.room?.roomCode;
     if (roomCode != null) {
@@ -2944,14 +2961,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     }
 
-    // Règle spéciale Voyante : Le Loup Blanc apparaît comme un Simple Villageois
-    final inspectedRole = (discoveredRole == Role.whiteWolf || discoveredRole == GameRole.whiteWerewolf)
-        ? Role.villager
+    // ═══════════════════════════════════════════════════════════════
+    // RÈGLE CANONIQUE : Masquage absolu du Loup Blanc pour la Voyante.
+    // Le Loup Blanc apparaît systématiquement comme un Simple Villageois
+    // aux yeux de la Voyante — il est invisible aux deux camps.
+    // ═══════════════════════════════════════════════════════════════
+    final inspectedRole = (discoveredRole == GameRole.whiteWerewolf)
+        ? GameRole.simpleVillager
         : discoveredRole;
 
     final updatedMap = Map<String, GameRole>.from(state.seerInspectedRoles);
     updatedMap[targetId] = inspectedRole;
 
+    // Récupération de la Voyante et de son quota de visions restantes
     final seerPlayer = state.room?.playerList.cast<PlayerModel?>().firstWhere(
       (p) => p != null && (p.role == GameRole.seer || p.roleInitial == GameRole.seer),
       orElse: () => state.currentPlayer,
@@ -2959,7 +2981,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final seerId = seerPlayer?.id ?? state.currentUserId;
     final curVisions = seerPlayer?.visionsRestantes ?? 1;
 
+    // ═══════════════════════════════════════════════════════════════
+    // RÈGLE CANONIQUE : Quota de visions scalant par nombre de joueurs
+    // ≤4j → 1  |  5-9j → 2  |  10-14j → 3  |  ≥15j → N÷4
+    // Si le quota est épuisé, la Voyante ne peut plus inspecter.
+    // ═══════════════════════════════════════════════════════════════
     if (curVisions <= 0 && !state.isAdmin) {
+      debugPrint('[inspectPlayer] Quota de visions épuisé — inspection refusée.');
       return null;
     }
 
@@ -2973,7 +3001,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         ...?state.room?.logs,
         '🔮 La Voyante a sondé une âme ($newVisions vision(s) restante(s)).',
         if (isDechue)
-          '🥀 La Voyante a épuisé toutes ses visions et devient Simple Villageoise !',
+          '🥀 La Voyante a épuisé toutes ses visions : elle devient désormais Simple Villageoise !',
       ],
     });
 
@@ -3059,14 +3087,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final witchId = (state.myRole == GameRole.witch)
         ? state.currentUserId
         : (witchPlayer?.id ?? state.currentUserId);
-
-    final curVie = witchPlayer?.potionsVie ?? (witchPlayer?.hasUsedHealPotion == true ? 0 : 1);
+    // ═══════════════════════════════════════════════════════════════
+    // RÈGLE CANONIQUE : Stock de potions de vie scalant max(1, N÷10).
+    // Initialisé dans startGame(). potionsVie est la source de vérité.
+    // ═══════════════════════════════════════════════════════════════
+    final curVie = witchPlayer?.potionsVie ?? 0;
     if (curVie <= 0 && !state.isAdmin) {
-      return;
+      return; // Plus de potion de vie
     }
 
     final newVie = max(0, curVie - 1);
-    final curMort = witchPlayer?.potionsMort ?? (witchPlayer?.hasUsedPoisonPotion == true ? 0 : 1);
+    final curMort = witchPlayer?.potionsMort ?? 0;
     final isDechue = newVie == 0 && curMort == 0;
 
     await _syncState({
@@ -3106,13 +3137,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         ? state.currentUserId
         : (witchPlayer?.id ?? state.currentUserId);
 
-    final curMort = witchPlayer?.potionsMort ?? (witchPlayer?.hasUsedPoisonPotion == true ? 0 : 1);
+    // ═══════════════════════════════════════════════════════════════
+    // RÈGLE CANONIQUE : Stock de potions de mort scalant max(1, N÷10).
+    // potionsMort est la source de vérité, initialisé dans startGame().
+    // ═══════════════════════════════════════════════════════════════
+    final curMort = witchPlayer?.potionsMort ?? 0;
     if (curMort <= 0 && !state.isAdmin) {
-      return;
+      return; // Plus de potion de mort
     }
 
     final newMort = max(0, curMort - 1);
-    final curVie = witchPlayer?.potionsVie ?? (witchPlayer?.hasUsedHealPotion == true ? 0 : 1);
+    final curVie = witchPlayer?.potionsVie ?? 0;
     final isDechue = newMort == 0 && curVie == 0;
 
     // La potion de mort marque la cible pour la résolution du matin sans altérer son statut durant la nuit

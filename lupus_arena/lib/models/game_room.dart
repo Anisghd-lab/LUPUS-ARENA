@@ -339,6 +339,30 @@ class GameRoom {
       'seatingOrder': seatingOrder,
       'replayReadyUserIds': replayReadyUserIds,
       'expandedRolesState': expandedRolesState.toMap(),
+      'public_state': {
+        'phase': phase.name,
+        'currentPhase': phase.name,
+        'round': round,
+        'captainId': captainId,
+        'lastProtectedPlayerId': lastProtectedPlayerId,
+        'currentProtectedPlayerId': currentProtectedPlayerId,
+        'nightVictimId': nightVictimId,
+        'witchHealed': witchHealed,
+        'witchPoisonVictimId': witchPoisonVictimId,
+        'pyromaniacIgnited': pyromaniacIgnited,
+        'seerInspectedTargetId': seerInspectedTargetId,
+        'seerInspectedRole': seerInspectedRole,
+        'blackWolfTargetId': blackWolfTargetId,
+        'pendingHunterId': pendingHunterId,
+        'pendingCaptainId': pendingCaptainId,
+        'currentSpeakerId': currentSpeakerId,
+        'winner': winner,
+        'timerSeconds': timerSeconds,
+        'phaseEndsAt': phaseEndsAt,
+        'phaseStartedAt': phaseStartedAt,
+        'phaseDurationMs': phaseDurationMs,
+        'isTieBreakActive': isTieBreakActive,
+      },
       'config': {
         'rolePool': rolePool,
       },
@@ -350,9 +374,14 @@ class GameRoom {
     dynamic second,
     String? currentUserId,
   ]) {
-    final Map<dynamic, dynamic> map = first is Map
+    final Map<dynamic, dynamic> rawMap = first is Map
         ? first
         : (second is Map ? second : <dynamic, dynamic>{});
+    final publicState = rawMap['public_state'] as Map<dynamic, dynamic>?;
+    final Map<dynamic, dynamic> map = publicState != null
+        ? <dynamic, dynamic>{...rawMap, ...publicState}
+        : rawMap;
+
     final String code = first is String
         ? first
         : (second is String ? second : (map['roomCode'] ?? map['code'] ?? 'DEV').toString());
@@ -406,6 +435,34 @@ class GameRoom {
           }
         }
       }
+    }
+
+    // Merge sharded votes
+    final rawVotes = map['votes'];
+    if (rawVotes is Map) {
+      rawVotes.forEach((voterId, targetId) {
+        final vid = voterId.toString();
+        if (parsedPlayers.containsKey(vid)) {
+          parsedPlayers[vid] = parsedPlayers[vid]!.copyWith(
+            targetVoteId: targetId?.toString(),
+          );
+        }
+      });
+    }
+
+    // Merge sharded presence
+    final rawPresence = map['presence'];
+    if (rawPresence is Map) {
+      rawPresence.forEach((uid, pData) {
+        final userId = uid.toString();
+        if (parsedPlayers.containsKey(userId) && pData is Map) {
+          parsedPlayers[userId] = parsedPlayers[userId]!.copyWith(
+            isOnline: pData['isOnline'] == true,
+            isMuted: pData['isMuted'] == true,
+            lastSeen: pData['lastSeen'] is int ? pData['lastSeen'] as int : null,
+          );
+        }
+      });
     }
 
     final rawLogs = map['logs'];

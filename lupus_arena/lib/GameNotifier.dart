@@ -137,7 +137,11 @@ class LupusGameState {
 /// Moteur de règles canoniques des Loups-Garous de Thiercelieux
 class GameNotifier extends StateNotifier<LupusGameState> {
   final AgoraVoiceService _voiceService = AgoraVoiceService();
-  StreamSubscription<DatabaseEvent>? _roomSubscription;
+  StreamSubscription<DatabaseEvent>? _publicStateSubscription;
+  StreamSubscription<DatabaseEvent>? _playersSubscription;
+  StreamSubscription<DatabaseEvent>? _votesSubscription;
+  StreamSubscription<DatabaseEvent>? _presenceSubscription;
+  StreamSubscription<DatabaseEvent>? _logsSubscription;
   StreamSubscription<DatabaseEvent>? _currentPhaseSubscription;
   StreamSubscription<DatabaseEvent>? _secretRoleSubscription;
   StreamSubscription<DatabaseEvent>? _wolfPackSubscription;
@@ -273,6 +277,32 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['phaseEndsAt'] = currentServerTime + durationMs;
       updates['phaseStartedAt'] = currentServerTime;
       updates['phaseDurationMs'] = durationMs;
+    }
+
+    // ── Synchroniser le sous-nœud public_state pour les abonnements partitionnés ──
+    final publicKeys = [
+      'phase',
+      'currentPhase',
+      'round',
+      'timerSeconds',
+      'phaseEndsAt',
+      'phaseStartedAt',
+      'phaseDurationMs',
+      'captainId',
+      'currentSpeakerId',
+      'pendingHunterId',
+      'pendingCaptainId',
+      'nightVictimId',
+      'witchHealed',
+      'witchPoisonVictimId',
+      'blackWolfTargetId',
+      'isTieBreakActive',
+      'winner',
+    ];
+    for (final k in publicKeys) {
+      if (updates.containsKey(k)) {
+        updates['public_state/$k'] = updates[k];
+      }
     }
 
     try {
@@ -3016,16 +3046,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         state.room?.expandedRolesState.bannedVotersForToday.contains(state.currentUserId) == true) {
       return;
     }
-    await _currentRoomRef!
-        .child('players/${state.currentUserId}/targetVoteId')
-        .set(targetId);
+    final voteUpdates = <String, dynamic>{
+      'players/${state.currentUserId}/targetVoteId': targetId,
+      'votes/${state.currentUserId}': targetId,
+    };
 
     if (state.room?.phase == GamePhase.nightWerewolves && targetId != null) {
-      await _currentRoomRef!.child('nightVictimId').set(targetId);
+      voteUpdates['nightVictimId'] = targetId;
+      voteUpdates['public_state/nightVictimId'] = targetId;
       state = state.copyWith(
         room: state.room?.copyWith(nightVictimId: targetId),
       );
     }
+    await _currentRoomRef!.update(voteUpdates);
   }
 
   /// Intimidation nocturne de la meute : Faire taire un joueur pour toute la journée du lendemain
@@ -3596,7 +3629,31 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (state.room == null) return;
     for (final p in state.room!.playerList) {
       updates['players/${p.id}/targetVoteId'] = null;
+      updates['votes/${p.id}'] = null;
     }
+    updates['votes'] = null;
+  }
+
+  /// Met à jour la présence et le statut audio sans impacter l'état global du jeu
+  Future<void> updatePresence({
+    bool? isOnline,
+    bool? isMuted,
+    int? micVolume,
+    bool? isSpeaking,
+  }) async {
+    if (_currentRoomRef == null || state.currentUserId.isEmpty) return;
+    final presenceUpdates = <String, dynamic>{
+      if (isOnline != null) 'isOnline': isOnline,
+      if (isMuted != null) 'isMuted': isMuted,
+      if (micVolume != null) 'micVolume': micVolume,
+      if (isSpeaking != null) 'isSpeaking': isSpeaking,
+      'lastSeen': ServerValue.timestamp,
+    };
+    try {
+      await _currentRoomRef!
+          .child('presence/${state.currentUserId}')
+          .update(presenceUpdates);
+    } catch (_) {}
   }
 
   /// Synchronise l'ordonnancement automatique d'expiration de phase pour l'Hôte
@@ -3636,63 +3693,128 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
   }
 
+  /// Fermeture et nettoyage propre de tous les abonnements partitionnés
+  void _cancelAllRoomSubscriptions() {
+    _publicStateSubscription?.cancel();
+    _publicStateSubscription = null;
+    _playersSubscription?.cancel();
+    _playersSubscription = null;
+    _votesSubscription?.cancel();
+    _votesSubscription = null;
+    _presenceSubscription?.cancel();
+    _presenceSubscription = null;
+    _logsSubscription?.cancel();
+    _logsSubscription = null;
+    _currentPhaseSubscription?.cancel();
+    _currentPhaseSubscription = null;
+    _secretRoleSubscription?.cancel();
+    _secretRoleSubscription = null;
+    _wolfPackSubscription?.cancel();
+    _wolfPackSubscription = null;
+    _replayStatusSubscription?.cancel();
+    _replayStatusSubscription = null;
+    _gameResetSubscription?.cancel();
+    _gameResetSubscription = null;
+  }
+
+  /// ═══════════════════════════════════════════════════════════════════════════
+  /// ABONNEMENT PARTITIONNÉ (SHARDING D'ÉCOUTE)
+  /// Remplace l'écoute monolithique de la racine par des souscriptions ciblées :
+  /// 1. public_state : phase, timer/endsAt, round, arbitrage
+  /// 2. players : rôles publics, vie, sièges
+  /// 3. votes : table dynamique des votes
+  /// 4. presence : statut vocal, volume micro, connectivité
+  /// 5. logs : historique textuel
+  /// ═══════════════════════════════════════════════════════════════════════════
   void _subscribeToRoom(String roomCode) {
-    _roomSubscription?.cancel();
-    _roomSubscription = _currentRoomRef?.onValue.listen((event) {
-      if (event.snapshot.value == null) {
-        state = state.copyWith(clearRoom: true);
-        return;
+    _cancelAllRoomSubscriptions();
+
+    // 1. Chargement initial complet de la salle
+    _currentRoomRef?.get().then((snap) {
+      if (snap.exists && snap.value != null) {
+        final data = snap.value as Map<dynamic, dynamic>;
+        final initialRoom =
+            GameRoom.fromMap(data, roomCode, state.currentUserId);
+        state = state.copyWith(room: initialRoom);
+        _applyVoiceRulesForPhase(initialRoom);
+        _syncPhaseExpirationSchedule(initialRoom);
       }
-
-      final data = event.snapshot.value as Map<dynamic, dynamic>;
-      final updatedRoom =
-          GameRoom.fromMap(data, roomCode, state.currentUserId);
-
-      // GARDE MONOTONE STRICT : Empêcher tout retour en arrière de phase nocturne dans le même tour
-      if (state.room != null &&
-          state.room!.round == updatedRoom.round &&
-          state.room!.phase.isNight &&
-          updatedRoom.phase.isNight &&
-          updatedRoom.phase.nightOrderIndex < state.room!.phase.nightOrderIndex) {
-        debugPrint(
-          '[Monotonic Guard] Régression nocturne bloquée sur _roomSubscription : ${state.room!.phase.name} (${state.room!.phase.nightOrderIndex}) -> ${updatedRoom.phase.name} (${updatedRoom.phase.nightOrderIndex})',
-        );
-        final correctedRoom = updatedRoom.copyWith(phase: state.room!.phase);
-        state = state.copyWith(room: correctedRoom);
-        _applyVoiceRulesForPhase(correctedRoom);
-        return;
-      }
-
-      state = state.copyWith(room: updatedRoom);
-
-      _applyVoiceRulesForPhase(updatedRoom);
-      _syncPhaseExpirationSchedule(updatedRoom);
-
-      // Dépouillement anticipé dès que tous les vivants ont voté pendant dayVoting
-      final aliveCount = updatedRoom.alivePlayers.length;
-      final votedCount = updatedRoom.alivePlayers.where((p) => p.targetVoteId != null).length;
-      if (state.isHost &&
-          updatedRoom.phase == GamePhase.dayVoting &&
-          votedCount >= aliveCount &&
-          aliveCount > 0) {
-        processDayVoteResolution();
-      }
+    }).catchError((e) {
+      debugPrint('[Initial Room Fetch Error] $e');
     });
 
-    // Écoute dédiée sur currentPhase pour bascule instantanée sans latence vers JOUR_VOTE
-    _currentPhaseSubscription?.cancel();
-    _currentPhaseSubscription = _currentRoomRef?.child('currentPhase').onValue.listen((event) {
+    // 2. ── SOUSCRIPTION GRANULAIRE : public_state ──
+    _publicStateSubscription = _currentRoomRef
+        ?.child('public_state')
+        .onValue
+        .listen((event) {
+      if (event.snapshot.value == null || state.room == null) return;
+      final data = event.snapshot.value as Map<dynamic, dynamic>;
+
+      final rawPhase = data['phase']?.toString() ?? data['currentPhase']?.toString();
+      final parsedPhase = rawPhase != null
+          ? GamePhase.fromString(rawPhase)
+          : state.room!.phase;
+
+      // GARDE MONOTONE STRICT : Empêcher toute régression nocturne
+      if (state.room!.round == (data['round'] ?? state.room!.round) &&
+          state.room!.phase.isNight &&
+          parsedPhase.isNight &&
+          parsedPhase.nightOrderIndex < state.room!.phase.nightOrderIndex) {
+        debugPrint(
+          '[Monotonic Guard] Régression nocturne bloquée sur public_state : ${state.room!.phase.name} -> ${parsedPhase.name}',
+        );
+        return;
+      }
+
+      final updatedRoom = state.room!.copyWith(
+        phase: parsedPhase,
+        round: data['round'] is int ? data['round'] as int : state.room!.round,
+        timerSeconds: data['timerSeconds'] is int
+            ? data['timerSeconds'] as int
+            : state.room!.timerSeconds,
+        phaseEndsAt: (data['phaseEndsAt'] is num)
+            ? (data['phaseEndsAt'] as num).toInt()
+            : state.room!.phaseEndsAt,
+        phaseStartedAt: (data['phaseStartedAt'] is num)
+            ? (data['phaseStartedAt'] as num).toInt()
+            : state.room!.phaseStartedAt,
+        phaseDurationMs: (data['phaseDurationMs'] is num)
+            ? (data['phaseDurationMs'] as num).toInt()
+            : state.room!.phaseDurationMs,
+        captainId: data['captainId']?.toString() ?? state.room!.captainId,
+        currentSpeakerId:
+            data['currentSpeakerId']?.toString() ?? state.room!.currentSpeakerId,
+        pendingHunterId:
+            data['pendingHunterId']?.toString() ?? state.room!.pendingHunterId,
+        pendingCaptainId:
+            data['pendingCaptainId']?.toString() ?? state.room!.pendingCaptainId,
+        nightVictimId:
+            data['nightVictimId']?.toString() ?? state.room!.nightVictimId,
+        witchHealed: data['witchHealed'] == true,
+        witchPoisonVictimId: data['witchPoisonVictimId']?.toString() ??
+            state.room!.witchPoisonVictimId,
+        blackWolfTargetId:
+            data['blackWolfTargetId']?.toString() ?? state.room!.blackWolfTargetId,
+        winner: data['winner']?.toString() ?? state.room!.winner,
+        isTieBreakActive: data['isTieBreakActive'] == true,
+      );
+
+      state = state.copyWith(room: updatedRoom);
+      _applyVoiceRulesForPhase(updatedRoom);
+      _syncPhaseExpirationSchedule(updatedRoom);
+    });
+
+    // Écoute dédiée sur currentPhase pour compatibilité temps réel immédiate
+    _currentPhaseSubscription =
+        _currentRoomRef?.child('currentPhase').onValue.listen((event) {
       final rawPhase = event.snapshot.value?.toString();
       if (rawPhase != null && state.room != null) {
         final parsed = GamePhase.fromString(rawPhase);
         if (state.room!.phase != parsed) {
-          // GARDE MONOTONE STRICT : Empêcher toute régression nocturne
           if (state.room!.phase.isNight &&
               parsed.isNight &&
               parsed.nightOrderIndex < state.room!.phase.nightOrderIndex) {
-            debugPrint(
-              '[Monotonic Guard] Régression nocturne bloquée sur _currentPhaseSubscription : ${state.room!.phase.name} -> ${parsed.name}',
-            );
             return;
           }
           final updatedRoom = state.room!.copyWith(phase: parsed);
@@ -3702,8 +3824,127 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     });
 
-    // Écouter son propre rôle secret depuis la source confidentielle
-    _secretRoleSubscription?.cancel();
+    // 3. ── SOUSCRIPTION GRANULAIRE : players (profils, vie, rôles publics, sièges) ──
+    _playersSubscription =
+        _currentRoomRef?.child('players').onValue.listen((event) {
+      if (event.snapshot.value == null || state.room == null) return;
+      final rawPlayers = event.snapshot.value;
+      final parsedPlayers = <String, PlayerModel>{};
+
+      if (rawPlayers is Map) {
+        rawPlayers.forEach((key, val) {
+          if (val is Map) {
+            final pid = (val['id'] ?? key).toString();
+            parsedPlayers[pid] = PlayerModel.fromMap(
+              val,
+              pid,
+              state.currentUserId,
+              roomCode,
+            );
+          }
+        });
+      }
+
+      final updatedRoom = state.room!.copyWith(players: parsedPlayers);
+      state = state.copyWith(room: updatedRoom);
+
+      // Dépouillement anticipé dès que tous les vivants ont voté pendant dayVoting
+      final aliveCount = updatedRoom.alivePlayers.length;
+      final votedCount =
+          updatedRoom.alivePlayers.where((p) => p.targetVoteId != null).length;
+      if (state.isHost &&
+          updatedRoom.phase == GamePhase.dayVoting &&
+          votedCount >= aliveCount &&
+          aliveCount > 0) {
+        processDayVoteResolution();
+      }
+    });
+
+    // 4. ── SOUSCRIPTION GRANULAIRE : votes (table dynamique des votes du tour) ──
+    _votesSubscription =
+        _currentRoomRef?.child('votes').onValue.listen((event) {
+      if (state.room == null) return;
+      final rawVotes = event.snapshot.value;
+      if (rawVotes is Map) {
+        final updatedPlayers =
+            Map<String, PlayerModel>.from(state.room!.players);
+        bool hasChanges = false;
+        rawVotes.forEach((voterId, targetId) {
+          final vid = voterId.toString();
+          final tid = targetId?.toString();
+          if (updatedPlayers.containsKey(vid) &&
+              updatedPlayers[vid]!.targetVoteId != tid) {
+            updatedPlayers[vid] =
+                updatedPlayers[vid]!.copyWith(targetVoteId: tid);
+            hasChanges = true;
+          }
+        });
+        if (hasChanges) {
+          final updatedRoom = state.room!.copyWith(players: updatedPlayers);
+          state = state.copyWith(room: updatedRoom);
+
+          final aliveCount = updatedRoom.alivePlayers.length;
+          final votedCount = updatedRoom.alivePlayers
+              .where((p) => p.targetVoteId != null)
+              .length;
+          if (state.isHost &&
+              updatedRoom.phase == GamePhase.dayVoting &&
+              votedCount >= aliveCount &&
+              aliveCount > 0) {
+            processDayVoteResolution();
+          }
+        }
+      }
+    });
+
+    // 5. ── SOUSCRIPTION GRANULAIRE : presence (statut vocal, volume, connectivité) ──
+    // Met à jour la présence de façon isolée SANS re-parser ni reconstruire la salle entière
+    _presenceSubscription =
+        _currentRoomRef?.child('presence').onValue.listen((event) {
+      if (state.room == null) return;
+      final rawPresence = event.snapshot.value;
+      if (rawPresence is Map) {
+        final updatedPlayers =
+            Map<String, PlayerModel>.from(state.room!.players);
+        bool hasChanges = false;
+        rawPresence.forEach((uid, pData) {
+          final userId = uid.toString();
+          if (updatedPlayers.containsKey(userId) && pData is Map) {
+            final isOnline = pData['isOnline'] == true;
+            final isMuted = pData['isMuted'] == true;
+            final prev = updatedPlayers[userId]!;
+            if (prev.isOnline != isOnline || prev.isMuted != isMuted) {
+              updatedPlayers[userId] = prev.copyWith(
+                isOnline: isOnline,
+                isMuted: isMuted,
+              );
+              hasChanges = true;
+            }
+          }
+        });
+        if (hasChanges) {
+          state = state.copyWith(
+            room: state.room!.copyWith(players: updatedPlayers),
+          );
+        }
+      }
+    });
+
+    // 6. ── SOUSCRIPTION GRANULAIRE : logs (historique textuel uniquement) ──
+    _logsSubscription =
+        _currentRoomRef?.child('logs').onValue.listen((event) {
+      if (state.room == null) return;
+      final rawLogs = event.snapshot.value;
+      final List<String> parsedLogs = [];
+      if (rawLogs is List) {
+        for (final item in rawLogs) {
+          if (item != null) parsedLogs.add(item.toString());
+        }
+      }
+      state = state.copyWith(room: state.room!.copyWith(logs: parsedLogs));
+    });
+
+    // 7. Écouter son propre rôle secret depuis la source confidentielle
     _secretRoleSubscription = _database
         .ref('rooms/$roomCode/secret_roles/${state.currentUserId}')
         .onValue
@@ -3732,8 +3973,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     });
 
-    // Écouter le canal meute des loups-garous (filtré et déchiffré)
-    _wolfPackSubscription?.cancel();
+    // 8. Écouter le canal meute des loups-garous (filtré et déchiffré)
     _wolfPackSubscription = _database
         .ref('rooms/$roomCode/wolf_pack')
         .onValue
@@ -3761,8 +4001,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     });
 
-    // Synchro temps réel : Écouter replay_status_updated pour actualiser le compteur (prêts/total) chez tous les clients
-    _replayStatusSubscription?.cancel();
+    // 9. Écouter replay_status_updated
     _replayStatusSubscription = _database
         .ref('rooms/$roomCode/replay_status_updated')
         .onValue
@@ -3781,8 +4020,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     });
 
-    // Écouter game_reset_to_lobby pour synchroniser le reset de partie vers le salon
-    _gameResetSubscription?.cancel();
+    // 10. Écouter game_reset_to_lobby
     _gameResetSubscription = _database
         .ref('rooms/$roomCode/game_reset_to_lobby')
         .onValue
@@ -4572,18 +4810,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       debugPrint('[LeaveRoom Error] $e');
     } finally {
       // Libération des flux et du canal Agora
-      _roomSubscription?.cancel();
-      _roomSubscription = null;
-      _currentPhaseSubscription?.cancel();
-      _currentPhaseSubscription = null;
-      _secretRoleSubscription?.cancel();
-      _secretRoleSubscription = null;
-      _wolfPackSubscription?.cancel();
-      _wolfPackSubscription = null;
-      _replayStatusSubscription?.cancel();
-      _replayStatusSubscription = null;
-      _gameResetSubscription?.cancel();
-      _gameResetSubscription = null;
+      _cancelAllRoomSubscriptions();
       _lastAppliedVoiceChannel = null;
       _lastAppliedVoicePhase = null;
       _currentRoomRef = null;
@@ -4604,12 +4831,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   @override
   void dispose() {
     _phaseExpirationTimer?.cancel();
-    _roomSubscription?.cancel();
-    _currentPhaseSubscription?.cancel();
-    _secretRoleSubscription?.cancel();
-    _wolfPackSubscription?.cancel();
-    _replayStatusSubscription?.cancel();
-    _gameResetSubscription?.cancel();
+    _cancelAllRoomSubscriptions();
     _voiceService.dispose();
     super.dispose();
   }

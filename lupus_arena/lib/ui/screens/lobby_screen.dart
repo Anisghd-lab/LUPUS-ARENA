@@ -19,6 +19,7 @@ import '../bento/lupus_permission_dialog.dart';
 import '../bento/app_update_dialog.dart';
 import '../../services/update_service.dart';
 import '../theme/lupus_assets.dart';
+import '../theme/lupus_avatars.dart';
 import '../theme/lupus_theme.dart';
 import '../../services/locale_provider.dart';
 import '../../services/app_translations.dart';
@@ -598,33 +599,39 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                 // Avatar interactif du joueur
                 GestureDetector(
                   onTap: () => _showAvatarSelector(context),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const RadialGradient(
-                        colors: [Color(0xFF2E174D), Color(0xFF130924)],
-                      ),
-                      border: Border.all(
-                        color: const Color(0xFFA855F7),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFA855F7).withValues(alpha: 0.45),
-                          blurRadius: 8,
+                  child: () {
+                    final avatarItem = LupusAvatars.getByIndex(gameState.currentUserAvatar);
+                    return Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: avatarItem.gradientColors,
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Icon(
-                        BentoPlayerTile.avatarIcons[gameState.currentUserAvatar],
-                        color: Colors.white,
-                        size: 24,
+                        border: Border.all(
+                          color: avatarItem.borderColor,
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: avatarItem.glowColor,
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
+                      child: Center(
+                        child: Icon(
+                          avatarItem.icon,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    );
+                  }(),
                 ),
                 const SizedBox(width: 12),
                 // Vrai TextField natif persistant
@@ -665,27 +672,28 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   /// 2. Panneau d'actions inférieur natif Flutter (CRÉER UN SALON + CODE / REJOINDRE)
+  /// Réduit de 15%, bouton rejoindre ambre #F7B831, police 10 et label 'REJOINDRE'
   Widget _buildActionPanel(LupusGameState gameState) {
     return Container(
       margin: EdgeInsets.zero,
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFF0F0B1E).withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: const Color(0xFF6B4A8E).withValues(alpha: 0.7),
-          width: 1.5,
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
-            blurRadius: 20,
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.20),
+            blurRadius: 16,
             spreadRadius: 1,
           ),
           const BoxShadow(
             color: Colors.black87,
-            blurRadius: 16,
-            offset: Offset(0, 6),
+            blurRadius: 14,
+            offset: Offset(0, 5),
           ),
         ],
       ),
@@ -701,22 +709,22 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     ? null
                     : () => ref.read(gameNotifierProvider.notifier).createRoom(),
                 enabled: !gameState.isLoading,
-                borderRadius: 16,
+                borderRadius: 14,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Croix / Sceau runique doré et lumineux
+                      // Croix / Sceau runique doré et lumineux (format compact -15%)
                       Container(
-                        width: 44,
-                        height: 44,
+                        width: 32,
+                        height: 32,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: const Color(0xFFA855F7).withValues(alpha: 0.85),
-                              blurRadius: 16,
+                              blurRadius: 12,
                               spreadRadius: 2,
                             ),
                           ],
@@ -726,20 +734,20 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             '᛭',
                             style: TextStyle(
                               color: Color(0xFFF5E8FF),
-                              fontSize: 34,
+                              fontSize: 24,
                               fontWeight: FontWeight.w900,
                               height: 1.0,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       if (gameState.isLoading)
                         const SizedBox(
-                          width: 24,
-                          height: 24,
+                          width: 20,
+                          height: 20,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
+                            strokeWidth: 2.0,
                             color: Color(0xFFE9D5FF),
                           ),
                         )
@@ -749,9 +757,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 13,
+                            fontSize: 10,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
+                            letterSpacing: 0.6,
                             shadows: [
                               Shadow(
                                 color: Colors.black,
@@ -761,13 +769,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         Text(
                           context.tr('become_host'),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Color(0xFFD8B4FE),
-                            fontSize: 10.5,
+                            fontSize: 9.5,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -778,7 +786,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               ),
             ),
 
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
 
             // DROITE : Zone Code & Rejoindre (empilés)
             Expanded(
@@ -788,7 +796,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   // Champ "CODE" dans le bouton Ardoise/Pierre taillée
                   Expanded(
                     child: MedievalFantasyButton.stone(
-                      borderRadius: 12,
+                      borderRadius: 10,
                       child: Center(
                         child: TextField(
                           controller: _codeController,
@@ -798,9 +806,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           cursorColor: const Color(0xFFA855F7),
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
+                            fontSize: 12,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 3.0,
+                            letterSpacing: 2.0,
                             shadows: [
                               Shadow(
                                 color: Colors.black87,
@@ -813,14 +821,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             hintText: context.tr('enter_room_code').toUpperCase(),
                             hintStyle: const TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: 1.2,
+                              letterSpacing: 0.8,
                             ),
                             counterText: '',
                             border: InputBorder.none,
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                           ),
                           onSubmitted: (_) => _handleJoinOrAdmin(),
                         ),
@@ -828,23 +836,23 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
 
-                  // Bouton "REJOINDRE" (Rubis Flamboyant Biseauté)
+                  // Bouton "REJOINDRE" (Ambre / Or Éclatant F7B831 Biseauté)
                   Expanded(
-                    child: MedievalFantasyButton.ruby(
+                    child: MedievalFantasyButton.amber(
                       onTap: gameState.isLoading ? null : _handleJoinOrAdmin,
                       enabled: !gameState.isLoading,
-                      borderRadius: 12,
-                      child: Center(
+                      borderRadius: 10,
+                      child: const Center(
                         child: Text(
-                          context.tr('join_room').toUpperCase(),
+                          'REJOINDRE',
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 13,
+                            fontSize: 10,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.8,
                             shadows: [
@@ -1546,76 +1554,143 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     );
   }
 
-  /// Sélecteur d'Avatar en modal bottom sheet
+  /// Sélecteur d'Avatar en modal bottom sheet stylisé Dark Fantasy
   void _showAvatarSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F111E),
+      backgroundColor: const Color(0xFF0C0E1A),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        side: BorderSide(color: Color(0xFFA855F7), width: 1.2),
+        side: BorderSide(color: Color(0xFF6B4A8E), width: 1.5),
       ),
       builder: (ctx) {
         final currentAvatar = ref.watch(gameNotifierProvider).currentUserAvatar;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'CHOISISSEZ VOTRE AVATAR',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  letterSpacing: 1.2,
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                alignment: WrapAlignment.center,
-                children: List.generate(BentoPlayerTile.avatarIcons.length, (index) {
-                  final isSelected = currentAvatar == index;
-                  return GestureDetector(
-                    onTap: () {
-                      ref.read(gameNotifierProvider.notifier).updateProfile(avatarIndex: index);
-                      Navigator.of(ctx).pop();
-                    },
-                    child: Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isSelected
-                            ? const Color(0xFFA855F7).withValues(alpha: 0.3)
-                            : const Color(0xFF1E2138),
-                        border: Border.all(
-                          color: isSelected ? const Color(0xFFA855F7) : Colors.white24,
-                          width: isSelected ? 2.5 : 1,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: const Color(0xFFA855F7).withValues(alpha: 0.6),
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                )
-                              ]
-                            : null,
-                      ),
-                      child: Icon(
-                        BentoPlayerTile.avatarIcons[index],
-                        color: isSelected ? Colors.white : Colors.white70,
-                        size: 30,
-                      ),
+                const Text(
+                  'CHOISISSEZ VOTRE INCARNATION',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14.5,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Sélectionnez votre avatar Dark Fantasy pour l\'arène',
+                  style: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.55,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.center,
+                      children: List.generate(LupusAvatars.all.length, (index) {
+                        final avatarItem = LupusAvatars.all[index];
+                        final isSelected = currentAvatar == index;
+                        return GestureDetector(
+                          onTap: () {
+                            ref.read(gameNotifierProvider.notifier).updateProfile(avatarIndex: index);
+                            Navigator.of(ctx).pop();
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            width: 76,
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? avatarItem.borderColor.withValues(alpha: 0.18)
+                                  : const Color(0xFF141829),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected
+                                    ? avatarItem.borderColor
+                                    : Colors.white12,
+                                width: isSelected ? 2.0 : 1.0,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: avatarItem.glowColor,
+                                        blurRadius: 10,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: avatarItem.gradientColors,
+                                    ),
+                                    border: Border.all(
+                                      color: avatarItem.borderColor.withValues(alpha: 0.7),
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      avatarItem.icon,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  avatarItem.name,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
+                                    fontSize: 9.5,
+                                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
                     ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 16),
-            ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
         );
       },

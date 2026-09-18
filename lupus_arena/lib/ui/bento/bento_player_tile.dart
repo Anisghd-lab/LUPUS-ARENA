@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
+import '../theme/lupus_avatars.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 
@@ -35,19 +36,13 @@ class BentoPlayerTile extends StatelessWidget {
   });
 
   // Liste d'avatars thématiques
-  static const List<IconData> avatarIcons = [
-    Icons.face_retouching_natural_rounded,
-    Icons.military_tech_rounded,
-    Icons.psychology_rounded,
-    Icons.smart_toy_rounded,
-    Icons.masks_rounded,
-    Icons.person_pin_circle_rounded,
-  ];
+  static List<IconData> get avatarIcons => LupusAvatars.icons;
 
   @override
   Widget build(BuildContext context) {
     final isDead = !player.isAlive;
-    final icon = avatarIcons[player.avatarIndex % avatarIcons.length];
+    final avatarItem = LupusAvatars.getByIndex(player.avatarIndex);
+    final icon = avatarItem.icon;
 
     // Seules exceptions autorisées pour afficher le rôle :
     // 1. Mon propre rôle (isMe)
@@ -145,22 +140,42 @@ class BentoPlayerTile extends StatelessWidget {
                     ),
                   ),
 
-                // Rond d'avatar principal
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: isDead
-                      ? const Color(0xFF202025)
-                      : (isMe
-                          ? LupusColors.moonIndigo.withValues(alpha: 0.3)
-                          : LupusColors.surfaceLight),
-                  child: Icon(
-                    isDead ? Icons.sentiment_very_dissatisfied_rounded : icon,
-                    color: isDead
-                        ? LupusColors.textMuted
-                        : (isMe
-                            ? LupusColors.moonIndigo
-                            : LupusColors.textPrimary),
-                    size: 20,
+                // Rond d'avatar principal stylisé Dark Fantasy
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: isDead
+                        ? const LinearGradient(
+                            colors: [Color(0xFF202025), Color(0xFF121214)],
+                          )
+                        : LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: avatarItem.gradientColors,
+                          ),
+                    border: Border.all(
+                      color: isDead
+                          ? Colors.white12
+                          : avatarItem.borderColor.withValues(alpha: 0.8),
+                      width: 1.2,
+                    ),
+                    boxShadow: isDead
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: avatarItem.glowColor,
+                              blurRadius: 6,
+                            ),
+                          ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      isDead ? Icons.sentiment_very_dissatisfied_rounded : icon,
+                      color: isDead ? LupusColors.textMuted : Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
 

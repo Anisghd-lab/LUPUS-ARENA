@@ -170,6 +170,39 @@ class MedievalFantasyButton extends StatefulWidget {
     );
   }
 
+  /// 5. Bouton Ambre / Or Éclatant #F7B831 (Pour Rejoindre un salon)
+  factory MedievalFantasyButton.amber({
+    Key? key,
+    required Widget child,
+    VoidCallback? onTap,
+    double? width,
+    double? height,
+    double borderRadius = 12.0,
+    bool enabled = true,
+  }) {
+    return MedievalFantasyButton(
+      key: key,
+      onTap: onTap,
+      width: width,
+      height: height,
+      borderRadius: borderRadius,
+      enabled: enabled,
+      borderColor: const Color(0xFFFDE68A),
+      glowColor: const Color(0x66F7B831),
+      outerBevelColors: const [
+        Color(0xFF785928),
+        Color(0xFF4A3414),
+        Color(0xFF241706),
+      ],
+      gradientColors: const [
+        Color(0xFFF7B831),
+        Color(0xFFD97706),
+        Color(0xFF78350F),
+      ],
+      child: child,
+    );
+  }
+
   @override
   State<MedievalFantasyButton> createState() => _MedievalFantasyButtonState();
 }

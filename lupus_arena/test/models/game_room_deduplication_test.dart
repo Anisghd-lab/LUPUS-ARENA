@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lupus_arena/models/game_room.dart';
-import 'package:lupus_arena/models/player.dart';
 
 void main() {
   group('GameRoom - Déduplication & Robustesse Reconnexion', () {

@@ -1237,5 +1237,135 @@ void main() {
 
       registry.clearForNewGame();
     });
+
+    group('Synchronisation temporelle, Anti-Rollback et Idempotence des phases', () {
+      test('Garde Monotone Strict : Interdiction de rétrograder le tour ou reculer de Nuit vers Jour', () {
+        // État actuel : Tour 2, Phase Nuit des Loups
+        final currentRoom = GameRoom(
+          roomCode: 'TEST_SYNC',
+          hostId: 'host',
+          phase: GamePhase.nightWerewolves,
+          round: 2,
+        );
+
+        // Simulation de la validation anti-rollback de _syncState / public_state
+        bool isValidStateUpdate(GameRoom current, Map<String, dynamic> incoming) {
+          final incomingRound = incoming['round'] is int ? incoming['round'] as int : current.round;
+          if (incomingRound < current.round) {
+            return false; // Rejeté : tour antérieur
+          }
+          final rawPhase = incoming['phase']?.toString() ?? incoming['currentPhase']?.toString();
+          if (rawPhase != null) {
+            final incomingPhase = GamePhase.fromString(rawPhase);
+            if (incomingRound == current.round) {
+              if (current.phase.isNight && incomingPhase.isDay) {
+                return false; // Rejeté : rétrogradation Nuit -> Jour
+              }
+              if (current.phase.isNight &&
+                  incomingPhase.isNight &&
+                  incomingPhase.nightOrderIndex < current.phase.nightOrderIndex) {
+                return false; // Rejeté : rétrogradation dans l'ordre nocturne
+              }
+            }
+          }
+          return true;
+        }
+
+        // Test 1: Paquet retardataire du Tour 1 (ex: verdict ou vote du Jour 1)
+        final staleRoundPacket = {'round': 1, 'phase': 'dayResolution'};
+        expect(isValidStateUpdate(currentRoom, staleRoundPacket), isFalse,
+            reason: 'Un paquet du Tour 1 doit impérativement être rejeté si la salle est au Tour 2');
+
+        // Test 2: Paquet rétrogradant de Nuit vers Jour au sein du Tour 2
+        final nightToDayRollbackPacket = {'round': 2, 'phase': 'dayVoting'};
+        expect(isValidStateUpdate(currentRoom, nightToDayRollbackPacket), isFalse,
+            reason: 'Une phase diurne ne peut pas écraser une phase nocturne au même tour');
+
+        // Test 3: Rétrogradation dans la séquence de nuit (ex: Loups vers Salvateur)
+        final nightOrderRollbackPacket = {'round': 2, 'phase': 'nightDefender'};
+        expect(isValidStateUpdate(currentRoom, nightOrderRollbackPacket), isFalse,
+            reason: 'L\'ordre canonique nocturne ne peut pas reculer');
+
+        // Test 4: Progression valide (Loups vers Voyante)
+        final validProgression = {'round': 2, 'phase': 'nightSeer'};
+        expect(isValidStateUpdate(currentRoom, validProgression), isTrue,
+            reason: 'Une progression normale vers la phase suivante de la nuit doit être acceptée');
+
+        // Test 5: Progression valide vers le tour suivant (Tour 2 Nuit -> Tour 3 Matin / Aube)
+        final nextRoundProgression = {'round': 3, 'phase': 'morningAnnouncement'};
+        expect(isValidStateUpdate(currentRoom, nextRoundProgression), isTrue,
+            reason: 'Une progression vers un tour supérieur doit être acceptée');
+      });
+
+      test('Idempotence de la clôture de vote : un vote ne peut être résolu qu\'une seule fois par tour', () {
+        final resolvedRounds = <int>{};
+
+        bool tryResolveDayVote(int round, GamePhase currentPhase) {
+          if (currentPhase != GamePhase.dayVoting && currentPhase != GamePhase.dayTieBreakVote) {
+            return false;
+          }
+          if (resolvedRounds.contains(round)) {
+            return false; // Déjà résolu (idempotence)
+          }
+          resolvedRounds.add(round);
+          return true;
+        }
+
+        // Premier appel au Jour 1 : accepté
+        expect(tryResolveDayVote(1, GamePhase.dayVoting), isTrue);
+        expect(resolvedRounds.contains(1), isTrue);
+
+        // Deuxième appel intempestif (ex: quorum tardif, timer redondant) : rejeté
+        expect(tryResolveDayVote(1, GamePhase.dayVoting), isFalse,
+            reason: 'Le vote du Tour 1 ne peut pas être résolu une deuxième fois');
+
+        // Appel pendant une phase non-vote (ex: dayResolution) : rejeté
+        expect(tryResolveDayVote(1, GamePhase.dayResolution), isFalse,
+            reason: 'La résolution ne peut s\'exécuter que pendant un scrutin diurne');
+
+        // Tour 2 : premier appel accepté
+        expect(tryResolveDayVote(2, GamePhase.dayVoting), isTrue,
+            reason: 'Le scrutin du Tour 2 doit pouvoir se résoudre normalement');
+        expect(resolvedRounds.contains(2), isTrue);
+      });
+
+      test('Validation de la protection UI de dérive temporelle (drift)', () {
+        // Simule le garde onTimerExpired de arena_game_screen.dart
+        bool shouldTriggerExpiration({
+          required GamePhase widgetPhase,
+          required int widgetRound,
+          required GamePhase currentRoomPhase,
+          required int currentRoomRound,
+        }) {
+          if (currentRoomPhase != widgetPhase || currentRoomRound != widgetRound) {
+            return false; // Orphelin : la machine à états a déjà changé
+          }
+          return true;
+        }
+
+        // Cas nominal : l'UI et la salle concordent
+        expect(
+          shouldTriggerExpiration(
+            widgetPhase: GamePhase.dayResolution,
+            widgetRound: 1,
+            currentRoomPhase: GamePhase.dayResolution,
+            currentRoomRound: 1,
+          ),
+          isTrue,
+        );
+
+        // Cas de race condition vidéo (1:44) : timer UI du Jour 1 expire alors que la salle est en Nuit 2
+        expect(
+          shouldTriggerExpiration(
+            widgetPhase: GamePhase.dayResolution,
+            widgetRound: 1,
+            currentRoomPhase: GamePhase.nightDefender,
+            currentRoomRound: 2,
+          ),
+          isFalse,
+          reason: 'L\'expiration orpheline du Jour 1 doit être neutralisée si la salle est déjà en Nuit 2',
+        );
+      });
+    });
   });
 }

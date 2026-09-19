@@ -1052,13 +1052,21 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
             phaseEndsAt: room.phaseEndsAt,
             fallbackSeconds: room.timerSeconds > 0 ? room.timerSeconds : (isNight ? 40 : 15),
             isNight: isNight,
+            phase: room.phase,
+            round: room.round,
             onTick: (seconds) {
               countdownNotifier.value = seconds;
             },
             onTimerExpired: () {
+              final currentRoom = ref.read(gameNotifierProvider).room;
+              if (currentRoom == null) return;
+              if (currentRoom.phase != room.phase || currentRoom.round != room.round) {
+                // La phase ou le tour a déjà progressé entre-temps, ignorer l'expiration orpheline !
+                return;
+              }
               if (gameState.isHost &&
-                  room.phase != GamePhase.gameOver &&
-                  room.phase != GamePhase.lobby) {
+                  currentRoom.phase != GamePhase.gameOver &&
+                  currentRoom.phase != GamePhase.lobby) {
                 ref.read(gameNotifierProvider.notifier).nextPhase();
               }
             },

@@ -193,6 +193,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   GamePhase? _lastAppliedVoicePhase;
   bool _isTransitioningPhase = false;
   Timer? _phaseExpirationTimer;
+  int _lastProcessedPhaseStartedAt = 0;
+
+  /// Ensemble des tours de jeu pour lesquels la résolution du vote diurne a déjà été traitée (Garantie d'Idempotence stricte).
+  final Set<int> _resolvedDayVoteRounds = {};
+
+  /// Annule et détruit immédiatement le minuteur d'expiration de phase en cours
+  void _cancelPhaseTimer() {
+    _phaseExpirationTimer?.cancel();
+    _phaseExpirationTimer = null;
+  }
+
+  /// Clôture définitivement le vote du jour (idempotent par cycle journalier)
+  Future<void> cloturerVote() => processDayVoteResolution();
+
+  /// Affiche le verdict et déclenche la transition suivante
+  Future<void> afficherVerdict() => nextPhase();
 
   /// Registre inviolable des défunts (délégué au singleton DeathRegistryService).
   /// Règle d'or : "Celui qui meurt meurt".
@@ -330,6 +346,50 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   /// ═══════════════════════════════════════════════════════════════════════════
   Future<void> _syncState(Map<String, dynamic> updates) async {
     if (_currentRoomRef == null) return;
+
+    // ── GARDE MONOTONE STRICT (Anti-Rollback local & distant) ──
+    if (state.room != null) {
+      final currentRound = state.room!.round;
+      final currentPhase = state.room!.phase;
+
+      // 1. Refus formel de rétrogradation de tour
+      if (updates.containsKey('round')) {
+        final rawRound = updates['round'];
+        final incomingRound = rawRound is num ? rawRound.toInt() : currentRound;
+        if (incomingRound < currentRound) {
+          debugPrint(
+            '⛔ [Anti-Rollback _syncState] Refus de rétrograder le tour : $incomingRound < $currentRound. Mise à jour rejetée.',
+          );
+          return;
+        }
+      }
+
+      // 2. Refus formel de régression Nuit -> Jour ou d'ordre nocturne au sein du même tour
+      final rawIncomingPhase = updates['phase']?.toString() ?? updates['currentPhase']?.toString();
+      if (rawIncomingPhase != null) {
+        final incomingPhase = GamePhase.fromString(rawIncomingPhase);
+        final incomingRound = updates.containsKey('round') && updates['round'] is num
+            ? (updates['round'] as num).toInt()
+            : currentRound;
+
+        if (incomingRound == currentRound) {
+          if (currentPhase.isNight && incomingPhase.isDay) {
+            debugPrint(
+              '⛔ [Anti-Rollback _syncState] Refus de rétrograder de Nuit (${currentPhase.name}) vers Jour (${incomingPhase.name}) au tour $currentRound.',
+            );
+            return;
+          }
+          if (currentPhase.isNight &&
+              incomingPhase.isNight &&
+              incomingPhase.nightOrderIndex < currentPhase.nightOrderIndex) {
+            debugPrint(
+              '⛔ [Anti-Rollback _syncState] Refus de rétrograder l\'ordre nocturne : ${currentPhase.name} -> ${incomingPhase.name} au tour $currentRound.',
+            );
+            return;
+          }
+        }
+      }
+    }
 
     // Synchronisation stricte phase <-> currentPhase
     if (updates.containsKey('phase')) {
@@ -1059,6 +1119,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> startGame() async {
     if (!state.isHost || _currentRoomRef == null || state.room == null) return;
+    _cancelPhaseTimer();
+    _resolvedDayVoteRounds.clear();
+    _lastProcessedPhaseStartedAt = 0;
 
     final playersList = state.room!.playerList;
     final count = playersList.length;
@@ -1237,6 +1300,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return;
     }
 
+    _cancelPhaseTimer();
     _isTransitioningPhase = true;
     try {
       final room = state.room!;
@@ -1709,6 +1773,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     Map<String, dynamic> updates,
     List<String> logs,
   ) {
+    _cancelPhaseTimer();
     final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId;
     final isMayorAlive = mayorId != null && (room.players[mayorId]?.isAlive ?? false);
 
@@ -1942,7 +2007,32 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> processDayVoteResolution() async {
     if (!state.isHost || state.room == null) return;
+    if (_isTransitioningPhase) {
+      debugPrint('[processDayVoteResolution] Transition déjà en cours, appel ignoré.');
+      return;
+    }
 
+    final room = state.room!;
+    if (room.phase != GamePhase.dayVoting && room.phase != GamePhase.dayTieBreakVote) {
+      debugPrint('[processDayVoteResolution] Appel ignoré : la phase actuelle (${room.phase.name}) n\'est pas un scrutin diurne.');
+      return;
+    }
+
+    if (_resolvedDayVoteRounds.contains(room.round)) {
+      debugPrint('🛡️ [Idempotence Guard] Vote du tour ${room.round} déjà résolu, appel ignoré.');
+      return;
+    }
+
+    _cancelPhaseTimer();
+    _isTransitioningPhase = true;
+    try {
+      await _processDayVoteResolutionInternal();
+    } finally {
+      _isTransitioningPhase = false;
+    }
+  }
+
+  Future<void> _processDayVoteResolutionInternal() async {
     final room = state.room!;
     final updates = <String, dynamic>{};
     final logs = List<String>.from(room.logs);
@@ -2247,7 +2337,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     Map<String, dynamic> updates,
     List<String> logs,
   ) {
+    _cancelPhaseTimer();
+    _resolvedDayVoteRounds.add(room.round);
     updates['phase'] = GamePhase.dayResolution.name;
+    updates['round'] = room.round;
     updates['timerSeconds'] = 10;
     updates['isTieBreakActive'] = false;
     updates['tiedPlayerIds'] = [];
@@ -3636,6 +3729,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       debugPrint('[nextPhase] Transition déjà en cours, appel ignoré.');
       return;
     }
+    _cancelPhaseTimer();
     final phase = state.room!.phase;
 
     final canAdvanceNight = phase.isNight &&
@@ -3678,92 +3772,100 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     if (phase.isNight) {
       await processNightTransitions();
-    } else if (phase == GamePhase.morningAnnouncement) {
-      final room = state.room!;
-      final realRoles = await _resolveRealRoles(room);
-      final win = checkWinConditions(room, realRoles);
+      return;
+    }
 
-      final updates = <String, dynamic>{};
-      final logs = List<String>.from(room.logs);
+    _isTransitioningPhase = true;
+    try {
+      if (phase == GamePhase.morningAnnouncement) {
+        final room = state.room!;
+        final realRoles = await _resolveRealRoles(room);
+        final win = checkWinConditions(room, realRoles);
 
-      if (win != null) {
-        updates['phase'] = GamePhase.gameOver.name;
-        updates['winner'] = win;
-        logs.add(_formatVictoryMessage(win));
-        for (final p in room.playerList) {
-          final revealedRole = realRoles[p.id] ?? p.role;
-          updates['players/${p.id}/role'] = revealedRole.id;
+        final updates = <String, dynamic>{};
+        final logs = List<String>.from(room.logs);
+
+        if (win != null) {
+          updates['phase'] = GamePhase.gameOver.name;
+          updates['winner'] = win;
+          logs.add(_formatVictoryMessage(win));
+          for (final p in room.playerList) {
+            final revealedRole = realRoles[p.id] ?? p.role;
+            updates['players/${p.id}/role'] = revealedRole.id;
+          }
+        } else {
+          _routeToDayPhase(room, updates, logs);
         }
-      } else {
-        _routeToDayPhase(room, updates, logs);
-      }
-      updates['logs'] = logs;
-      await _syncState(updates);
-    } else if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) {
-      await concludeCaptainElection();
-    } else if (phase == GamePhase.hunterDeathChoice) {
-      await autoResolveHunterTimeout();
-    } else if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) {
-      await autoResolveCaptainTimeout();
-    } else if (phase == GamePhase.mayorSpeechOpening) {
-      await concludeMayorSpeechOpening();
-    } else if (phase == GamePhase.mayorSpeechClosing) {
-      await concludeMayorSpeechClosing();
-    } else if (phase == GamePhase.dayDebate) {
-      // Expiration du temps de parole de l'orateur en cours (bot ou humain) : avancement au prochain tour ou clôture vers le vote
-      await passTurnDebate();
-    } else if (phase == GamePhase.dayVoting ||
-        phase == GamePhase.dayTieBreakVote) {
-      await processDayVoteResolution();
-    } else if (phase == GamePhase.dayDefense) {
-      final updates = <String, dynamic>{
-        'phase': GamePhase.dayTieBreakVote.name,
-        'timerSeconds': 45,
-        'logs': [
-          ...?state.room?.logs,
-          '⚖️ Second scrutin décisif : votez uniquement pour les accusés ex æquo !',
-        ],
-      };
-      await _syncState(updates);
-    } else if (phase == GamePhase.dayResolution) {
-      final nextRound = state.room!.round + 1;
-      final realRoles = await _resolveRealRoles(state.room!);
-      final firstNight = _getNextNightPhase(
-        current: GamePhase.dayResolution,
-        round: nextRound,
-        players: state.room!.players,
-        realRoles: realRoles,
-      );
+        updates['logs'] = logs;
+        await _syncState(updates);
+      } else if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) {
+        await concludeCaptainElection();
+      } else if (phase == GamePhase.hunterDeathChoice) {
+        await autoResolveHunterTimeout();
+      } else if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) {
+        await autoResolveCaptainTimeout();
+      } else if (phase == GamePhase.mayorSpeechOpening) {
+        await concludeMayorSpeechOpening();
+      } else if (phase == GamePhase.mayorSpeechClosing) {
+        await concludeMayorSpeechClosing();
+      } else if (phase == GamePhase.dayDebate) {
+        // Expiration du temps de parole de l'orateur en cours (bot ou humain) : avancement au prochain tour ou clôture vers le vote
+        await passTurnDebate();
+      } else if (phase == GamePhase.dayVoting ||
+          phase == GamePhase.dayTieBreakVote) {
+        await _processDayVoteResolutionInternal();
+      } else if (phase == GamePhase.dayDefense) {
+        final updates = <String, dynamic>{
+          'phase': GamePhase.dayTieBreakVote.name,
+          'timerSeconds': 45,
+          'logs': [
+            ...?state.room?.logs,
+            '⚖️ Second scrutin décisif : votez uniquement pour les accusés ex æquo !',
+          ],
+        };
+        await _syncState(updates);
+      } else if (phase == GamePhase.dayResolution) {
+        final nextRound = state.room!.round + 1;
+        final realRoles = await _resolveRealRoles(state.room!);
+        final firstNight = _getNextNightPhase(
+          current: GamePhase.dayResolution,
+          round: nextRound,
+          players: state.room!.players,
+          realRoles: realRoles,
+        );
 
-      final updates = <String, dynamic>{
-        'phase': firstNight.name,
-        'round': nextRound,
-        'nightVictimId': null,
-        'blackWolfTargetId': null,
-        'public_state/nightVictimId': null,
-        'public_state/blackWolfTargetId': null,
-        'witchHealed': false,
-        'witchPoisonVictimId': null,
-        'seerInspectedTargetId': null,
-        'seerInspectedRole': null,
-        'timerSeconds': 45,
-        'expandedRolesState': state.room!.expandedRolesState.copyWith(
-          mayorSpeechOpeningDone: false,
-          mayorSpeechClosingDone: false,
-        ).toMap(),
-        'logs': [
-          ...?state.room?.logs,
-          '🌑 La nuit $nextRound recouvre le village. Les habitants s\'endorment.',
-        ],
-      };
-      // Rétablir la parole pour les joueurs réduits au silence par le Loup Noir
-      for (final p in state.room!.players.values) {
-        if (p.isMuted) {
-          updates['players/${p.id}/isMuted'] = false;
+        final updates = <String, dynamic>{
+          'phase': firstNight.name,
+          'round': nextRound,
+          'nightVictimId': null,
+          'blackWolfTargetId': null,
+          'public_state/nightVictimId': null,
+          'public_state/blackWolfTargetId': null,
+          'witchHealed': false,
+          'witchPoisonVictimId': null,
+          'seerInspectedTargetId': null,
+          'seerInspectedRole': null,
+          'timerSeconds': 45,
+          'expandedRolesState': state.room!.expandedRolesState.copyWith(
+            mayorSpeechOpeningDone: false,
+            mayorSpeechClosingDone: false,
+          ).toMap(),
+          'logs': [
+            ...?state.room?.logs,
+            '🌑 La nuit $nextRound recouvre le village. Les habitants s\'endorment.',
+          ],
+        };
+        // Rétablir la parole pour les joueurs réduits au silence par le Loup Noir
+        for (final p in state.room!.players.values) {
+          if (p.isMuted) {
+            updates['players/${p.id}/isMuted'] = false;
+          }
         }
+        _resetAllVotes(updates);
+        await _syncState(updates);
       }
-      _resetAllVotes(updates);
-      await _syncState(updates);
+    } finally {
+      _isTransitioningPhase = false;
     }
   }
 
@@ -3909,8 +4011,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   /// Fermeture et nettoyage propre de tous les abonnements partitionnés
   void _cancelAllRoomSubscriptions() {
-    _phaseExpirationTimer?.cancel();
-    _phaseExpirationTimer = null;
+    _cancelPhaseTimer();
+    _resolvedDayVoteRounds.clear();
+    _lastProcessedPhaseStartedAt = 0;
     _publicStateSubscription?.cancel();
     _publicStateSubscription = null;
     _playersSubscription?.cancel();
@@ -3974,15 +4077,49 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           ? GamePhase.fromString(rawPhase)
           : state.room!.phase;
 
-      // GARDE MONOTONE STRICT : Empêcher toute régression nocturne
-      if (state.room!.round == (data['round'] ?? state.room!.round) &&
-          state.room!.phase.isNight &&
-          parsedPhase.isNight &&
-          parsedPhase.nightOrderIndex < state.room!.phase.nightOrderIndex) {
+      final currentRound = state.room!.round;
+      final currentPhase = state.room!.phase;
+      final incomingRound = data['round'] is int ? data['round'] as int : currentRound;
+
+      // GARDE MONOTONE STRICT 1 : Rejet systématique des tours antérieurs
+      if (incomingRound < currentRound) {
         debugPrint(
-          '[Monotonic Guard] Régression nocturne bloquée sur public_state : ${state.room!.phase.name} -> ${parsedPhase.name}',
+          '⛔ [Anti-Rollback public_state] Tour antérieur ignoré : $incomingRound < $currentRound',
         );
         return;
+      }
+
+      // GARDE MONOTONE STRICT 2 : Rejet de timestamp antérieur au sein du même tour
+      if (data['phaseStartedAt'] is num) {
+        final incomingStartedAt = (data['phaseStartedAt'] as num).toInt();
+        if (incomingRound == currentRound &&
+            incomingStartedAt < _lastProcessedPhaseStartedAt) {
+          debugPrint(
+            '⛔ [Anti-Rollback public_state] Timestamp antérieur ignoré : $incomingStartedAt < $_lastProcessedPhaseStartedAt',
+          );
+          return;
+        }
+        if (incomingStartedAt > _lastProcessedPhaseStartedAt) {
+          _lastProcessedPhaseStartedAt = incomingStartedAt;
+        }
+      }
+
+      // GARDE MONOTONE STRICT 3 : Empêcher toute régression Nuit -> Jour ou régression de l'ordre nocturne au même tour
+      if (incomingRound == currentRound) {
+        if (currentPhase.isNight && parsedPhase.isDay) {
+          debugPrint(
+            '⛔ [Anti-Rollback public_state] Régression Nuit -> Jour bloquée : ${currentPhase.name} -> ${parsedPhase.name}',
+          );
+          return;
+        }
+        if (currentPhase.isNight &&
+            parsedPhase.isNight &&
+            parsedPhase.nightOrderIndex < currentPhase.nightOrderIndex) {
+          debugPrint(
+            '⛔ [Anti-Rollback public_state] Régression nocturne bloquée : ${currentPhase.name} -> ${parsedPhase.name}',
+          );
+          return;
+        }
       }
 
       final rawMorningVictims = data['morningVictims'];
@@ -4063,9 +4200,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (rawPhase != null && state.room != null) {
         final parsed = GamePhase.fromString(rawPhase);
         if (state.room!.phase != parsed) {
+          // GARDE MONOTONE STRICT : Empêcher toute régression Nuit -> Jour ou régression nocturne
+          if (state.room!.phase.isNight && parsed.isDay) {
+            debugPrint(
+              '⛔ [Anti-Rollback currentPhase] Régression Nuit -> Jour ignorée : ${state.room!.phase.name} -> ${parsed.name}',
+            );
+            return;
+          }
           if (state.room!.phase.isNight &&
               parsed.isNight &&
               parsed.nightOrderIndex < state.room!.phase.nightOrderIndex) {
+            debugPrint(
+              '⛔ [Anti-Rollback currentPhase] Régression nocturne ignorée : ${state.room!.phase.name} -> ${parsed.name}',
+            );
             return;
           }
           final updatedRoom = state.room!.copyWith(phase: parsed);

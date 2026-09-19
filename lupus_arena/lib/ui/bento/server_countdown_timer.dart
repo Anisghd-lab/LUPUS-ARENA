@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../../models/game_phase.dart';
 import '../../services/server_time_service.dart';
 import '../theme/lupus_theme.dart';
 
@@ -14,6 +15,8 @@ class ServerCountdownTimerBadge extends StatefulWidget {
   final int? phaseEndsAt;
   final int fallbackSeconds;
   final bool isNight;
+  final GamePhase? phase;
+  final int? round;
   final VoidCallback? onTimerExpired;
   final ValueChanged<int>? onTick;
 
@@ -22,6 +25,8 @@ class ServerCountdownTimerBadge extends StatefulWidget {
     required this.phaseEndsAt,
     this.fallbackSeconds = 30,
     required this.isNight,
+    this.phase,
+    this.round,
     this.onTimerExpired,
     this.onTick,
   });
@@ -45,7 +50,9 @@ class _ServerCountdownTimerBadgeState extends State<ServerCountdownTimerBadge> {
   void didUpdateWidget(covariant ServerCountdownTimerBadge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.phaseEndsAt != widget.phaseEndsAt ||
-        oldWidget.fallbackSeconds != widget.fallbackSeconds) {
+        oldWidget.fallbackSeconds != widget.fallbackSeconds ||
+        oldWidget.phase != widget.phase ||
+        oldWidget.round != widget.round) {
       _expiredCalled = false;
       _initStream();
     }

@@ -21,6 +21,7 @@ import '../theme/lupus_avatars.dart';
 import '../theme/lupus_theme.dart';
 import '../../services/audio_manager.dart';
 import '../../services/locale_provider.dart';
+import '../../services/lupus_permission_service.dart';
 import '../../services/app_translations.dart';
 import '../bento/language_dialog.dart';
 import 'arena_game_screen.dart';

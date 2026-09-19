@@ -734,11 +734,11 @@ void main() {
       expect(shouldPlayLobbyMusic(waitingRoom), isFalse, reason: 'La musique doit s\'arrêter immédiatement en salle d\'attente');
 
       // 3. En partie simulée / Dev Mode
-      const devRoom = GameRoom(roomCode: 'DEV01', hostId: 'h1', phase: GamePhase.night, isDevRoom: true);
+      const devRoom = GameRoom(roomCode: 'DEV01', hostId: 'h1', phase: GamePhase.nightWerewolves, isDevRoom: true);
       expect(shouldPlayLobbyMusic(devRoom), isFalse, reason: 'La musique doit être coupée pendant une partie simulée DevMode');
 
       // 4. En arène de jeu classique
-      const inGameRoom = GameRoom(roomCode: 'TEST2', hostId: 'h1', phase: GamePhase.dayDiscussion);
+      const inGameRoom = GameRoom(roomCode: 'TEST2', hostId: 'h1', phase: GamePhase.dayDebate);
       expect(shouldPlayLobbyMusic(inGameRoom), isFalse, reason: 'La musique doit être coupée dans l\'arène de jeu');
     });
 

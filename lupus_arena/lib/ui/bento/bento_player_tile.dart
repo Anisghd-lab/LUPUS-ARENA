@@ -17,7 +17,7 @@ class BentoPlayerTile extends StatelessWidget {
   final bool showRole;
   final bool isWolfPeer;
   final GameRole? seerDiscoveredRole;
-  final bool isGodMode;
+  final bool isDevMode;
   final GameRole myRole;
   final VoidCallback? onTap;
 
@@ -31,7 +31,7 @@ class BentoPlayerTile extends StatelessWidget {
     this.showRole = false,
     this.isWolfPeer = false,
     this.seerDiscoveredRole,
-    this.isGodMode = false,
+    this.isDevMode = false,
     this.myRole = GameRole.simpleVillager,
     this.onTap,
   });
@@ -50,10 +50,10 @@ class BentoPlayerTile extends StatelessWidget {
     // 2. Joueur éliminé révélé au village (isDead)
     // 3. Voyante ayant personnellement sondé ce joueur (seerDiscoveredRole != null)
     // 4. Confrère Loup-Garou (isWolfPeer && player.isAlive)
-    // 5. God Mode strict (isGodMode => isGodModeActive && isDevRoom)
+    // 5. Dev-Mode strict (isDevMode => isDevModeActive && isDevRoom)
     final canSeeRole = isMe ||
         isDead ||
-        isGodMode ||
+        isDevMode ||
         (isWolfPeer && player.isAlive) ||
         (seerDiscoveredRole != null && player.isAlive);
 
@@ -76,7 +76,7 @@ class BentoPlayerTile extends StatelessWidget {
               ? player.role.displayName
               : 'Loup-Garou';
       roleLabel = '🐺 $wolfName';
-    } else if (isGodMode) {
+    } else if (isDevMode) {
       roleLabel = player.estDechu
           ? '${player.role.displayName} (Ex-${player.roleInitial.displayName})'
           : player.role.displayName;
@@ -296,12 +296,12 @@ class BentoPlayerTile extends StatelessWidget {
                   const Text('🔮', style: TextStyle(fontSize: 10)),
                   const SizedBox(width: 2),
                 ],
-                if (player.isLover && (isMe || isGodMode || isDead)) ...[
+                if (player.isLover && (isMe || isDevMode || isDead)) ...[
                   const Icon(Icons.favorite_rounded,
                       size: 11, color: LupusColors.bloodRed),
                   const SizedBox(width: 2),
                 ],
-                if (player.isDoused && (isMe || myRole == GameRole.pyromaniac || isGodMode || isDead)) ...[
+                if (player.isDoused && (isMe || myRole == GameRole.pyromaniac || isDevMode || isDead)) ...[
                   const Icon(Icons.local_fire_department_rounded,
                       size: 11, color: Color(0xFFFF4800)),
                   const SizedBox(width: 2),
@@ -341,12 +341,12 @@ class BentoPlayerTile extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
-                color: (isWolfPeer && !isMe && !isGodMode && seerDiscoveredRole == null)
+                color: (isWolfPeer && !isMe && !isDevMode && seerDiscoveredRole == null)
                     ? LupusColors.bloodRed.withValues(alpha: 0.25)
                     : roleToDisplay.accentColor.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: (isWolfPeer && !isMe && !isGodMode && seerDiscoveredRole == null)
+                  color: (isWolfPeer && !isMe && !isDevMode && seerDiscoveredRole == null)
                       ? LupusColors.bloodRed.withValues(alpha: 0.6)
                       : roleToDisplay.accentColor.withValues(alpha: 0.4),
                   width: 0.8,
@@ -359,7 +359,7 @@ class BentoPlayerTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 8.5,
                   fontWeight: FontWeight.w700,
-                  color: (isWolfPeer && !isMe && !isGodMode && seerDiscoveredRole == null)
+                  color: (isWolfPeer && !isMe && !isDevMode && seerDiscoveredRole == null)
                       ? const Color(0xFFFF8B8B)
                       : roleToDisplay.accentColor,
                 ),

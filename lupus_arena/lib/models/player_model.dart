@@ -12,6 +12,7 @@ class PlayerModel {
   final bool isHost;
   final bool isReady;
   final bool isOnline;
+  final bool isBot; // Vrai si le joueur est un bot passif (Mode Dev / Sandbox)
   final int? lastSeen;
   final bool isSpeaking;
   final bool isMuted;
@@ -46,6 +47,7 @@ class PlayerModel {
     this.isHost = false,
     this.isReady = false,
     this.isOnline = true,
+    this.isBot = false,
     this.lastSeen,
     this.isSpeaking = false,
     this.isMuted = false,
@@ -86,6 +88,7 @@ class PlayerModel {
     bool? isHost,
     bool? isReady,
     bool? isOnline,
+    bool? isBot,
     int? lastSeen,
     bool? isSpeaking,
     bool? isMuted,
@@ -121,6 +124,7 @@ class PlayerModel {
       isHost: isHost ?? this.isHost,
       isReady: isReady ?? this.isReady,
       isOnline: isOnline ?? this.isOnline,
+      isBot: isBot ?? this.isBot,
       lastSeen: lastSeen ?? this.lastSeen,
       isSpeaking: isSpeaking ?? this.isSpeaking,
       isMuted: isMuted ?? this.isMuted,
@@ -177,6 +181,7 @@ class PlayerModel {
       'isHost': isHost,
       'isReady': isReady,
       'isOnline': isOnline,
+      'isBot': isBot,
       if (lastSeen != null) 'lastSeen': lastSeen,
       'isSpeaking': isSpeaking,
       'isMuted': isMuted,
@@ -248,6 +253,7 @@ class PlayerModel {
       isHost: map['isHost'] == true,
       isReady: map['isReady'] == true,
       isOnline: map['isOnline'] != false,
+      isBot: map['isBot'] == true,
       lastSeen: (map['lastSeen'] is int)
           ? map['lastSeen'] as int
           : int.tryParse(map['lastSeen']?.toString() ?? ''),

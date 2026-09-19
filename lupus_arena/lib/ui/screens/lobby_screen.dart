@@ -1592,7 +1592,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               Text('👑', style: TextStyle(fontSize: 18)),
               SizedBox(width: 8),
               Text(
-                'ACCÈS GOD MODE DÉVERROUILLÉ !',
+                'ACCÈS DEV-MODE DÉVERROUILLÉ !',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   color: Colors.black,

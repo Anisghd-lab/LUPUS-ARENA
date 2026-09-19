@@ -15,7 +15,7 @@ class BentoPlayerGrid extends StatelessWidget {
   final ValueChanged<String>? onPlayerSelected;
   final bool revealRoles;
   final bool isMeEvil;
-  final bool isGodModeActive;
+  final bool isDevModeActive;
   final bool isDevRoom;
   final GameRole myRole;
   final Map<String, GameRole> seerInspectedRoles;
@@ -31,7 +31,7 @@ class BentoPlayerGrid extends StatelessWidget {
     this.onPlayerSelected,
     this.revealRoles = false,
     this.isMeEvil = false,
-    this.isGodModeActive = false,
+    this.isDevModeActive = false,
     this.isDevRoom = false,
     this.myRole = GameRole.simpleVillager,
     this.seerInspectedRoles = const {},
@@ -87,7 +87,7 @@ class BentoPlayerGrid extends StatelessWidget {
             (currentSpeakerId != null && currentSpeakerId == player.id);
         final isSelected = selectedPlayerId == player.id;
         final votes = votesPerPlayer[player.id] ?? 0;
-        final isGodMode = isGodModeActive || isDevRoom;
+        final isDevMode = isDevModeActive || isDevRoom;
         final isMeWolfTeam = isMeEvil ||
             myRole.isEvil ||
             myRole.isWolfTeam ||
@@ -104,10 +104,10 @@ class BentoPlayerGrid extends StatelessWidget {
           isSpeaking: isSpeaking,
           isSelected: isSelected,
           votesCount: votes,
-          showRole: revealRoles || (!player.isAlive) || isGodMode,
+          showRole: revealRoles || (!player.isAlive) || isDevMode,
           isWolfPeer: isWolfPeer,
           seerDiscoveredRole: seerRole,
-          isGodMode: isGodMode,
+          isDevMode: isDevMode,
           myRole: myRole,
           onTap: onPlayerSelected != null
               ? () => onPlayerSelected!(player.id)

@@ -315,11 +315,11 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     final isMeAlive = gameState.isAlive;
     final myRole = gameState.myRole;
     final isNight = room.phase.isNight;
-    final isGodModeActive = gameState.isGodModeActive;
+    final isDevModeActive = gameState.isDevModeActive;
     final isDevRoom = room.isDevRoom;
-    final isGodMode = isGodModeActive || isDevRoom;
-    final isMeEvil = myRole.isEvil || isGodMode;
-    final revealRoles = room.phase == GamePhase.gameOver || isGodMode;
+    final isDevMode = isDevModeActive || isDevRoom;
+    final isMeEvil = myRole.isEvil || isDevMode;
+    final revealRoles = room.phase == GamePhase.gameOver || isDevMode;
 
     return Scaffold(
       backgroundColor: LupusColors.background,
@@ -421,7 +421,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                       currentSpeakerId: room.currentSpeakerId,
                                       revealRoles: revealRoles,
                                       isMeEvil: isMeEvil,
-                                      isGodModeActive: isGodModeActive,
+                                      isDevModeActive: isDevModeActive,
                                       isDevRoom: isDevRoom,
                                       myRole: myRole,
                                       seerInspectedRoles:
@@ -473,7 +473,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                 selectedPlayerId: _selectedPlayerId,
                                 revealRoles: revealRoles,
                                 isMeEvil: isMeEvil,
-                                isGodModeActive: isGodModeActive,
+                                isDevModeActive: isDevModeActive,
                                 isDevRoom: isDevRoom,
                                 myRole: myRole,
                                 seerInspectedRoles:
@@ -481,7 +481,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                 wolfPlayerIds: gameState.wolfPlayerIds,
                                 onPlayerSelected: (id) {
                                   if (room.phase == GamePhase.nightSeer &&
-                                      (myRole == GameRole.seer || isGodMode) &&
+                                      (myRole == GameRole.seer || isDevMode) &&
                                       _selectedPlayerId != null) {
                                     return;
                                   }
@@ -509,7 +509,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                         // PANNEAU D'ACTIONS STRATÉGIQUES STITCH
                         BentoActionPanel(
                           room: room,
-                          currentUserId: gameState.currentUserId,
+                          currentUserId: gameState.effectiveUserId,
                           selectedTargetId: _selectedPlayerId,
                           inspectedRole: gameState.inspectedRole,
                           isHost: gameState.isHost,
@@ -622,8 +622,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         : GameRole.simpleVillager;
     final isMeAlive = gameState.isAlive as bool? ?? true;
     final isDevRoom = (room.isDevRoom as bool?) ?? false;
-    final isGodModeActive = (gameState.isGodModeActive as bool?) ?? false;
-    final isGodMode = isGodModeActive || isDevRoom;
+    final isDevModeActive = (gameState.isDevModeActive as bool?) ?? false;
+    final isDevMode = isDevModeActive || isDevRoom;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -713,7 +713,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                         ((room.phase as GamePhase) ==
                                 GamePhase.nightWerewolves &&
                             ((gameState.myRole as GameRole).isEvil ||
-                                isGodMode));
+                                isDevMode));
                     final isAdmin = gameState.isAdmin as bool;
 
                     return Container(

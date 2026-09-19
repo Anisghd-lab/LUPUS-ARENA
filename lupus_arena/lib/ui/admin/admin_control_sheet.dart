@@ -42,6 +42,10 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
   String? _selectedHunterTargetId;
   GameRole? _inspectedSeerResult;
 
+  // Variables pour le configurateur Dev-Mode Sandbox
+  int? _lobbyPlayerCount;
+  Map<GameRole, int>? _lobbyRoleCounts;
+
   @override
   Widget build(BuildContext context) {
     final gameState = ref.watch(gameNotifierProvider);
@@ -231,7 +235,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
   Widget _buildTabContent(GameRoom room, LupusGameState gameState) {
     switch (_selectedTab) {
       case 0:
-        return _buildGodView(room);
+        return _buildDevView(room, gameState);
       case 1:
         return _buildSandboxTab(room);
       case 2:
@@ -325,7 +329,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
 
         // 2. Actions forcées des rôles de Nuit
         const Text(
-          'DÉCLENCHEURS DIRECTS DES POUVOIRS (GOD MODE)',
+          'DÉCLENCHEURS DIRECTS DES POUVOIRS (DEV-MODE)',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w800,
@@ -894,12 +898,222 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
   }
 
   // ==========================================
-  // --- 1. VISION TOTALE DES RÔLES (GOD VIEW) ---
+  // --- 1. VISION TOTALE DES RÔLES & INCARNATION (DEV VIEW) ---
   // ==========================================
-  Widget _buildGodView(GameRoom room) {
+  Widget _buildDevView(GameRoom room, LupusGameState gameState) {
+    final notifier = ref.read(gameNotifierProvider.notifier);
+    final effectivePlayer = room.players[gameState.effectiveUserId];
+    final isImpersonating = gameState.isImpersonating;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // PANNEAU D'INCARNATION DYNAMIQUE DEV-MODE
+        Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2E1065), Color(0xFF1E1B4B), Color(0xFF0F172A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isImpersonating ? LupusColors.arcaneGold : const Color(0xFF818CF8).withValues(alpha: 0.5),
+              width: isImpersonating ? 1.5 : 1.0,
+            ),
+            boxShadow: isImpersonating ? LupusTheme.glowGold(opacity: 0.3) : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Text('🎭', style: TextStyle(fontSize: 18)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'INCARNATION DYNAMIQUE',
+                        style: TextStyle(
+                          fontFamily: 'serif',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.9,
+                          color: isImpersonating ? LupusColors.arcaneGold : Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isImpersonating)
+                    InkWell(
+                      onTap: () {
+                        notifier.impersonatePlayer(null);
+                        _showToast('Identité réelle rétablie');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: LupusColors.arcaneGold.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: LupusColors.arcaneGold, width: 0.8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.refresh_rounded, size: 12, color: LupusColors.arcaneGold),
+                            SizedBox(width: 4),
+                            Text(
+                              'Réinitialiser',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: LupusColors.arcaneGold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                isImpersonating
+                    ? 'Vous incarnez actuellement : ${effectivePlayer?.name ?? gameState.effectiveUserId} (${effectivePlayer?.role.displayName ?? "Inconnu"})'
+                    : 'Sélectionnez un joueur ou bot ci-dessous pour agir sous son identité réelle avec le moteur officiel.',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: isImpersonating ? const Color(0xFFFDE68A) : LupusColors.textSecondary,
+                  fontWeight: isImpersonating ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Sélecteur horizontal de joueurs à incarner
+              SizedBox(
+                height: 72,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: room.playerList.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final p = room.playerList[index];
+                    final isCurrentIncarnated = p.id == gameState.effectiveUserId;
+                    final isRealMe = p.id == gameState.currentUserId;
+
+                    return GestureDetector(
+                      onTap: () {
+                        if (isCurrentIncarnated && isImpersonating) {
+                          notifier.impersonatePlayer(null);
+                          _showToast('Identité rétablie : ${gameState.currentUserName}');
+                        } else {
+                          notifier.impersonatePlayer(p.id);
+                          _showToast('🎭 Incarnation active : ${p.name} (${p.role.displayName})');
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 110,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isCurrentIncarnated
+                              ? LupusColors.arcaneGold.withValues(alpha: 0.25)
+                              : const Color(0x660F172A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isCurrentIncarnated
+                                ? LupusColors.arcaneGold
+                                : (p.isAlive
+                                    ? Colors.white.withValues(alpha: 0.15)
+                                    : Colors.white.withValues(alpha: 0.05)),
+                            width: isCurrentIncarnated ? 1.6 : 0.8,
+                          ),
+                          boxShadow: isCurrentIncarnated
+                              ? [
+                                  BoxShadow(
+                                    color: LupusColors.arcaneGold.withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    p.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: isCurrentIncarnated ? FontWeight.w900 : FontWeight.w700,
+                                      color: isCurrentIncarnated
+                                          ? LupusColors.arcaneGold
+                                          : (p.isAlive ? Colors.white : LupusColors.textMuted),
+                                    ),
+                                  ),
+                                ),
+                                if (p.isBot) ...[
+                                  const SizedBox(width: 2),
+                                  const Text('🤖', style: TextStyle(fontSize: 8)),
+                                ],
+                                if (isRealMe) ...[
+                                  const SizedBox(width: 2),
+                                  const Text('👑', style: TextStyle(fontSize: 8)),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: p.role.accentColor.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                p.role.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: p.role.accentColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              isCurrentIncarnated
+                                  ? '✨ ACTIF'
+                                  : (p.isAlive ? 'Incarner' : '💀 Mort'),
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                color: isCurrentIncarnated
+                                    ? LupusColors.arcaneGold
+                                    : (p.isAlive ? const Color(0xFF94A3B8) : LupusColors.arcaneCrimson),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
         // Carte d'état de la Double Action des Loups (si Nuit en cours)
         if (room.phase == GamePhase.nightWerewolves || room.phase.isNight) ...[
           _buildNightWerewolfStatusCard(room),
@@ -907,7 +1121,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
         ],
 
         const Text(
-          'ROSTER SECRET DES JOUEURS',
+          'ROSTER SECRET DES JOUEURS (DEV-MODE)',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w800,
@@ -922,20 +1136,35 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                   player.targetVoteId!.isNotEmpty)
               ? room.players[player.targetVoteId]
               : null;
+          final isPlayerIncarnated = player.id == gameState.effectiveUserId;
 
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xAA12172A),
+              color: isPlayerIncarnated
+                  ? const Color(0xCC2A1B4E)
+                  : const Color(0xAA12172A),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: player.isAlive
-                    ? (player.role.isEvil
-                        ? LupusColors.arcaneCrimson.withValues(alpha: 0.5)
-                        : LupusColors.arcanePurple.withValues(alpha: 0.35))
-                    : Colors.white.withValues(alpha: 0.08),
+                color: isPlayerIncarnated
+                    ? LupusColors.arcaneGold
+                    : (player.isAlive
+                        ? (player.role.isEvil
+                            ? LupusColors.arcaneCrimson.withValues(alpha: 0.5)
+                            : LupusColors.arcanePurple.withValues(alpha: 0.35))
+                        : Colors.white.withValues(alpha: 0.08)),
+                width: isPlayerIncarnated ? 1.5 : 1.0,
               ),
+              boxShadow: isPlayerIncarnated
+                  ? [
+                      BoxShadow(
+                        color: LupusColors.arcaneGold.withValues(alpha: 0.35),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               children: [
@@ -956,19 +1185,41 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            player.name,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: player.isAlive
-                                  ? Colors.white
-                                  : LupusColors.textMuted,
-                              decoration: player.isAlive
-                                  ? null
-                                  : TextDecoration.lineThrough,
+                          Flexible(
+                            child: Text(
+                              player.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: player.isAlive
+                                    ? Colors.white
+                                    : LupusColors.textMuted,
+                                decoration: player.isAlive
+                                    ? null
+                                    : TextDecoration.lineThrough,
+                              ),
                             ),
                           ),
+                          if (player.isBot) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF334155),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'BOT',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ),
+                          ],
                           if (player.isCaptain) ...[
                             const SizedBox(width: 4),
                             const Text('⭐', style: TextStyle(fontSize: 12)),
@@ -1031,32 +1282,88 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                   ),
                 ),
 
-                // Statut de vie
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: player.isAlive
-                        ? const Color(0x3306D6A0)
-                        : const Color(0x33E63946),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: player.isAlive
-                          ? LupusColors.poisonGreen
-                          : LupusColors.arcaneCrimson,
-                      width: 0.8,
+                const SizedBox(width: 8),
+
+                // Colonne Actions (Incarner + Statut)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Statut de vie
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: player.isAlive
+                            ? const Color(0x3306D6A0)
+                            : const Color(0x33E63946),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: player.isAlive
+                              ? LupusColors.poisonGreen
+                              : LupusColors.arcaneCrimson,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        player.isAlive ? 'VIVANT' : 'MORT',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          color: player.isAlive
+                              ? LupusColors.poisonGreen
+                              : LupusColors.arcaneCrimson,
+                        ),
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    player.isAlive ? 'VIVANT' : 'MORT',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w900,
-                      color: player.isAlive
-                          ? LupusColors.poisonGreen
-                          : LupusColors.arcaneCrimson,
+                    const SizedBox(height: 6),
+                    // Bouton Incarner
+                    InkWell(
+                      onTap: () {
+                        if (isPlayerIncarnated && isImpersonating) {
+                          notifier.impersonatePlayer(null);
+                          _showToast('Identité rétablie : ${gameState.currentUserName}');
+                        } else {
+                          notifier.impersonatePlayer(player.id);
+                          _showToast('🎭 Incarnation active : ${player.name} (${player.role.displayName})');
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: isPlayerIncarnated
+                              ? LupusColors.arcaneGold
+                              : const Color(0x33818CF8),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isPlayerIncarnated
+                                ? LupusColors.arcaneGold
+                                : const Color(0xFF818CF8).withValues(alpha: 0.5),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              isPlayerIncarnated ? '✨' : '🎭',
+                              style: const TextStyle(fontSize: 9),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              isPlayerIncarnated ? 'ACTIF' : 'Incarner',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: isPlayerIncarnated
+                                    ? Colors.black
+                                    : const Color(0xFFC7D2FE),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -1301,7 +1608,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
         ),
         const SizedBox(height: 14),
 
-        // Section dédiée God Mode : GESTION DU DÉBAT DU VILLAGE (si phase active)
+        // Section dédiée Dev-Mode : GESTION DU DÉBAT DU VILLAGE (si phase active)
         if (room.phase == GamePhase.dayDebate) ...[
           Container(
             padding: const EdgeInsets.all(12),
@@ -1826,7 +2133,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                   ],
                 ),
 
-                // Contrôles God Mode Nuit des Loups (Double action : Dévorer + Silence)
+                // Contrôles Dev-Mode Nuit des Loups (Double action : Dévorer + Silence)
                 if ((room.phase == GamePhase.nightWerewolves || room.phase.isNight) && player.isAlive) ...[
                   const SizedBox(height: 6),
                   Row(
@@ -2215,207 +2522,566 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
           const Divider(color: Color(0x33B45309), height: 1),
 
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Carte 1 : SIMULATION SANDBOX (12 JOUEURS AVEC 11 BOTS)
-                  BentoCard(
-                    borderColor: const Color(0xFFA855F7),
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0x44581C87),
-                        Color(0x332E1065),
-                        Color(0x330F0B1E),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+            child: StatefulBuilder(
+              builder: (context, setModalState) {
+                // Initialisation par défaut si nécessaire
+                _lobbyPlayerCount ??= 12;
+                if (_lobbyRoleCounts == null) {
+                  _lobbyRoleCounts = {};
+                  final defaultRoles = GameNotifier.generateBalancedRoles(_lobbyPlayerCount!);
+                  for (final r in defaultRoles) {
+                    _lobbyRoleCounts![r] = (_lobbyRoleCounts![r] ?? 0) + 1;
+                  }
+                }
+
+                int totalSelectedRoles = 0;
+                for (final count in _lobbyRoleCounts!.values) {
+                  totalSelectedRoles += count;
+                }
+
+                final isDeckValid = totalSelectedRoles == _lobbyPlayerCount;
+
+                List<GameRole> buildRoleDeck() {
+                  final list = <GameRole>[];
+                  _lobbyRoleCounts!.forEach((role, count) {
+                    for (int i = 0; i < count; i++) {
+                      list.add(role);
+                    }
+                  });
+                  return list;
+                }
+
+                void applyBalancedPreset(int count) {
+                  _lobbyPlayerCount = count;
+                  _lobbyRoleCounts = {};
+                  final roles = GameNotifier.generateBalancedRoles(count);
+                  for (final r in roles) {
+                    _lobbyRoleCounts![r] = (_lobbyRoleCounts![r] ?? 0) + 1;
+                  }
+                }
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Carte 1 : CONFIGURATEUR DEV-MODE (SANDBOX AVEC BOTS & RÈGLES RÉELLES)
+                      BentoCard(
+                        borderColor: LupusColors.arcaneGold,
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0x44581C87),
+                            Color(0x332E1065),
+                            Color(0x330F0B1E),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFA855F7).withValues(alpha: 0.25),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFA855F7)),
-                              ),
-                              child: const Icon(Icons.smart_toy_rounded,
-                                  color: Color(0xFFE9D5FF), size: 28),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: LupusColors.arcaneGold.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: LupusColors.arcaneGold),
+                                  ),
+                                  child: const Icon(Icons.smart_toy_rounded,
+                                      color: LupusColors.arcaneGold, size: 28),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '🎮 SALLE DEV-MODE (MOTEUR RÉEL + BOTS)',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 13,
+                                          color: LupusColors.arcaneGold,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        '1 Hôte Développeur + Bots passifs (Règles & minuteurs réels)',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: LupusColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            const Expanded(
+                            const SizedBox(height: 14),
+
+                            // Sélecteur de Nombre de Participants (6 à 18)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0x660F172A),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    '🎮 SIMULATION SANDBOX (12 JOUEURS)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 13,
-                                      color: Color(0xFFF3E8FF),
-                                      letterSpacing: 0.8,
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Row(
+                                        children: [
+                                          Icon(Icons.groups_rounded, size: 16, color: LupusColors.arcaneGold),
+                                          SizedBox(width: 6),
+                                          Text(
+                                            'NOMBRE DE PARTICIPANTS',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 0.9,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: LupusColors.arcaneGold.withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: LupusColors.arcaneGold, width: 0.8),
+                                        ),
+                                        child: Text(
+                                          '$_lobbyPlayerCount Joueurs',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                            color: LupusColors.arcaneGold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  // Stepper et boutons rapides
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: const Color(0xFF1E293B),
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        onPressed: _lobbyPlayerCount! > 6
+                                            ? () {
+                                                setModalState(() {
+                                                  applyBalancedPreset(_lobbyPlayerCount! - 1);
+                                                });
+                                              }
+                                            : null,
+                                        icon: const Icon(Icons.remove_rounded, size: 18),
+                                      ),
+                                      Expanded(
+                                        child: SliderTheme(
+                                          data: SliderTheme.of(context).copyWith(
+                                            activeTrackColor: LupusColors.arcaneGold,
+                                            inactiveTrackColor: const Color(0xFF334155),
+                                            thumbColor: LupusColors.arcaneGold,
+                                            overlayColor: LupusColors.arcaneGold.withValues(alpha: 0.2),
+                                            trackHeight: 4,
+                                          ),
+                                          child: Slider(
+                                            value: _lobbyPlayerCount!.toDouble(),
+                                            min: 6,
+                                            max: 18,
+                                            divisions: 12,
+                                            onChanged: (val) {
+                                              setModalState(() {
+                                                applyBalancedPreset(val.round());
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: const Color(0xFF1E293B),
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        onPressed: _lobbyPlayerCount! < 18
+                                            ? () {
+                                                setModalState(() {
+                                                  applyBalancedPreset(_lobbyPlayerCount! + 1);
+                                                });
+                                              }
+                                            : null,
+                                        icon: const Icon(Icons.add_rounded, size: 18),
+                                      ),
+                                    ],
+                                  ),
+
+                                  // Raccourcis rapides
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [6, 8, 10, 12, 14, 16, 18].map((n) {
+                                      final isSelected = _lobbyPlayerCount == n;
+                                      return InkWell(
+                                        onTap: () {
+                                          setModalState(() {
+                                            applyBalancedPreset(n);
+                                          });
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? LupusColors.arcaneGold
+                                                : const Color(0xFF1E293B),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? LupusColors.arcaneGold
+                                                  : Colors.white.withValues(alpha: 0.1),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '$n J',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              color: isSelected ? Colors.black : Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // Configuration & Personnalisation du Deck de Rôles
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0x660F172A),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isDeckValid
+                                      ? const Color(0xFF10B981).withValues(alpha: 0.5)
+                                      : const Color(0xFFEF4444).withValues(alpha: 0.5),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Row(
+                                        children: [
+                                          Icon(Icons.style_rounded, size: 16, color: Color(0xFFC084FC)),
+                                          SizedBox(width: 6),
+                                          Text(
+                                            'COMPOSITION DES RÔLES',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 0.9,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: isDeckValid
+                                              ? const Color(0x3310B981)
+                                              : const Color(0x33EF4444),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '$totalSelectedRoles / $_lobbyPlayerCount rôles',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: isDeckValid
+                                                ? const Color(0xFF34D399)
+                                                : const Color(0xFFF87171),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  // Presets rapides
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const BouncingScrollPhysics(),
+                                    child: Row(
+                                      children: [
+                                        _buildPresetButton(
+                                          label: '⚖️ Équilibré Standard',
+                                          onTap: () {
+                                            setModalState(() {
+                                              applyBalancedPreset(_lobbyPlayerCount!);
+                                            });
+                                          },
+                                        ),
+                                        const SizedBox(width: 6),
+                                        _buildPresetButton(
+                                          label: '🐺 Meute Sanglante',
+                                          onTap: () {
+                                            setModalState(() {
+                                              _lobbyRoleCounts = {
+                                                GameRole.seer: 1,
+                                                GameRole.witch: 1,
+                                                GameRole.hunter: 1,
+                                                GameRole.simpleWerewolf: 2,
+                                                GameRole.bigBadWolf: 1,
+                                                GameRole.vileFatherOfWolves: (_lobbyPlayerCount! >= 10) ? 1 : 0,
+                                                GameRole.whiteWerewolf: (_lobbyPlayerCount! >= 12) ? 1 : 0,
+                                                GameRole.simpleVillager: 0,
+                                              };
+                                              int currentSum = _lobbyRoleCounts!.values.fold(0, (a, b) => a + b);
+                                              if (currentSum < _lobbyPlayerCount!) {
+                                                _lobbyRoleCounts![GameRole.simpleVillager] = _lobbyPlayerCount! - currentSum;
+                                              }
+                                            });
+                                          },
+                                        ),
+                                        const SizedBox(width: 6),
+                                        _buildPresetButton(
+                                          label: '✨ Chaos Arcanique',
+                                          onTap: () {
+                                            setModalState(() {
+                                              _lobbyRoleCounts = {
+                                                GameRole.seer: 1,
+                                                GameRole.witch: 1,
+                                                GameRole.cupid: 1,
+                                                GameRole.defender: 1,
+                                                GameRole.piedPiper: 1,
+                                                GameRole.pyromaniac: 1,
+                                                GameRole.simpleWerewolf: 2,
+                                                GameRole.simpleVillager: 0,
+                                              };
+                                              int currentSum = _lobbyRoleCounts!.values.fold(0, (a, b) => a + b);
+                                              if (currentSum < _lobbyPlayerCount!) {
+                                                _lobbyRoleCounts![GameRole.simpleVillager] = _lobbyPlayerCount! - currentSum;
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    '1 Maître du Jeu + 11 Bots passifs avec contrôle total',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: LupusColors.textSecondary,
+
+                                  const SizedBox(height: 10),
+
+                                  // Liste des rôles configurables
+                                  ...[
+                                    GameRole.simpleWerewolf,
+                                    GameRole.bigBadWolf,
+                                    GameRole.whiteWerewolf,
+                                    GameRole.vileFatherOfWolves,
+                                    GameRole.seer,
+                                    GameRole.witch,
+                                    GameRole.hunter,
+                                    GameRole.defender,
+                                    GameRole.cupid,
+                                    GameRole.elder,
+                                    GameRole.piedPiper,
+                                    GameRole.pyromaniac,
+                                    GameRole.knightRustySword,
+                                    GameRole.fox,
+                                    GameRole.simpleVillager,
+                                  ].map((role) {
+                                    final currentCount = _lobbyRoleCounts![role] ?? 0;
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 3),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 18,
+                                            height: 18,
+                                            decoration: BoxDecoration(
+                                              color: role.accentColor.withValues(alpha: 0.2),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                role.isEvil ? '🐺' : (role == GameRole.seer ? '🔮' : (role == GameRole.witch ? '🧪' : '👤')),
+                                                style: const TextStyle(fontSize: 10),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              role.displayName,
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: currentCount > 0 ? Colors.white : LupusColors.textMuted,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            visualDensity: VisualDensity.compact,
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                            onPressed: currentCount > 0
+                                                ? () {
+                                                    setModalState(() {
+                                                      _lobbyRoleCounts![role] = currentCount - 1;
+                                                    });
+                                                  }
+                                                : null,
+                                            icon: const Icon(Icons.remove_circle_outline, size: 18, color: LupusColors.textSecondary),
+                                          ),
+                                          Container(
+                                            constraints: const BoxConstraints(minWidth: 20),
+                                            alignment: Alignment.center,
+                                            child: Text(
+                                              '$currentCount',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w800,
+                                                color: currentCount > 0 ? LupusColors.arcaneGold : LupusColors.textMuted,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            visualDensity: VisualDensity.compact,
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                            onPressed: totalSelectedRoles < _lobbyPlayerCount!
+                                                ? () {
+                                                    setModalState(() {
+                                                      _lobbyRoleCounts![role] = currentCount + 1;
+                                                    });
+                                                  }
+                                                : null,
+                                            icon: const Icon(Icons.add_circle_outline, size: 18, color: LupusColors.arcaneGold),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // Note sur la conformité de production
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0x331E1B4B),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.3)),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.timer_outlined, size: 16, color: Color(0xFFC084FC)),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Moteur réel multijoueur : minuteurs authentiques de phase (20s/30s/40s/60s), résolutions canoniques et incarnation interactive de chaque rôle.',
+                                      style: TextStyle(fontSize: 10, color: Color(0xFFE2E8F0)),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Initialise immédiatement un salon de 12 joueurs avec 11 bots de test. Vous permet de forcer chaque pouvoir de nuit et de tester toutes les règles canoniques sans aucune attente.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: LupusColors.textSecondary,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFA855F7),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () async {
-                              Navigator.pop(context);
-                              await ref
-                                  .read(gameNotifierProvider.notifier)
-                                  .startSandboxGame();
-                            },
-                            icon: const Icon(Icons.play_circle_fill_rounded, size: 22),
-                            label: const Text(
-                              'LANCER LA SIMULATION SANDBOX',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
 
-                  const SizedBox(height: 14),
+                            const SizedBox(height: 14),
 
-                  // Carte 2 : Créer un salon multijoueur réel (12 Joueurs)
-                  BentoCard(
-                    borderColor: LupusColors.arcaneGold.withValues(alpha: 0.6),
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0x33B45309),
-                        Color(0x221E1405),
-                        Color(0x330F0B02),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: LupusColors.arcaneGold.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.group_add_rounded,
-                                  color: LupusColors.arcaneGold, size: 28),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'CRÉER UN SALON MULTIJOUEUR (12 JOUEURS)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 13,
-                                      color: LupusColors.arcaneGold,
-                                      letterSpacing: 0.8,
-                                    ),
+                            // Bouton de lancement Dev-Mode
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isDeckValid ? LupusColors.arcaneGold : const Color(0xFF475569),
+                                  foregroundColor: isDeckValid ? Colors.black : Colors.white60,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Pour faire jouer 12 guerriers humains en direct',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: LupusColors.textSecondary,
-                                    ),
+                                  elevation: isDeckValid ? 4 : 0,
+                                ),
+                                onPressed: isDeckValid
+                                    ? () async {
+                                        Navigator.pop(context);
+                                        await ref
+                                            .read(gameNotifierProvider.notifier)
+                                            .startSandboxGame(
+                                              playerCount: _lobbyPlayerCount!,
+                                              customRoles: buildRoleDeck(),
+                                            );
+                                      }
+                                    : null,
+                                icon: const Icon(Icons.play_circle_fill_rounded, size: 22),
+                                label: Text(
+                                  isDeckValid
+                                      ? 'LANCER LA SALLE DEV-MODE ($_lobbyPlayerCount JOUEURS)'
+                                      : 'AJUSTEZ LES RÔLES ($totalSelectedRoles/$_lobbyPlayerCount)',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.9,
+                                    fontSize: 12.5,
                                   ),
-                                ],
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Créez un salon de jeu officiel avec un deck canonique de 12 rôles équilibrés. Dès que 12 guerriers se sont rassemblés, le Maître du Jeu peut lancer la partie.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: LupusColors.textSecondary,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: LupusColors.arcaneGold,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () async {
-                              Navigator.pop(context);
-                              await ref
-                                  .read(gameNotifierProvider.notifier)
-                                  .createRoom();
-                            },
-                            icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                            label: const Text(
-                              'CRÉER LE SALON MULTIJOUEUR',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPresetButton({
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFF475569)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFFE2E8F0),
+          ),
+        ),
       ),
     );
   }

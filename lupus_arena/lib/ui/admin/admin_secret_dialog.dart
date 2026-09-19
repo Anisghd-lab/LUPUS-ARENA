@@ -6,7 +6,7 @@ import '../theme/lupus_theme.dart';
 import 'admin_control_sheet.dart';
 
 /// Boîte de dialogue secrète demandant le code PIN à 8 chiffres ("03031994")
-/// pour déverrouiller le statut Maître du Jeu / God Mode.
+/// pour déverrouiller le statut Maître du Jeu / Dev-Mode.
 class AdminSecretDialog extends ConsumerStatefulWidget {
   const AdminSecretDialog({super.key});
 

@@ -47,7 +47,7 @@ class MysticRadialTable extends StatefulWidget {
   final String? currentSpeakerId;
   final bool revealRoles;
   final bool isMeEvil;
-  final bool isGodModeActive;
+  final bool isDevModeActive;
   final bool isDevRoom;
   final GameRole myRole;
   final Map<String, GameRole> seerInspectedRoles;
@@ -69,7 +69,7 @@ class MysticRadialTable extends StatefulWidget {
     this.currentSpeakerId,
     this.revealRoles = false,
     this.isMeEvil = false,
-    this.isGodModeActive = false,
+    this.isDevModeActive = false,
     this.isDevRoom = false,
     this.myRole = GameRole.simpleVillager,
     this.seerInspectedRoles = const {},
@@ -435,8 +435,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
               builder: (context) {
                 final isTargetMe = selectedPlayer.id == widget.currentUserId;
                 final isTargetDead = !selectedPlayer.isAlive;
-                final isTargetGodMode =
-                    widget.isGodModeActive || widget.isDevRoom;
+                final isTargetDevMode =
+                    widget.isDevModeActive || widget.isDevRoom;
                 final isTargetWolf = (widget.isMeEvil ||
                         widget.myRole.isEvil ||
                         (widget.currentUserId != null &&
@@ -468,7 +468,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                           : 'Loup-Garou';
                   roleText = '🐺 $wolfName';
                   roleColor = const Color(0xFFFF8B8B);
-                } else if (isTargetGodMode) {
+                } else if (isTargetDevMode) {
                   roleText = selectedPlayer.estDechu
                       ? '${selectedPlayer.role.displayName} (Ex-${selectedPlayer.roleInitial.displayName})'
                       : selectedPlayer.role.displayName;
@@ -524,14 +524,14 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     final isVoiceActive = widget.speakingAgoraUids.contains(player.agoraUid);
     final hasFloor = widget.currentSpeakerId != null && widget.currentSpeakerId == player.id;
     final isSpeaking = (isVoiceActive || hasFloor) && player.isAlive;
-    final isGodMode = widget.isGodModeActive || widget.isDevRoom;
+    final isDevMode = widget.isDevModeActive || widget.isDevRoom;
     final isWolfPeer = (player.role.isEvil ||
             widget.wolfPlayerIds.contains(player.id)) &&
         (widget.isMeEvil ||
             widget.myRole.isEvil ||
             (widget.currentUserId != null &&
                 widget.wolfPlayerIds.contains(widget.currentUserId)) ||
-            isGodMode);
+            isDevMode);
     final seerDiscoveredRole = widget.seerInspectedRoles[player.id];
     final isDead = !player.isAlive;
     final votes = widget.voteCounts?[player.id] ?? 0;
@@ -710,7 +710,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                         ),
 
                       // Badge Allié Loup-Garou (visible pour les loups)
-                      if (isWolfPeer && !isMe && (player.isAlive || isGodMode))
+                      if (isWolfPeer && !isMe && (player.isAlive || isDevMode))
                         Positioned(
                           top: -6,
                           left: -6,
@@ -733,7 +733,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                         ),
 
                       // Badge Rôle Sondé par la Voyante (visible uniquement par la voyante)
-                      if (seerDiscoveredRole != null && !isMe && (player.isAlive || isGodMode))
+                      if (seerDiscoveredRole != null && !isMe && (player.isAlive || isDevMode))
                         Positioned(
                           top: -6,
                           right: -6,
@@ -802,8 +802,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                                 ),
                         ),
 
-                      // Badge Amoureux (Cœur - masqué hors local, godmode ou mort)
-                      if (player.isLover && (isMe || isGodMode || isDead))
+                      // Badge Amoureux (Cœur - masqué hors local, devmode ou mort)
+                      if (player.isLover && (isMe || isDevMode || isDead))
                         Positioned(
                           top: -4,
                           left: -4,
@@ -822,7 +822,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       if (player.isDoused &&
                           (isMe ||
                               widget.myRole == GameRole.pyromaniac ||
-                              isGodMode ||
+                              isDevMode ||
                               isDead))
                         Positioned(
                           bottom: -4,
@@ -842,7 +842,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       if (player.isCharmed &&
                           (isMe ||
                               widget.myRole == GameRole.piedPiper ||
-                              isGodMode ||
+                              isDevMode ||
                               isDead))
                         Positioned(
                           bottom: -4,
@@ -870,7 +870,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                       if (player.isInfected &&
                           (isMe ||
                               widget.myRole.isEvil ||
-                              isGodMode ||
+                              isDevMode ||
                               isDead))
                         Positioned(
                           top: 10,
@@ -984,14 +984,14 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                         const SizedBox(width: 1.5),
                       ],
                       if (player.isInfected &&
-                          (isMe || isWolfPeer || isGodMode || isDead)) ...[
+                          (isMe || isWolfPeer || isDevMode || isDead)) ...[
                         const Text('🩸', style: TextStyle(fontSize: 8.0)),
                         const SizedBox(width: 1.5),
                       ],
                       if (player.isCharmed &&
                           (isMe ||
                               widget.myRole == GameRole.piedPiper ||
-                              isGodMode ||
+                              isDevMode ||
                               isDead)) ...[
                         const Text('🎵', style: TextStyle(fontSize: 8.0)),
                         const SizedBox(width: 1.5),

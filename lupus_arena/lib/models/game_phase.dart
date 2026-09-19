@@ -229,6 +229,58 @@ enum GamePhase {
         this == GamePhase.dayResolution;
   }
 
+  /// Durée canonique en secondes de la phase
+  int get durationSeconds {
+    switch (this) {
+      case GamePhase.lobby:
+        return 0;
+      case GamePhase.nightThief:
+        return 20;
+      case GamePhase.nightCupid:
+        return 20;
+      case GamePhase.nightDefender:
+        return 20;
+      case GamePhase.nightWerewolves:
+        return 40;
+      case GamePhase.nightBlackWolf:
+        return 20;
+      case GamePhase.nightSeer:
+        return 20;
+      case GamePhase.nightWitch:
+        return 25;
+      case GamePhase.nightPiper:
+        return 20;
+      case GamePhase.nightPyromaniac:
+        return 20;
+      case GamePhase.morningAnnouncement:
+        return 20;
+      case GamePhase.hunterDeathChoice:
+        return 25;
+      case GamePhase.captainSuccession:
+      case GamePhase.mayorSuccession:
+        return 15;
+      case GamePhase.captainElection:
+      case GamePhase.mayorElection:
+        return 30;
+      case GamePhase.mayorSpeechOpening:
+        return 15;
+      case GamePhase.dayDebate:
+        return 60;
+      case GamePhase.mayorSpeechClosing:
+        return 15;
+      case GamePhase.dayVoting:
+        return 40;
+      case GamePhase.dayDefense:
+        return 30;
+      case GamePhase.dayTieBreakVote:
+        return 25;
+      case GamePhase.dayResolution:
+        return 15;
+      case GamePhase.gameOver:
+        return 60;
+    }
+  }
+
   IconData get icon {
     switch (this) {
       case GamePhase.lobby:

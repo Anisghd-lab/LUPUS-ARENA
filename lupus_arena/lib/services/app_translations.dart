@@ -317,8 +317,9 @@ class AppTranslations {
       'permissions_granted': 'ACCÈS AUTORISÉ',
       'skip_for_now': 'Passer pour l\'instant',
 
-      // --- ADMIN & DEV-MOD ---
-      'god_mode': 'DEV-MOD',
+      // --- ADMIN & DEV-MODE ---
+      'god_mode': 'MODE DEV',
+      'dev_mode': 'MODE DEV',
       'admin_sheet_title': 'PUPITRE DU MAÎTRE DU JEU',
       'admin_sheet_subtitle': 'Contrôle absolu en temps réel sur la partie',
       'admin_pin_title': 'ACCÈS MAÎTRE DU JEU',
@@ -809,8 +810,9 @@ class AppTranslations {
       'permissions_granted': 'تم منح الإذن',
       'skip_for_now': 'تخطي الآن',
 
-      // --- ADMIN & DEV-MOD ---
-      'god_mode': 'DEV-MOD',
+      // --- ADMIN & DEV-MODE ---
+      'god_mode': 'MODE DEV',
+      'dev_mode': 'MODE DEV',
       'admin_sheet_title': 'لوحة تحكم سيد اللعبة',
       'admin_sheet_subtitle': 'تحكم مطلق ومباشر في اللعبة',
       'admin_pin_title': 'دخول سيد اللعبة',
@@ -1301,8 +1303,9 @@ class AppTranslations {
       'permissions_granted': 'ACCESS GRANTED',
       'skip_for_now': 'Skip for now',
 
-      // --- ADMIN & DEV-MOD ---
-      'god_mode': 'DEV-MOD',
+      // --- ADMIN & DEV-MODE ---
+      'god_mode': 'MODE DEV',
+      'dev_mode': 'DEV-MODE',
       'admin_sheet_title': 'GAME MASTER CONSOLE',
       'admin_sheet_subtitle': 'Absolute real-time control over the game',
       'admin_pin_title': 'GAME MASTER ACCESS',

@@ -182,6 +182,41 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
   GameRoom get effectiveRoom => widget.room;
 
+  void _handleCupidSelection(String id) {
+    final target = widget.room.players[id];
+    if (target == null || !target.isAlive) return;
+
+    if (_cupidLover1Id == null) {
+      setState(() => _cupidLover1Id = id);
+    } else if (_cupidLover1Id == id) {
+      setState(() => _cupidLover1Id = null);
+    } else {
+      setState(() => _cupidLover2Id = id);
+      widget.onCupidBind?.call(_cupidLover1Id!, id);
+    }
+  }
+
+  void _handlePiperSelection(String id) {
+    final target = widget.room.players[id];
+    if (target == null || !target.isAlive || target.isCharmed) return;
+
+    final uncharmedLiving = widget.room.alivePlayers.where((p) => !p.isCharmed).toList();
+    if (uncharmedLiving.length <= 1) {
+      setState(() => _piperTarget1Id = id);
+      widget.onPiperCharm?.call([id]);
+      return;
+    }
+
+    if (_piperTarget1Id == null) {
+      setState(() => _piperTarget1Id = id);
+    } else if (_piperTarget1Id == id) {
+      setState(() => _piperTarget1Id = null);
+    } else {
+      setState(() => _piperTarget2Id = id);
+      widget.onPiperCharm?.call([_piperTarget1Id!, id]);
+    }
+  }
+
   @override
   void didUpdateWidget(covariant BentoActionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -193,7 +228,16 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     if (oldPhase != newPhase || oldRound != newRound) {
       _cupidLover1Id = null;
       _cupidLover2Id = null;
+      _piperTarget1Id = null;
+      _piperTarget2Id = null;
       _selectedCaptainSuccessorId = null;
+    } else if (widget.selectedTargetId != null && widget.selectedTargetId != oldWidget.selectedTargetId) {
+      final myRole = widget.room.players[widget.currentUserId]?.role;
+      if (newPhase == GamePhase.nightCupid && (myRole == GameRole.cupid || widget.isAdmin)) {
+        _handleCupidSelection(widget.selectedTargetId!);
+      } else if (newPhase == GamePhase.nightPiper && (myRole == GameRole.piedPiper || widget.isAdmin)) {
+        _handlePiperSelection(widget.selectedTargetId!);
+      }
     }
   }
 
@@ -468,20 +512,12 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   // --- MODULES DE RÔLES COMPACTS SANS OVERFLOW ---
   // ==========================================
 
-  /// Module Sorcière :
-  /// 1. Carte dédiée pour la victime des loups avec bouton direct [Sauver (Nom)] (sans sélection préalable)
-  ///    OU bannière explicite si aucune victime ciblée par les loups.
-  /// 2. Section Fiole de Mort (sélection libre parmi les joueurs vivants)
-  /// 3. Bouton [Valider / Passer son tour]
+  /// Module Sorcière : Action unique exclusive et directe (1 seule potion par nuit ou passer)
   Widget _buildWitchSection(PlayerModel witch, PlayerModel? selectedTarget) {
     final wolfVictimId = widget.room.nightVictimId;
     final wolfVictim = wolfVictimId != null ? widget.room.players[wolfVictimId] : null;
     final hasHeal = (witch.potionsVie > 0 && !widget.room.witchHealed) || widget.isAdmin;
     final hasPoison = witch.potionsMort > 0 || widget.isAdmin;
-    final isHealed = widget.room.witchHealed;
-    final poisonVictimId = widget.room.witchPoisonVictimId;
-    final poisonVictim = poisonVictimId != null ? widget.room.players[poisonVictimId] : null;
-    final hasActed = isHealed || poisonVictim != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -524,229 +560,103 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ],
           ),
         ),
-        // --- 1. CARTE DÉDIÉE : VICTIME DES LOUPS & POTION DE VIE ---
+
+        // --- 1. CHOIX DIRECT : SAUVER LA VICTIME DES LOUPS (1 CLIC DIRECT) ---
         if (wolfVictim != null) ...[
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isHealed
-                    ? [const Color(0x33064E3B), const Color(0x22022C22)]
-                    : [const Color(0x33450A0A), const Color(0x221E1B4B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0x221E1B4B),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isHealed
-                    ? LupusColors.poisonGreen.withValues(alpha: 0.8)
-                    : LupusColors.arcaneCrimson.withValues(alpha: 0.8),
-                width: 1.2,
+                color: hasHeal
+                    ? LupusColors.poisonGreen.withValues(alpha: 0.6)
+                    : LupusColors.border.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
               children: [
-                // Avatar de la victime
                 CircleAvatar(
-                  radius: 17,
-                  backgroundColor: isHealed
-                      ? LupusColors.poisonGreen.withValues(alpha: 0.2)
-                      : LupusColors.bloodRed.withValues(alpha: 0.25),
+                  radius: 15,
+                  backgroundColor: LupusColors.bloodRed.withValues(alpha: 0.25),
                   child: Icon(
                     BentoPlayerTile.avatarIcons[
                         wolfVictim.avatarIndex % BentoPlayerTile.avatarIcons.length],
-                    size: 17,
-                    color: isHealed
-                        ? LupusColors.poisonGreen
-                        : const Color(0xFFFECDD3),
+                    size: 15,
+                    color: const Color(0xFFFECDD3),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Pseudo et statut de danger
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              wolfVictim.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: isHealed
-                                  ? LupusColors.poisonGreen.withValues(alpha: 0.2)
-                                  : LupusColors.bloodRed.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              isHealed ? context.tr('saved') : context.tr('victim'),
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: isHealed
-                                    ? LupusColors.poisonGreen
-                                    : const Color(0xFFFECDD3),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
                       Text(
-                        isHealed
-                            ? context.tr('victim_saved_tonight')
-                            : (hasHeal
-                                ? context.tr('life_potion')
-                                : context.tr('heal_exhausted')),
+                        'Victime : ${wolfVictim.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        hasHeal ? 'Potion de vie disponible' : 'Potion de vie épuisée',
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w600,
-                          color: isHealed
-                              ? LupusColors.poisonGreen
-                              : (hasHeal
-                                  ? const Color(0xFFFECDD3)
-                                  : LupusColors.textMuted),
+                          color: hasHeal ? LupusColors.poisonGreen : LupusColors.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 6),
-                // Action directe sur la victime : Sauver en 1 clic
-                if (isHealed) ...[
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0x33064E3B),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: LupusColors.poisonGreen.withValues(alpha: 0.6)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.check_circle_rounded,
-                            size: 13, color: LupusColors.poisonGreen),
-                        const SizedBox(width: 3),
-                        Text(
-                          context.tr('saved'),
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            color: LupusColors.poisonGreen,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (hasHeal) ...[
+                if (hasHeal)
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.black,
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       elevation: 2,
                     ),
                     onPressed: widget.onWitchSave,
                     icon: const Icon(Icons.healing_rounded, size: 14),
                     label: Text(
-                      context.tr('save_target', {'name': wolfVictim.name}),
+                      'Sauver ${wolfVictim.name}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w900, fontSize: 11),
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
                     ),
                   ),
-                ] else ...[
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      context.tr('used_potion'),
-                      style: const TextStyle(
-                          fontSize: 9.5,
-                          color: LupusColors.textMuted,
-                          fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
+          const SizedBox(height: 6),
         ] else ...[
-          // Message explicite : Aucune victime des loups cette nuit (bouton soin désactivé/masqué)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: const EdgeInsets.only(bottom: 6),
             decoration: BoxDecoration(
               color: const Color(0x1F1E293B),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
-              ),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: const Color(0x330284C7),
-                    shape: BoxShape.circle,
-                    border:
-                        Border.all(color: const Color(0xFF38BDF8), width: 1),
-                  ),
-                  child: const Text('🕊️', style: TextStyle(fontSize: 13)),
-                ),
+                const Text('🕊️', style: TextStyle(fontSize: 13)),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        context.tr('no_victim_to_save'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFFBAE6FD),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        hasHeal
-                            ? context.tr('potion_available')
-                            : context.tr('potion_depleted'),
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                          color: hasHeal
-                              ? LupusColors.poisonGreen
-                              : LupusColors.textMuted,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    context.tr('no_victim_to_save'),
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFBAE6FD),
+                    ),
                   ),
                 ),
               ],
@@ -754,149 +664,92 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           ),
         ],
 
-        const SizedBox(height: 6),
-
-        // --- 2. SECTION POTION DE MORT (SÉLECTION LIBRE) ---
-        if (poisonVictim != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: LupusColors.bloodRed.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: LupusColors.bloodRed.withValues(alpha: 0.6)),
+        // --- 2 & 3. CHOIX DIRECTS : EMPOISONNER OU PASSER ---
+        Row(
+          children: [
+            // Bouton Empoisonner (1 clic direct sur la cible)
+            Expanded(
+              child: SizedBox(
+                height: 38,
+                child: (hasPoison &&
+                        selectedTarget != null &&
+                        selectedTarget.isAlive &&
+                        selectedTarget.id != widget.currentUserId)
+                    ? ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: LupusColors.bloodRed,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => widget.onWitchPoison(selectedTarget.id),
+                        icon: const Icon(Icons.science_rounded, size: 14),
+                        label: Text(
+                          '☠️ Empoisonner ${selectedTarget.name}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0x1F450A0A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: hasPoison
+                                ? LupusColors.bloodRed.withValues(alpha: 0.3)
+                                : Colors.white10,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.science_outlined,
+                              size: 13,
+                              color: hasPoison ? LupusColors.bloodRed : LupusColors.textMuted,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                hasPoison ? 'Touchez pour empoisonner' : 'Fiole épuisée',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: hasPoison ? const Color(0xFFFECDD3) : LupusColors.textMuted,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.science_rounded,
-                    size: 14, color: LupusColors.bloodRed),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    context.tr('victim_poisoned_tonight',
-                        {'name': poisonVictim.name}),
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFFECDD3),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ] else if (hasPoison) ...[
-          if (selectedTarget != null &&
-              selectedTarget.isAlive &&
-              selectedTarget.id != widget.currentUserId) ...[
+            const SizedBox(width: 6),
+            // Bouton Passer (1 clic direct)
             SizedBox(
               height: 38,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: LupusColors.bloodRed,
-                  foregroundColor: Colors.white,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: LupusColors.textSecondary,
+                  side: BorderSide(color: LupusColors.border.withValues(alpha: 0.6)),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: () => widget.onWitchPoison(selectedTarget.id),
-                icon: const Icon(Icons.science_rounded, size: 14),
+                onPressed: widget.onWitchPass,
+                icon: const Icon(Icons.bedtime_outlined, size: 14),
                 label: Text(
-                  context.tr('poison_target', {'name': selectedTarget.name}),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 11),
+                  context.tr('witch_pass'),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
                 ),
-              ),
-            ),
-          ] else ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0x1F450A0A),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: LupusColors.bloodRed.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.science_outlined,
-                      size: 13,
-                      color: LupusColors.bloodRed.withValues(alpha: 0.8)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      context.tr('tap_player_to_target'),
-                      style: const TextStyle(
-                          fontSize: 10, color: LupusColors.textMuted),
-                    ),
-                  ),
-                ],
               ),
             ),
           ],
-        ] else ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.science_outlined,
-                    size: 13, color: LupusColors.textMuted),
-                const SizedBox(width: 6),
-                Text(
-                  context.tr('poison_exhausted'),
-                  style: const TextStyle(
-                      fontSize: 10, color: LupusColors.textMuted),
-                ),
-              ],
-            ),
-          ),
-        ],
-
-        const SizedBox(height: 6),
-
-        // --- 3. BOUTON VALIDER / PASSER SON TOUR ---
-        SizedBox(
-          height: 38,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: hasActed
-                  ? LupusColors.arcanePurple
-                  : LupusColors.surfaceLight,
-              foregroundColor: Colors.white,
-              elevation: hasActed ? 2 : 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-              side: BorderSide(
-                color: hasActed
-                    ? LupusColors.arcanePurple
-                    : LupusColors.border.withValues(alpha: 0.6),
-              ),
-            ),
-            onPressed: widget.onWitchPass,
-            icon: Icon(
-              hasActed
-                  ? Icons.check_circle_rounded
-                  : Icons.bedtime_outlined,
-              size: 14,
-            ),
-            label: Text(
-              hasActed
-                  ? context.tr('confirm_witch_choices')
-                  : context.tr('witch_pass'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 11),
-            ),
-          ),
         ),
       ],
     );
@@ -2344,86 +2197,141 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final lover2 = _cupidLover2Id != null ? widget.room.players[_cupidLover2Id] : null;
     final canBind = lover1 != null && lover2 != null && lover1.id != lover2.id;
 
-    return Row(
+  /// Module Cupidon (Nuit 1) : Sélection multi-cibles en 2 clics directs (sans bouton Valider)
+  Widget _buildCupidSection(PlayerModel? selectedTarget) {
+    final lover1 = _cupidLover1Id != null ? widget.room.players[_cupidLover1Id] : null;
+    final lover2 = _cupidLover2Id != null ? widget.room.players[_cupidLover2Id] : null;
+
+    final String statusText;
+    if (lover1 == null) {
+      statusText = '💘 Touchez le 1er joueur à lier par amour (0/2)';
+    } else if (lover2 == null) {
+      statusText = '💘 ${lover1.name} choisi(e) • Touchez le 2e joueur (1/2)';
+    } else {
+      statusText = '💖 Âmes sœurs liées : ${lover1.name} & ${lover2.name} !';
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: GestureDetector(
-            onTap: () {
-              if (selectedTarget != null &&
-                  selectedTarget.isAlive &&
-                  selectedTarget.id != _cupidLover2Id) {
-                setState(() => _cupidLover1Id = selectedTarget.id);
-              }
-            },
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              decoration: BoxDecoration(
-                color: lover1 != null
-                    ? const Color(0xFFFF70A6).withValues(alpha: 0.15)
-                    : LupusColors.surfaceLight,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: lover1 != null ? const Color(0xFFFF70A6) : LupusColors.border,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          margin: const EdgeInsets.only(bottom: 6),
+          decoration: BoxDecoration(
+            color: const Color(0x22FF70A6),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFFF70A6).withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            children: [
+              const Text('🏹', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  statusText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFFFB3D1),
+                  ),
                 ),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                lover1 != null ? '❤️ ${lover1.name}' : context.tr('add_lover_1'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
-              ),
-            ),
+            ],
           ),
         ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: GestureDetector(
-            onTap: () {
-              if (selectedTarget != null &&
-                  selectedTarget.isAlive &&
-                  selectedTarget.id != _cupidLover1Id) {
-                setState(() => _cupidLover2Id = selectedTarget.id);
-              }
-            },
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              decoration: BoxDecoration(
-                color: lover2 != null
-                    ? const Color(0xFFFF70A6).withValues(alpha: 0.15)
-                    : LupusColors.surfaceLight,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: lover2 != null ? const Color(0xFFFF70A6) : LupusColors.border,
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (selectedTarget != null && selectedTarget.isAlive) {
+                    _handleCupidSelection(selectedTarget.id);
+                  }
+                },
+                child: Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: lover1 != null
+                        ? const Color(0xFFFF70A6).withValues(alpha: 0.2)
+                        : Colors.black26,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: lover1 != null
+                          ? const Color(0xFFFF70A6)
+                          : LupusColors.border.withValues(alpha: 0.5),
+                      width: lover1 != null ? 1.4 : 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.favorite_rounded, size: 14, color: Color(0xFFFF70A6)),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          lover1 != null ? lover1.name : context.tr('add_lover_1'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: lover1 != null ? FontWeight.w900 : FontWeight.w600,
+                            color: lover1 != null ? Colors.white : LupusColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                lover2 != null ? '❤️ ${lover2.name}' : context.tr('add_lover_2'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (selectedTarget != null && selectedTarget.isAlive) {
+                    _handleCupidSelection(selectedTarget.id);
+                  }
+                },
+                child: Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: lover2 != null
+                        ? const Color(0xFFFF70A6).withValues(alpha: 0.2)
+                        : Colors.black26,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: lover2 != null
+                          ? const Color(0xFFFF70A6)
+                          : LupusColors.border.withValues(alpha: 0.5),
+                      width: lover2 != null ? 1.4 : 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.favorite_border_rounded, size: 14, color: Color(0xFFFF70A6)),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          lover2 != null ? lover2.name : context.tr('add_lover_2'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: lover2 != null ? FontWeight.w900 : FontWeight.w600,
+                            color: lover2 != null ? Colors.white : LupusColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        SizedBox(
-          height: 40,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF70A6),
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: canBind ? () => widget.onCupidBind?.call(lover1.id, lover2.id) : null,
-            child: Text(context.tr('bind_lovers_btn'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5)),
-          ),
+          ],
         ),
       ],
     );
@@ -2497,57 +2405,90 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Joueur de Flûte : Envoûte 2 joueurs avec sa mélodie
+  /// Module Joueur de Flûte : Sélection multi-cibles en 2 clics directs (sans bouton Valider)
   Widget _buildPiperSection(PlayerModel? selectedTarget) {
     final target1 = _piperTarget1Id != null ? widget.room.players[_piperTarget1Id] : null;
     final target2 = _piperTarget2Id != null ? widget.room.players[_piperTarget2Id] : null;
-
     final uncharmedLiving = widget.room.alivePlayers.where((p) => !p.isCharmed).toList();
-    final canCharm = (target1 != null && target2 != null && target1.id != target2.id) ||
-        (uncharmedLiving.length == 1 && target1 != null);
+
+    final String statusText;
+    if (uncharmedLiving.length <= 1) {
+      statusText = '🎵 Touchez le dernier joueur à charmer (0/1)';
+    } else if (target1 == null) {
+      statusText = '🎵 Touchez la 1ère cible à charmer (0/2)';
+    } else if (target2 == null) {
+      statusText = '🎵 ${target1.name} enchanté(e) • Touchez la 2e cible (1/2)';
+    } else {
+      statusText = '🎶 Cibles envoûtées : ${target1.name} & ${target2.name} !';
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          margin: const EdgeInsets.only(bottom: 6),
+          decoration: BoxDecoration(
+            color: const Color(0x2206D6A0),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF06D6A0).withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            children: [
+              const Text('🪈', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  statusText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF6EE7B7),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         Row(
           children: [
             Expanded(
               child: GestureDetector(
                 onTap: () {
-                  if (selectedTarget != null &&
-                      selectedTarget.isAlive &&
-                      !selectedTarget.isCharmed &&
-                      selectedTarget.id != _piperTarget2Id) {
-                    setState(() => _piperTarget1Id = selectedTarget.id);
+                  if (selectedTarget != null && selectedTarget.isAlive && !selectedTarget.isCharmed) {
+                    _handlePiperSelection(selectedTarget.id);
                   }
                 },
                 child: Container(
                   height: 38,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: target1 != null
-                        ? const Color(0xFF06D6A0).withValues(alpha: 0.18)
+                        ? const Color(0xFF06D6A0).withValues(alpha: 0.2)
                         : Colors.black26,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: target1 != null
                           ? const Color(0xFF06D6A0)
-                          : LupusColors.border,
+                          : LupusColors.border.withValues(alpha: 0.5),
+                      width: target1 != null ? 1.4 : 0.8,
                     ),
                   ),
                   child: Row(
                     children: [
                       const Icon(Icons.music_note_rounded, size: 14, color: Color(0xFF06D6A0)),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 5),
                       Expanded(
                         child: Text(
                           target1 != null ? target1.name : '1ère Cible',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: target1 != null ? FontWeight.w800 : FontWeight.w500,
+                            fontSize: 11,
+                            fontWeight: target1 != null ? FontWeight.w900 : FontWeight.w600,
                             color: target1 != null ? const Color(0xFF06D6A0) : LupusColors.textMuted,
                           ),
                         ),
@@ -2557,80 +2498,57 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  if (selectedTarget != null &&
-                      selectedTarget.isAlive &&
-                      !selectedTarget.isCharmed &&
-                      selectedTarget.id != _piperTarget1Id) {
-                    setState(() => _piperTarget2Id = selectedTarget.id);
-                  }
-                },
-                child: Container(
-                  height: 38,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: target2 != null
-                        ? const Color(0xFF06D6A0).withValues(alpha: 0.18)
-                        : Colors.black26,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
+            if (uncharmedLiving.length > 1) ...[
+              const SizedBox(width: 6),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    if (selectedTarget != null && selectedTarget.isAlive && !selectedTarget.isCharmed) {
+                      _handlePiperSelection(selectedTarget.id);
+                    }
+                  },
+                  child: Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
                       color: target2 != null
-                          ? const Color(0xFF06D6A0)
-                          : LupusColors.border,
+                          ? const Color(0xFF06D6A0).withValues(alpha: 0.2)
+                          : Colors.black26,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: target2 != null
+                            ? const Color(0xFF06D6A0)
+                            : LupusColors.border.withValues(alpha: 0.5),
+                        width: target2 != null ? 1.4 : 0.8,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.music_note_rounded, size: 14, color: Color(0xFF06D6A0)),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          target2 != null ? target2.name : '2ème Cible',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: target2 != null ? FontWeight.w800 : FontWeight.w500,
-                            color: target2 != null ? const Color(0xFF06D6A0) : LupusColors.textMuted,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.music_note_outlined, size: 14, color: Color(0xFF06D6A0)),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            target2 != null ? target2.name : '2ème Cible',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: target2 != null ? FontWeight.w900 : FontWeight.w600,
+                              color: target2 != null ? const Color(0xFF06D6A0) : LupusColors.textMuted,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
-        ),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 38,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF06D6A0),
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: canCharm
-                ? () {
-                    final targets = [
-                      target1.id,
-                      if (target2 != null) target2.id,
-                    ];
-                    widget.onPiperCharm?.call(targets);
-                  }
-                : null,
-            icon: const Icon(Icons.graphic_eq_rounded, size: 16),
-            label: const Text(
-              'Envoûter avec la Flûte',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5),
-            ),
-          ),
         ),
       ],
     );
   }
 }
+
+

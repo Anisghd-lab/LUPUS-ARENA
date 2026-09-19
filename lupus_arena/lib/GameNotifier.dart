@@ -1136,6 +1136,24 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           'logs': logs,
         };
 
+        // Si Cupidon termine sa phase sans choix, lier d'office 2 survivants aléatoires
+        if (current == GamePhase.nightCupid) {
+          final hasLovers = room.playerList.any((p) => p.isLover);
+          if (!hasLovers) {
+            final alive = room.alivePlayers;
+            if (alive.length >= 2) {
+              final shuffled = List<PlayerModel>.from(alive)..shuffle();
+              final p1 = shuffled[0].id;
+              final p2 = shuffled[1].id;
+              updates['players/$p1/isLover'] = true;
+              updates['players/$p1/loverId'] = p2;
+              updates['players/$p2/isLover'] = true;
+              updates['players/$p2/loverId'] = p1;
+              logs.add('💘 Le destin a uni deux cœurs dans la nuit.');
+            }
+          }
+        }
+
         // Si les loups terminent leur phase, calculer et fixer leur cible pour la Voyante et la Sorcière
         if (current == GamePhase.nightWerewolves) {
           String? wolfVictimId = _tallyWerewolfVotes() ?? room.nightVictimId;
@@ -2778,6 +2796,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           '🥀 La Sorcière a épuisé toutes ses potions et devient Simple Villageoise !',
       ],
     });
+    // Auto-validation directe & fin de tour immédiate
+    await processNightTransitions();
   }
 
   Future<void> witchPoison(String targetId) async {
@@ -2829,6 +2849,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           '🥀 La Sorcière a épuisé toutes ses potions et devient Simple Villageoise !',
       ],
     });
+    // Auto-validation directe & fin de tour immédiate
+    await processNightTransitions();
   }
 
   Future<void> confirmWitchTurn() async {

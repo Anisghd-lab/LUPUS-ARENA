@@ -793,17 +793,13 @@ void main() {
         const PlayerModel(id: 'p3', name: 'P3', role: GameRole.witch, isAlive: true),
       ];
 
-      // Cas 1 : Aucune sélection manuelle avant la fin du temps imparti
-      String? victimId;
-      String? muteId;
-
-      // Résolution automatique garantie
-      if (victimId == null && alivePlayers.isNotEmpty) {
-        victimId = alivePlayers.first.id;
-      }
-      if (muteId == null && alivePlayers.length > 1) {
-        muteId = alivePlayers.firstWhere((p) => p.id != victimId).id;
-      }
+      // Cas 1 : Aucune sélection manuelle avant la fin du temps imparti -> Résolution automatique garantie
+      // ignore: unnecessary_null_comparison
+      String victimId = alivePlayers.isNotEmpty ? alivePlayers.first.id : '';
+      // ignore: unnecessary_null_comparison
+      String muteId = alivePlayers.length > 1
+          ? alivePlayers.firstWhere((p) => p.id != victimId).id
+          : '';
 
       expect(victimId, equals('p1'), reason: 'Une proie est impérativement désignée');
       expect(muteId, equals('p2'), reason: 'Un joueur est impérativement muselé');

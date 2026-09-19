@@ -1367,5 +1367,128 @@ void main() {
         );
       });
     });
+
+    group('Évaluation synchrone et coupure immédiate de fin de partie (checkGameEnd / evaluateVictoryConditions)', () {
+      test('Parité stricte des Loups : totalLoupsVivants >= totalVillageoisVivants accorde la victoire immédiate à la meute', () {
+        // 2 Loups et 2 Villageois vivants (parité 2 >= 2)
+        final players = {
+          'wolf_1': const PlayerModel(id: 'wolf_1', name: 'Loup 1', role: GameRole.simpleWerewolf, isAlive: true),
+          'wolf_2': const PlayerModel(id: 'wolf_2', name: 'Loup 2', role: GameRole.simpleWerewolf, isAlive: true),
+          'v_1': const PlayerModel(id: 'v_1', name: 'Villageois 1', role: GameRole.simpleVillager, isAlive: true),
+          'v_2': const PlayerModel(id: 'v_2', name: 'Villageois 2', role: GameRole.simpleVillager, isAlive: true),
+        };
+
+        final room = GameRoom(
+          roomCode: 'TEST_PARITY',
+          hostId: 'host',
+          phase: GamePhase.morningAnnouncement,
+          players: players,
+        );
+
+        final win = GameNotifier.checkWinConditions(room);
+        expect(win, equals('werewolves'),
+            reason: 'Dès que le nombre de loups vivants est supérieur ou égal aux villageois, la meute gagne immédiatement');
+      });
+
+      test('Exception du couple mixte : la parité des loups est suspendue tant qu\'un couple mixte survit', () {
+        // 2 Loups et 2 Villageois vivants, mais wolf_1 est en couple avec v_1 (couple mixte)
+        final players = {
+          'wolf_1': const PlayerModel(
+            id: 'wolf_1',
+            name: 'Loup Amoureux',
+            role: GameRole.simpleWerewolf,
+            isAlive: true,
+            isLover: true,
+            loverId: 'v_1',
+          ),
+          'wolf_2': const PlayerModel(id: 'wolf_2', name: 'Loup 2', role: GameRole.simpleWerewolf, isAlive: true),
+          'v_1': const PlayerModel(
+            id: 'v_1',
+            name: 'Villageois Amoureux',
+            role: GameRole.simpleVillager,
+            isAlive: true,
+            isLover: true,
+            loverId: 'wolf_1',
+          ),
+          'v_2': const PlayerModel(id: 'v_2', name: 'Villageois 2', role: GameRole.simpleVillager, isAlive: true),
+        };
+
+        final room = GameRoom(
+          roomCode: 'TEST_MIXED_COUPLE',
+          hostId: 'host',
+          phase: GamePhase.morningAnnouncement,
+          players: players,
+        );
+
+        final win = GameNotifier.checkWinConditions(room);
+        expect(win, isNull,
+            reason: 'Un couple mixte encore en vie doit empêcher la victoire automatique de la meute par parité');
+      });
+
+      test('Couple mixte final : victoire exclusive des amoureux lorsqu\'ils sont les deux derniers survivants', () {
+        final players = {
+          'wolf_1': const PlayerModel(
+            id: 'wolf_1',
+            name: 'Loup Amoureux',
+            role: GameRole.simpleWerewolf,
+            isAlive: true,
+            isLover: true,
+            loverId: 'v_1',
+          ),
+          'v_1': const PlayerModel(
+            id: 'v_1',
+            name: 'Villageois Amoureux',
+            role: GameRole.simpleVillager,
+            isAlive: true,
+            isLover: true,
+            loverId: 'wolf_1',
+          ),
+          'dead_1': const PlayerModel(id: 'dead_1', name: 'Mort 1', role: GameRole.simpleVillager, isAlive: false),
+        };
+
+        final room = GameRoom(
+          roomCode: 'TEST_LOVERS_WIN',
+          hostId: 'host',
+          phase: GamePhase.morningAnnouncement,
+          players: players,
+        );
+
+        final win = GameNotifier.checkWinConditions(room);
+        expect(win, equals('lovers'),
+            reason: 'Lorsque les deux derniers survivants forment un couple, les amoureux remportent la partie');
+      });
+
+      test('Interruption immédiate du flux : refus d\'enchaîner vers le débat ou l\'élection du maire si victoire acquise', () {
+        // Simule le garde _routeToDayPhase
+        String routeDayPhase(GameRoom room) {
+          final win = GameNotifier.checkWinConditions(room);
+          if (win != null) {
+            return GamePhase.gameOver.name;
+          }
+          if (room.round == 1 && room.captainId == null) {
+            return GamePhase.mayorElection.name;
+          }
+          return GamePhase.dayDebate.name;
+        }
+
+        // Salle au Jour 1, sans maire, mais où les loups ont atteint la parité dès l'aube
+        final parityRoom = GameRoom(
+          roomCode: 'TEST_ROUTE_STOP',
+          hostId: 'host',
+          round: 1,
+          captainId: null,
+          phase: GamePhase.morningAnnouncement,
+          players: {
+            'w1': const PlayerModel(id: 'w1', name: 'W1', role: GameRole.simpleWerewolf, isAlive: true),
+            'w2': const PlayerModel(id: 'w2', name: 'W2', role: GameRole.simpleWerewolf, isAlive: true),
+            'v1': const PlayerModel(id: 'v1', name: 'V1', role: GameRole.simpleVillager, isAlive: true),
+            'v2': const PlayerModel(id: 'v2', name: 'V2', role: GameRole.simpleVillager, isAlive: true),
+          },
+        );
+
+        expect(routeDayPhase(parityRoom), equals(GamePhase.gameOver.name),
+            reason: 'La partie doit basculer directement en gameOver sans passer par l\'élection du maire');
+      });
+    });
   });
 }

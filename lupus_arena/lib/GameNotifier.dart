@@ -412,6 +412,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['phase'] = cp.name;
     }
 
+    if (updates['phase'] == GamePhase.gameOver.name || updates['winner'] != null) {
+      _cancelPhaseTimer();
+    }
+
     // CALCUL DU COMPTE À REBOURS SERVEUR PUR (phaseEndsAt, phaseStartedAt, phaseDurationMs)
     final bool isPhaseChanging = updates.containsKey('phase') || updates.containsKey('currentPhase');
     final bool isTimerUpdating = updates.containsKey('timerSeconds');
@@ -1697,8 +1701,26 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
 
       updates['morningVictims'] = allDeaths.toList();
-
       _resetAllVotes(updates);
+
+      // ── DÉCLENCHEMENT SYNCHRONE APRÈS LES MORTS DE LA NUIT (RÉSOLUTION DE L'AUBE) ──
+      final simulatedRoom = room.copyWith(
+        players: room.players.map(
+          (k, v) => MapEntry(k, allDeaths.contains(k) ? v.copyWith(isAlive: false) : v),
+        ),
+      );
+
+      final isGameOver = await evaluateVictoryConditions(
+        room: simulatedRoom,
+        updates: updates,
+        logs: logs,
+        realRoles: realRoles,
+      );
+
+      if (isGameOver) {
+        // Interruption immédiate : victoire proclamée instantanément, aucune sous-phase superflue
+        return;
+      }
 
       String? pendingHunter;
       String? pendingCaptain;
@@ -1774,6 +1796,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     List<String> logs,
   ) {
     _cancelPhaseTimer();
+
+    // GARDE ABSOLU : Si une condition de victoire est atteinte, fin de partie immédiate sans sous-phase
+    final win = checkWinConditions(room);
+    if (win != null) {
+      updates['phase'] = GamePhase.gameOver.name;
+      updates['winner'] = win;
+      logs.add(_formatVictoryMessage(win));
+      return;
+    }
+
     final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId;
     final isMayorAlive = mayorId != null && (room.players[mayorId]?.isAlive ?? false);
 
@@ -2161,6 +2193,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     } catch (_) {}
 
     if (room.round == 1 && condemnedRealRole == GameRole.angel) {
+      _cancelPhaseTimer();
       updates['players/$condemnedId/isAlive'] = false;
       updates['players/$condemnedId/role'] = condemnedRealRole.id;
       updates['phase'] = GamePhase.gameOver.name;
@@ -2285,23 +2318,27 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       }
     }
 
+    // ── DÉCLENCHEMENT SYNCHRONE APRÈS L'ÉLIMINATION DU VOTE DIURNE (BÛCHER) ──
     final simulatedRoom = room.copyWith(
       players: room.players.map(
         (k, v) =>
             MapEntry(k, allDeaths.contains(k) ? v.copyWith(isAlive: false) : v),
       ),
     );
-    final win = checkWinConditions(simulatedRoom, realRoles);
 
-    if (win != null) {
-      updates['phase'] = GamePhase.gameOver.name;
-      updates['winner'] = win;
-      logs.add(_formatVictoryMessage(win));
-      for (final p in room.playerList) {
-        final pRole = realRoles[p.id] ?? p.role;
-        updates['players/${p.id}/role'] = pRole.id;
-      }
-    } else if (pendingHunter != null) {
+    final isGameOver = await evaluateVictoryConditions(
+      room: simulatedRoom,
+      updates: updates,
+      logs: logs,
+      realRoles: realRoles,
+    );
+
+    if (isGameOver) {
+      // Interruption immédiate : fin de partie proclamée, aucune sous-phase superflue
+      return;
+    }
+
+    if (pendingHunter != null) {
       updates['phase'] = GamePhase.hunterDeathChoice.name;
       updates['pendingHunterId'] = pendingHunter;
       updates['timerSeconds'] = 25;
@@ -2484,11 +2521,27 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return r == GameRole.pyromaniac || r == GameRole.whiteWerewolf;
     });
 
+    // Détection d'un couple mixte encore en vie (un loup et un villageois)
+    final hasLivingMixedCouple = alive.any((p) {
+      if (!p.isLover || p.loverId == null) return false;
+      final partner = room.players[p.loverId!];
+      if (partner == null || !partner.isAlive || DeathRegistryService.instance.isDead(partner.id)) {
+        return false;
+      }
+      final pIsWolf = getRole(p).isEvil || p.isInfected;
+      final partnerIsWolf = getRole(partner).isEvil || partner.isInfected;
+      return pIsWolf != partnerIsWolf;
+    });
+
     // Condition canonique de victoire des Loups :
     // - Au moins un loup en vie (aliveWolves > 0)
     // - Parité ou supériorité numérique atteinte face aux villageois (aliveWolves >= aliveVillagers)
     // - Aucun rôle solitaire hostile (Loup Blanc, Pyromane) en vie
-    final bool wolvesWon = (aliveWolves > 0) && (aliveWolves >= aliveVillagers) && !hasHostileSolo;
+    // - Aucun couple mixte encore en vie (sinon le couple mixte peut encore l'emporter)
+    final bool wolvesWon = (aliveWolves > 0) &&
+        (aliveWolves >= aliveVillagers) &&
+        !hasHostileSolo &&
+        !hasLivingMixedCouple;
 
     if (wolvesWon) {
       return 'werewolves';
@@ -2534,6 +2587,46 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         return '🏁 Fin de partie : Égalité funeste, aucun survivant ne subsiste.';
     }
   }
+
+  /// Évaluation synchrone des conditions de victoire et interruption immédiate du jeu en cas de victoire.
+  /// Stoppe instantanément le flux de la partie (purge des timers, annonce de la victoire et fin de cycle).
+  Future<bool> evaluateVictoryConditions({
+    required GameRoom room,
+    required Map<String, dynamic> updates,
+    required List<String> logs,
+    Map<String, GameRole>? realRoles,
+  }) async {
+    final roles = realRoles ?? await _resolveRealRoles(room);
+    final win = checkWinConditions(room, roles);
+    if (win != null) {
+      _cancelPhaseTimer();
+      updates['phase'] = GamePhase.gameOver.name;
+      updates['winner'] = win;
+      logs.add(_formatVictoryMessage(win));
+      for (final p in room.playerList) {
+        final pRole = roles[p.id] ?? p.role;
+        updates['players/${p.id}/role'] = pRole.id;
+      }
+      updates['logs'] = logs;
+      await _syncState(updates);
+      debugPrint('🏆 [evaluateVictoryConditions] Fin de partie immédiate : $win.');
+      return true;
+    }
+    return false;
+  }
+
+  /// Alias conforme à la spécification checkGameEnd
+  Future<bool> checkGameEnd({
+    required GameRoom room,
+    required Map<String, dynamic> updates,
+    required List<String> logs,
+    Map<String, GameRole>? realRoles,
+  }) => evaluateVictoryConditions(
+    room: room,
+    updates: updates,
+    logs: logs,
+    realRoles: realRoles,
+  );
 
   // ===========================================================================
   // POUVOIRS ET ACTIONS SPÉCIFIQUES DES JOUEURS
@@ -3485,17 +3578,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         ),
       ),
     );
-    final win = checkWinConditions(simulated, realRoles);
-    if (win != null) {
-      updates['phase'] = GamePhase.gameOver.name;
-      updates['winner'] = win;
-      logs.add(_formatVictoryMessage(win));
-      for (final p in room.playerList) {
-        final pRole = realRoles[p.id] ?? p.role;
-        updates['players/${p.id}/role'] = pRole.id;
-      }
-    } else {
-      if (room.pendingCaptainId != null) {
+    final isGameOver = await evaluateVictoryConditions(
+      room: simulated,
+      updates: updates,
+      logs: logs,
+      realRoles: realRoles,
+    );
+    if (isGameOver) {
+      return;
+    }
+    if (room.pendingCaptainId != null) {
         updates['phase'] = GamePhase.captainSuccession.name;
       } else if (room.morningVictims.isNotEmpty) {
         updates['phase'] = GamePhase.morningAnnouncement.name;
@@ -3562,6 +3654,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       '🎖️ Le défunt Maire transmet son écharpe à ${successor.name}, nouveau chef du village !',
     );
 
+    final realRoles = await _resolveRealRoles(room);
+    final isGameOver = await evaluateVictoryConditions(
+      room: room,
+      updates: updates,
+      logs: logs,
+      realRoles: realRoles,
+    );
+    if (isGameOver) {
+      return;
+    }
+
     if (room.morningVictims.isNotEmpty) {
       updates['phase'] = GamePhase.morningAnnouncement.name;
       updates['timerSeconds'] = 20;
@@ -3585,6 +3688,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     logs.add(
       '⏳ Le Chasseur n\'a pas tiré à temps dans son dernier souffle. Son tir est perdu !',
     );
+
+    final realRoles = await _resolveRealRoles(room);
+    final isGameOver = await evaluateVictoryConditions(
+      room: room,
+      updates: updates,
+      logs: logs,
+      realRoles: realRoles,
+    );
+    if (isGameOver) {
+      return;
+    }
 
     if (room.pendingCaptainId != null) {
       updates['phase'] = GamePhase.mayorSuccession.name;
@@ -3652,6 +3766,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         updates['players/${p.id}/isAlive'] = false;
         updates['cemetery/${p.id}'] = true;
       }
+    }
+
+    final realRoles = await _resolveRealRoles(room);
+    final isGameOver = await evaluateVictoryConditions(
+      room: room,
+      updates: updates,
+      logs: logs,
+      realRoles: realRoles,
+    );
+    if (isGameOver) {
+      return;
     }
 
     if (room.morningVictims.isNotEmpty) {
@@ -3780,22 +3905,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       if (phase == GamePhase.morningAnnouncement) {
         final room = state.room!;
         final realRoles = await _resolveRealRoles(room);
-        final win = checkWinConditions(room, realRoles);
-
         final updates = <String, dynamic>{};
         final logs = List<String>.from(room.logs);
 
-        if (win != null) {
-          updates['phase'] = GamePhase.gameOver.name;
-          updates['winner'] = win;
-          logs.add(_formatVictoryMessage(win));
-          for (final p in room.playerList) {
-            final revealedRole = realRoles[p.id] ?? p.role;
-            updates['players/${p.id}/role'] = revealedRole.id;
-          }
-        } else {
-          _routeToDayPhase(room, updates, logs);
+        final isGameOver = await evaluateVictoryConditions(
+          room: room,
+          updates: updates,
+          logs: logs,
+          realRoles: realRoles,
+        );
+
+        if (isGameOver) {
+          return;
         }
+
+        _routeToDayPhase(room, updates, logs);
         updates['logs'] = logs;
         await _syncState(updates);
       } else if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) {

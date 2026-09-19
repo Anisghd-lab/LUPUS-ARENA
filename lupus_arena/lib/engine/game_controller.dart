@@ -15,7 +15,7 @@ class GameController extends ChangeNotifier {
   // --- ACTIONS & BUFFERS ---
   final NightActionBuffer _nightBuffer = NightActionBuffer();
   List<String> _pendingDeathsAnnouncement = [];
-  Map<String, String> _votes = {}; // voterId -> targetId
+  final Map<String, String> _votes = {}; // voterId -> targetId
 
   // --- ÉTATS PERSISTANTS DES RÔLES ---
   String? _lastBodyguardProtectedId;
@@ -215,7 +215,7 @@ class GameController extends ChangeNotifier {
       final stolenFaction = _players[targetIndex].faction;
 
       _players[targetIndex].role = RoleType.villager;
-      _players[targetIndex].faction = Faction.villagers;
+      _players[targetIndex].faction = Faction.village;
 
       _players[stealerIndex].role = stolenRole;
       _players[stealerIndex].faction = stolenFaction;

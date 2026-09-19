@@ -31,7 +31,7 @@ void main() {
       expect(thief.role, equals(RoleType.werewolf));
       expect(thief.faction, equals(Faction.werewolves));
       expect(victim.role, equals(RoleType.villager));
-      expect(victim.faction, equals(Faction.villagers));
+      expect(victim.faction, equals(Faction.village));
 
       // Passe à la nuit 1
       expect(controller.currentPhase, equals(GamePhase.night));

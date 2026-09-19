@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lupus_arena/models/game_role.dart';
 import 'package:lupus_arena/models/game_state.dart';
 import 'package:lupus_arena/models/player_model.dart';
 import 'package:lupus_arena/engine/handlers/role_handlers_registry.dart';

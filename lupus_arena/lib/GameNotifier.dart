@@ -2509,13 +2509,25 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     };
 
     // Attribution des charges de pouvoir si applicable
+    final totalJoueurs = state.room?.players.length ?? 8;
+    final maxPotions = max(1, totalJoueurs ~/ 10);
+    final maxVisions = totalJoueurs <= 4
+        ? 1
+        : totalJoueurs <= 9
+            ? 2
+            : totalJoueurs <= 14
+                ? 3
+                : totalJoueurs ~/ 4;
+
+    final stolenPotionsVie = target.potionsVie > 0 ? target.potionsVie : maxPotions;
+    final stolenPotionsMort = target.potionsMort > 0 ? target.potionsMort : maxPotions;
+    final stolenVisions = target.visionsRestantes > 0 ? target.visionsRestantes : maxVisions;
+
     if (stolenRole == GameRole.witch) {
-      final maxP = (state.room?.maxPotionsPerGame ?? 1).clamp(1, 2);
-      updates['players/$thiefId/potionsVie'] = maxP;
-      updates['players/$thiefId/potionsMort'] = maxP;
+      updates['players/$thiefId/potionsVie'] = stolenPotionsVie;
+      updates['players/$thiefId/potionsMort'] = stolenPotionsMort;
     } else if (stolenRole == GameRole.seer) {
-      final maxV = (state.room?.maxVisionsPerGame ?? 1).clamp(1, 99);
-      updates['players/$thiefId/visionsRestantes'] = maxV;
+      updates['players/$thiefId/visionsRestantes'] = stolenVisions;
     }
 
     // Gestion de la meute de loups
@@ -2564,9 +2576,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         curPlayers[thiefId] = curPlayers[thiefId]!.copyWith(
           role: stolenRole,
           encryptedRole: encryptedThiefRole,
-          potionsVie: stolenRole == GameRole.witch ? 1 : 0,
-          potionsMort: stolenRole == GameRole.witch ? 1 : 0,
-          visionsRestantes: stolenRole == GameRole.seer ? 1 : 0,
+          potionsVie: stolenRole == GameRole.witch ? stolenPotionsVie : 0,
+          potionsMort: stolenRole == GameRole.witch ? stolenPotionsMort : 0,
+          visionsRestantes: stolenRole == GameRole.seer ? stolenVisions : 0,
         );
       }
       if (curPlayers.containsKey(targetPlayerId)) {
@@ -2645,13 +2657,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       ],
     };
 
+    final totalJoueurs = state.room?.players.length ?? 8;
+    final maxPotions = max(1, totalJoueurs ~/ 10);
+    final maxVisions = totalJoueurs <= 4
+        ? 1
+        : totalJoueurs <= 9
+            ? 2
+            : totalJoueurs <= 14
+                ? 3
+                : totalJoueurs ~/ 4;
+
     if (chosenRole == GameRole.witch) {
-      final maxP = (state.room?.maxPotionsPerGame ?? 1).clamp(1, 2);
-      updates['players/$thiefId/potionsVie'] = maxP;
-      updates['players/$thiefId/potionsMort'] = maxP;
+      updates['players/$thiefId/potionsVie'] = maxPotions;
+      updates['players/$thiefId/potionsMort'] = maxPotions;
     } else if (chosenRole == GameRole.seer) {
-      final maxV = (state.room?.maxVisionsPerGame ?? 1).clamp(1, 99);
-      updates['players/$thiefId/visionsRestantes'] = maxV;
+      updates['players/$thiefId/visionsRestantes'] = maxVisions;
     }
 
     if (chosenRole.isEvil) {
@@ -2686,9 +2706,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         curPlayers[thiefId] = curPlayers[thiefId]!.copyWith(
           role: chosenRole,
           encryptedRole: encryptedThiefRole,
-          potionsVie: chosenRole == GameRole.witch ? 1 : 0,
-          potionsMort: chosenRole == GameRole.witch ? 1 : 0,
-          visionsRestantes: chosenRole == GameRole.seer ? 1 : 0,
+          potionsVie: chosenRole == GameRole.witch ? maxPotions : 0,
+          potionsMort: chosenRole == GameRole.witch ? maxPotions : 0,
+          visionsRestantes: chosenRole == GameRole.seer ? maxVisions : 0,
         );
       }
       final updatedRoom = state.room!.copyWith(players: curPlayers);

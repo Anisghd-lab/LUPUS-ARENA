@@ -1,3 +1,4 @@
+import '../services/death_registry_service.dart';
 import 'expanded_roles_state.dart';
 import 'game_phase.dart';
 import 'player_model.dart';
@@ -163,9 +164,9 @@ class GameRoom {
       players[userId]?.isReadyReplay == true;
 
   List<PlayerModel> get alivePlayers =>
-      playerList.where((p) => p.isAlive).toList();
+      playerList.where((p) => p.isAlive && !DeathRegistryService.instance.isDead(p.id)).toList();
   List<PlayerModel> get deadPlayers =>
-      playerList.where((p) => !p.isAlive).toList();
+      playerList.where((p) => !p.isAlive || DeathRegistryService.instance.isDead(p.id)).toList();
 
   int get aliveWerewolvesCount =>
       alivePlayers.where((p) => p.role.isEvil).length;
@@ -446,12 +447,19 @@ class GameRoom {
       }
     }
 
+    // Synchronisation et application du DeathRegistryService (Anti-Résurrection absolue)
+    DeathRegistryService.instance.syncFromFirebase(map['cemetery'], map['morningVictims']);
+    final enforcedPlayers = DeathRegistryService.instance.filterOrEnforce(parsedPlayers);
+    parsedPlayers.clear();
+    parsedPlayers.addAll(enforcedPlayers);
+
     // Merge sharded votes
     final rawVotes = map['votes'];
     if (rawVotes is Map) {
       rawVotes.forEach((voterId, targetId) {
         final vid = voterId.toString();
-        if (parsedPlayers.containsKey(vid)) {
+        // Un joueur mort ne peut pas avoir de vote actif
+        if (parsedPlayers.containsKey(vid) && !DeathRegistryService.instance.isDead(vid)) {
           parsedPlayers[vid] = parsedPlayers[vid]!.copyWith(
             targetVoteId: targetId?.toString(),
           );

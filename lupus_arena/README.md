@@ -1,11 +1,23 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.4.1%2B58-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.4.2%2B59-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.4.2 (Build 59)
+
+### ⚰️ Service Dédié Anti-Résurrection (`DeathRegistryService`) & Règle Absolue « Celui qui meurt meurt »
+- **Fichier Dédié Singleton (`DeathRegistryService`) :** Centralisation absolue de l'état de mortalité dans un service autonome mondialement accessible à tous les composants, modèles et widgets (`PlayerModel`, `GameRoom`, `GameState`, `GameNotifier`, `BentoActionPanel`).
+- **Verrouillage Inviolable des Scrutins & Débats :** Éradication totale des résurrections parasites durant le vote (`dayVoting`, `dayTieBreakVote`, `mayorElection`) et les prises de parole du Maire.
+- **Désérialisation Blindée Multi-Niveau (`PlayerModel.fromMap` & `GameRoom.fromMap`) :** Tout joueur inscrit dans le registre a son statut `isAlive` irréversiblement fixé à `false`, peu importe les prétentions d'un paquet réseau ou snapshot Firebase.
+- **Nœud Firebase `cemetery/` Synchronisé en Temps Réel :** Chaque écriture réseau `_syncState` ré-impose atomiquement l'état `players/$uid/isAlive: false` et `cemetery/$uid: true` pour chaque défunt.
+- **Interdiction Formelle du Droit de Vote aux Morts :** `castVote` rejette immédiatement tout vote initié par un joueur décédé ou ciblant un joueur déjà mort.
+- **Seule Exception Canonique :** Seule la potion de vie de la Sorcière (`allowWitchRevive`) appliquée avant l'aube peut réanimer un joueur du cimetière.
 
 ---
 

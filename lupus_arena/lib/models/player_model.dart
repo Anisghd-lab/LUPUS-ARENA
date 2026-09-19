@@ -1,3 +1,4 @@
+import '../services/death_registry_service.dart';
 import '../services/role_security_service.dart';
 import 'game_role.dart';
 export 'game_role.dart';
@@ -254,17 +255,19 @@ class PlayerModel {
       estDechu: map['estDechu'] == true ||
           (resolvedRole == GameRole.simpleVillager &&
               (initialRole != null && initialRole != GameRole.simpleVillager)),
-      isAlive: (map['isAlive'] == false ||
-              map['isAlive'] == 'false' ||
-              map['isAlive'] == 0 ||
-              map['isAlive'] == '0')
+      isAlive: DeathRegistryService.instance.isDead(playerId)
           ? false
-          : (map['isAlive'] == true ||
-                  map['isAlive'] == 'true' ||
-                  map['isAlive'] == 1 ||
-                  map['isAlive'] == '1')
-              ? true
-              : (map['isAlive'] is bool ? map['isAlive'] as bool : false),
+          : ((map['isAlive'] == false ||
+                  map['isAlive'] == 'false' ||
+                  map['isAlive'] == 0 ||
+                  map['isAlive'] == '0')
+              ? false
+              : (map['isAlive'] == true ||
+                      map['isAlive'] == 'true' ||
+                      map['isAlive'] == 1 ||
+                      map['isAlive'] == '1')
+                  ? true
+                  : (map['isAlive'] is bool ? map['isAlive'] as bool : false)),
       isHost: map['isHost'] == true,
       isReady: map['isReady'] == true,
       isOnline: map['isOnline'] != false,

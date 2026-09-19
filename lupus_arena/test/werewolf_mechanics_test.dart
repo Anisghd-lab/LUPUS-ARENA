@@ -5,6 +5,7 @@ import 'package:lupus_arena/models/player_model.dart';
 import 'package:lupus_arena/models/game_room.dart';
 import 'package:lupus_arena/services/update_service.dart';
 import 'package:lupus_arena/services/fog_of_war_service.dart';
+import 'package:lupus_arena/services/death_registry_service.dart';
 import 'package:lupus_arena/services/lobby_audio_manager.dart';
 import 'package:lupus_arena/services/audio_manager.dart';
 
@@ -1080,6 +1081,74 @@ void main() {
       final audioManager = LobbyAudioManager.instance;
       expect(audioManager, isNotNull);
       expect(identical(LobbyAudioManager.instance, LupusAudioManager.instance), isTrue);
+    });
+
+    test('DeathRegistryService : Singleton, enregistrement définitif et blocage de résurrection', () {
+      final registry = DeathRegistryService.instance;
+      registry.clearForNewGame();
+
+      // 1. Initialement vide
+      expect(registry.isDead('player_x'), isFalse);
+      expect(registry.isAlive('player_x'), isTrue);
+
+      // 2. Inscription d'un joueur éliminé
+      registry.markDead('player_x');
+      expect(registry.isDead('player_x'), isTrue);
+      expect(registry.isAlive('player_x'), isFalse);
+
+      // 3. PlayerModel.fromMap force isAlive à false si le joueur est dans le registre
+      final incomingZombieMap = {
+        'id': 'player_x',
+        'name': 'Guerrier X',
+        'role': 'simpleVillager',
+        'isAlive': true, // Réseau prétend qu'il est vivant
+      };
+      final zombiePlayer = PlayerModel.fromMap(incomingZombieMap);
+      expect(zombiePlayer.isAlive, isFalse, reason: 'PlayerModel.fromMap doit forcer isAlive à false pour tout joueur dans le DeathRegistryService');
+
+      // 4. GameRoom.alivePlayers exclut les défunts
+      final room = GameRoom(
+        roomCode: 'TEST',
+        hostId: 'host',
+        phase: GamePhase.dayVoting,
+        players: {
+          'player_x': zombiePlayer,
+          'player_y': const PlayerModel(id: 'player_y', name: 'Guerrier Y', isAlive: true),
+        },
+      );
+      expect(room.alivePlayers.map((p) => p.id), isNot(contains('player_x')));
+      expect(room.alivePlayers.map((p) => p.id), contains('player_y'));
+      expect(room.deadPlayers.map((p) => p.id), contains('player_x'));
+
+      // 5. Seule la sorcière peut réanimer
+      registry.allowWitchRevive('player_x');
+      expect(registry.isDead('player_x'), isFalse);
+      final revivedPlayer = PlayerModel.fromMap(incomingZombieMap);
+      expect(revivedPlayer.isAlive, isTrue, reason: 'Après intervention de la Sorcière, le joueur peut être reconstruit vivant');
+
+      // 6. Nettoyage pour nouvelle partie
+      registry.clearForNewGame();
+      expect(registry.deadPlayerIds.isEmpty, isTrue);
+    });
+
+    test('DeathRegistryService.filterOrEnforce : applique le verrou sur une table de joueurs', () {
+      final registry = DeathRegistryService.instance;
+      registry.clearForNewGame();
+      registry.markDead('dead_1');
+
+      final players = {
+        'dead_1': const PlayerModel(id: 'dead_1', name: 'Dead 1', isAlive: true), // Prétend vivant
+        'alive_1': const PlayerModel(id: 'alive_1', name: 'Alive 1', isAlive: true),
+        'dead_2': const PlayerModel(id: 'dead_2', name: 'Dead 2', isAlive: false), // Appris comme mort
+      };
+
+      final enforced = registry.filterOrEnforce(players);
+      expect(enforced['dead_1']!.isAlive, isFalse, reason: 'dead_1 forcé à mort');
+      expect(enforced['alive_1']!.isAlive, isTrue, reason: 'alive_1 reste vivant');
+      expect(enforced['dead_2']!.isAlive, isFalse, reason: 'dead_2 reste mort');
+      expect(registry.isDead('dead_2'), isTrue, reason: 'dead_2 auto-inscrit au registre');
+
+      registry.clearForNewGame();
     });
   });
 }

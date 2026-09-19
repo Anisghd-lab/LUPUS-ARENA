@@ -1,3 +1,4 @@
+import '../services/death_registry_service.dart';
 import 'expanded_roles_state.dart';
 import 'game_phase.dart';
 import 'player_model.dart';
@@ -31,8 +32,11 @@ class GameState {
   });
 
   bool isAlive(String playerId) {
+    if (DeathRegistryService.instance.isDead(playerId)) {
+      return false;
+    }
     if (players.containsKey(playerId)) {
-      return players[playerId]?.isAlive ?? true;
+      return players[playerId]?.isAlive == true;
     }
     return alivePlayerIdsInOrder.contains(playerId);
   }
@@ -43,9 +47,14 @@ class GameState {
 
   List<String> get alivePlayerIds {
     if (players.isNotEmpty) {
-      return players.values.where((p) => p.isAlive).map((p) => p.id).toList();
+      return players.values
+          .where((p) => p.isAlive && !DeathRegistryService.instance.isDead(p.id))
+          .map((p) => p.id)
+          .toList();
     }
-    return alivePlayerIdsInOrder;
+    return alivePlayerIdsInOrder
+        .where((id) => !DeathRegistryService.instance.isDead(id))
+        .toList();
   }
 
   bool get isDayPhase =>

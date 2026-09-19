@@ -4,6 +4,7 @@ import '../../models/game_phase.dart';
 import '../../models/game_room.dart';
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
+import '../../services/death_registry_service.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
 import 'bento_player_tile.dart';
@@ -111,7 +112,8 @@ class BentoActionPanel extends StatefulWidget {
       return room;
     }
     final uid = currentUserId ?? 'test_user';
-    final alive = isAlive ?? room?.players[uid]?.isAlive ?? true;
+    final bool isUserDead = DeathRegistryService.instance.isDead(uid);
+    final alive = isUserDead ? false : (isAlive ?? room?.players[uid]?.isAlive ?? (room != null ? false : true));
     final captain = isCaptain ?? room?.players[uid]?.isCaptain ?? false;
     final ph = phase ?? room?.phase ?? GamePhase.lobby;
     final timer = timerSeconds ?? room?.timerSeconds ?? 10;
@@ -139,10 +141,12 @@ class BentoActionPanel extends StatefulWidget {
           players[sid] = PlayerModel(
             id: sid,
             name: sname,
-            isAlive: true,
+            isAlive: !DeathRegistryService.instance.isDead(sid),
           );
         } else if (s is PlayerModel) {
-          players[s.id] = s;
+          players[s.id] = DeathRegistryService.instance.isDead(s.id)
+              ? s.copyWith(isAlive: false)
+              : s;
         }
       }
     }
@@ -308,15 +312,16 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   Widget build(BuildContext context) {
     final room = effectiveRoom;
     final currentUserId = widget.currentUserId;
+    final isMeDead = DeathRegistryService.instance.isDead(currentUserId);
     final me = room.players[currentUserId] ??
         PlayerModel(
           id: currentUserId,
           name: 'Moi',
-          isAlive: widget.isAlive ?? true,
+          isAlive: isMeDead ? false : (widget.isAlive ?? true),
           isCaptain: widget.isCaptain ?? false,
         );
 
-    final isAlive = widget.isAlive ?? me.isAlive;
+    final isAlive = isMeDead ? false : (widget.isAlive ?? me.isAlive);
     final role = me.role;
     final phase = widget.phase ?? room.phase;
     final isDevMode = widget.room.isDevRoom || widget.isAdmin;
@@ -1510,8 +1515,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              onPressed: (selectedTarget != null &&
+              onPressed: (!DeathRegistryService.instance.isDead(widget.currentUserId) &&
+                      selectedTarget != null &&
                       selectedTarget.isAlive &&
+                      !DeathRegistryService.instance.isDead(selectedTarget.id) &&
                       selectedTarget.id != widget.currentUserId &&
                       isEligible)
                   ? () => widget.onVote(selectedTarget.id)

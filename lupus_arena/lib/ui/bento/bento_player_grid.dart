@@ -83,10 +83,11 @@ class BentoPlayerGrid extends StatelessWidget {
       itemBuilder: (context, index) {
         final player = players[index];
         final isMe = player.id == currentUserId;
-        final isSpeaking = !player.isBot &&
+        final isVoiceActive = !player.isBot &&
             player.agoraUid > 0 &&
-            (speakingAgoraUids.contains(player.agoraUid) ||
-                (currentSpeakerId != null && currentSpeakerId == player.id));
+            speakingAgoraUids.contains(player.agoraUid);
+        final hasFloor = currentSpeakerId != null && currentSpeakerId == player.id;
+        final isSpeaking = (isVoiceActive || hasFloor) && player.isAlive;
         final isSelected = selectedPlayerId == player.id;
         final votes = votesPerPlayer[player.id] ?? 0;
         final isDevMode = isDevModeActive || isDevRoom;

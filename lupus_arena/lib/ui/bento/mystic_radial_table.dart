@@ -528,8 +528,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
         player.agoraUid > 0 &&
         widget.speakingAgoraUids.contains(player.agoraUid);
     final hasFloor = widget.currentSpeakerId != null &&
-        widget.currentSpeakerId == player.id &&
-        !player.isBot;
+        widget.currentSpeakerId == player.id;
     final isSpeaking = (isVoiceActive || hasFloor) && player.isAlive;
     final isDevMode = widget.isDevModeActive || widget.isDevRoom;
     final isWolfPeer = (player.role.isEvil ||

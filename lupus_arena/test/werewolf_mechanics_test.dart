@@ -299,6 +299,29 @@ void main() {
       isVictoryVoiceExpired: false,
     );
     expect(normalNightDeadMute, isTrue, reason: 'En jeu normal, un mort a son micro coupé');
+
+    // 4. Étanchéité absolue du micro des bots (isBot: true -> shouldMute = true en toutes circonstances)
+    final botMuteInDebate = GameNotifier.calculateShouldMuteForPhase(
+      phase: GamePhase.dayDebate,
+      isAlive: true,
+      isSilencedByBlackWolf: false,
+      isCurrentSpeaker: true,
+      isEvil: false,
+      isVictoryVoiceExpired: false,
+      isBot: true,
+    );
+    expect(botMuteInDebate, isTrue, reason: 'Le micro d un bot est strictement inactif même s il est l orateur en cours');
+
+    final botMuteInGameOver = GameNotifier.calculateShouldMuteForPhase(
+      phase: GamePhase.gameOver,
+      isAlive: true,
+      isSilencedByBlackWolf: false,
+      isCurrentSpeaker: false,
+      isEvil: false,
+      isVictoryVoiceExpired: false,
+      isBot: true,
+    );
+    expect(botMuteInGameOver, isTrue, reason: 'Un bot n a aucun micro actif même lors de la minute collective');
   });
 
   test('Préparation du deck de cartes rôles adapté au nombre de joueurs et mélange Fisher-Yates', () {

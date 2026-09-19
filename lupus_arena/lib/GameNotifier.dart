@@ -3203,8 +3203,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     } else if (phase == GamePhase.mayorSpeechClosing) {
       await concludeMayorSpeechClosing();
     } else if (phase == GamePhase.dayDebate) {
-      // Expiration du timer global du débat : clôture immédiate et bascule automatique sur vote ou clôture
-      await endDebateAndOpenVote();
+      // Expiration du temps de parole de l'orateur en cours (bot ou humain) : avancement au prochain tour ou clôture vers le vote
+      await passTurnDebate();
     } else if (phase == GamePhase.dayVoting ||
         phase == GamePhase.dayTieBreakVote) {
       await processDayVoteResolution();
@@ -3803,10 +3803,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     required bool isCurrentSpeaker,
     required bool isEvil,
     required bool isVictoryVoiceExpired,
+    bool isBot = false,
     String? pendingHunterId,
     String? pendingCaptainId,
     String? currentUserId,
   }) {
+    // 0. Si le joueur est un bot, son micro est strictement et invariablement coupé
+    if (isBot) {
+      return true;
+    }
+
     // 1. Lors de la fin de partie (gameOver) : Minute vocale collective (60s)
     // Tous les joueurs (morts, vivants, ou réduits au silence) peuvent parler tant que la minute n'a pas expiré.
     if (phase == GamePhase.gameOver) {
@@ -3910,6 +3916,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       isCurrentSpeaker: room.currentSpeakerId == state.currentUserId,
       isEvil: isWolf,
       isVictoryVoiceExpired: state.isVictoryVoiceExpired,
+      isBot: me.isBot,
       pendingHunterId: room.pendingHunterId,
       pendingCaptainId: room.pendingCaptainId,
       currentUserId: state.currentUserId,

@@ -128,8 +128,7 @@ class BentoTargetCarousel extends StatelessWidget {
                   player.agoraUid > 0 &&
                   speakingAgoraUids.contains(player.agoraUid);
               final hasFloor = currentSpeakerId != null &&
-                  currentSpeakerId == player.id &&
-                  !player.isBot;
+                  currentSpeakerId == player.id;
               final isSpeaking = (isVoiceActive || hasFloor) && player.isAlive;
               final isWolfPeer = player.role.isEvil && isMeEvil;
 

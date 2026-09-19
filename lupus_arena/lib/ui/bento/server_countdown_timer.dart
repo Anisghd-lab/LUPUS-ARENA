@@ -19,6 +19,7 @@ class ServerCountdownTimerBadge extends StatefulWidget {
   final int? round;
   final VoidCallback? onTimerExpired;
   final ValueChanged<int>? onTick;
+  final bool isCompact;
 
   const ServerCountdownTimerBadge({
     super.key,
@@ -29,6 +30,7 @@ class ServerCountdownTimerBadge extends StatefulWidget {
     this.round,
     this.onTimerExpired,
     this.onTick,
+    this.isCompact = false,
   });
 
   @override
@@ -98,40 +100,43 @@ class _ServerCountdownTimerBadgeState extends State<ServerCountdownTimerBadge> {
           }
 
           final isUrgent = remainingSeconds <= 10;
+          final isCompact = widget.isCompact;
 
           return AnimatedContainer(
             duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: isCompact
+                ? const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5)
+                : const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
               color: isUrgent
                   ? const Color(0xE0380B0B)
                   : const Color(0xE005070F),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(isCompact ? 10 : 14),
               border: Border.all(
                 color: isUrgent
                     ? LupusColors.arcaneCrimson
-                    : LupusColors.arcaneGold.withValues(alpha: 0.5),
-                width: isUrgent ? 1.6 : 1.0,
+                    : LupusColors.arcaneGold.withValues(alpha: isCompact ? 0.45 : 0.5),
+                width: isUrgent ? (isCompact ? 1.2 : 1.6) : 1.0,
               ),
               boxShadow: isUrgent
-                  ? LupusTheme.glowCrimson(opacity: 0.6)
-                  : LupusTheme.glowGold(opacity: 0.25),
+                  ? LupusTheme.glowCrimson(opacity: isCompact ? 0.45 : 0.6)
+                  : LupusTheme.glowGold(opacity: isCompact ? 0.18 : 0.25),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   isUrgent ? '⏳' : (widget.isNight ? '🌙' : '☀️'),
-                  style: const TextStyle(fontSize: 14),
+                  style: TextStyle(fontSize: isCompact ? 11 : 14),
                 ),
-                const SizedBox(width: 7),
+                SizedBox(width: isCompact ? 4 : 7),
                 Text(
                   '${remainingSeconds}s',
                   style: TextStyle(
                     fontFamily: 'monospace',
-                    fontSize: 13.5,
+                    fontSize: isCompact ? 11.5 : 13.5,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 1.1,
+                    letterSpacing: isCompact ? 0.8 : 1.1,
                     color: isUrgent
                         ? const Color(0xFFFFA4A4)
                         : LupusColors.arcaneGold,

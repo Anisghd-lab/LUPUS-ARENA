@@ -388,18 +388,15 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
           SafeArea(
             child: Column(
               children: [
-                // TOP HUD & NAVIGATION BAR (Fidèle à Stitch Screen 2)
-                _buildStitchTopHUD(context, room, gameState),
-
-                // SOUS-BARRE : BOUTON RÔLE & DÉCOMPTE (Stitch Sub-Bar)
-                _buildStitchSubBar(
+                // TOP HUD UNIFIÉ (Header Row: Quitter, Code Room, Mon Rôle, Chrono compact, Parchemin, Globe)
+                _buildStitchTopHUD(
                   context,
+                  room,
+                  gameState,
                   myRole,
                   isMeAlive,
-                  room,
                   _countdownNotifier,
                   isNight,
-                  gameState,
                 ),
 
                 // BANNIÈRE D'ANNONCE DE PHASE (Stitch Phase Banner)
@@ -410,7 +407,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
 
                 // SÉLECTEUR DE VUE : TABLE MYSTIQUE RADIALE vs GRILLE BENTO
                 _buildViewModeToggle(),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
 
                 // ZONE CENTRALE (EXPANDED) : TABLE MYSTIQUE OU GRILLE BENTO (Zéro Scroll)
                 Expanded(
@@ -453,6 +450,11 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                         room,
                                       ),
                                       onPlayerSelected: (id) {
+                                        if (room.phase == GamePhase.nightSeer &&
+                                            (myRole == GameRole.seer || isDevMode) &&
+                                            _selectedPlayerId != null) {
+                                          return;
+                                        }
                                         final target = room.players[id];
                                         if (target == null || !target.isAlive || DeathRegistryService.instance.isDead(id)) return;
                                         setState(() {
@@ -570,6 +572,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           onCaptainPass: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
                               .designateCaptainSuccessor(targetId),
+                          onCrowDesignate: (targetId) => ref
+                              .read(gameNotifierProvider.notifier)
+                              .crowDesignate(targetId),
                           onPyromaniacDouse: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
                               .pyromaniacDouse(targetId),
@@ -589,7 +594,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           onSelectTarget: (id) =>
                               setState(() => _selectedPlayerId = id),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
 
                         // CONTRÔLES VOCAUX AGORA
                         BentoVoiceControls(
@@ -621,32 +626,36 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     );
   }
 
-  /// Top HUD & Navigation Bar conforme au design Stitch
+  /// Top HUD & Navigation Bar unifié :
+  /// Disposition horizontale (Row) unique bien espacée et centrée :
+  /// [Bouton Quitter] -> [Code Room] -> [Mon Rôle (centré via Expanded)] -> [Chrono compact] -> [Parchemin] -> [Globe de langue]
   Widget _buildStitchTopHUD(
     BuildContext context,
     dynamic room,
     dynamic gameState,
+    dynamic myRole,
+    bool isMeAlive,
+    ValueNotifier<int> countdownNotifier,
+    bool isNight,
   ) {
-    final isNight = (room.phase as GamePhase).isNight;
-    final myRole = gameState.myRole is GameRole
-        ? gameState.myRole as GameRole
-        : GameRole.simpleVillager;
-    final isMeAlive = gameState.isAlive as bool? ?? true;
+    final role = myRole is GameRole ? myRole : GameRole.simpleVillager;
+    final accentColor = role.accentColor;
     final isDevRoom = (room.isDevRoom as bool?) ?? false;
     final isDevModeActive = (gameState.isDevModeActive as bool?) ?? false;
-    final isDevMode = isDevModeActive || isDevRoom;
+    final isDevMode =
+        isDevModeActive || isDevRoom || (gameState.isAdmin as bool? ?? false);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.fromLTRB(10, 2, 10, 1),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Bouton Fermer circulaire en verre
+          // 1. Bouton Quitter circulaire en verre (fermer la salle)
           GestureDetector(
             onTap: () => _confirmLeave(context),
             child: Container(
-              width: 38,
-              height: 38,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: const Color(0xC012182E),
                 shape: BoxShape.circle,
@@ -654,403 +663,163 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 8,
+                    blurRadius: 6,
                   ),
                 ],
               ),
               child: const Icon(
                 Icons.close_rounded,
-                size: 18,
+                size: 16,
                 color: LupusColors.textSecondary,
               ),
             ),
           ),
+          const SizedBox(width: 6),
 
-          // Centre : Titre Fantasy et Code de Salle (Déclencheur Secret Admin: Long press ou Double tap)
+          // 2. [Code Room] : Le badge #ZVEFR (bordure ambrée, déclencheur secret admin)
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onLongPress: () => _openAdminTrigger(context),
             onDoubleTap: () => _openAdminTrigger(context),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: LupusTheme.glowPurple(opacity: 0.45),
-                        border: Border.all(
-                          color: LupusColors.arcaneGold.withValues(alpha: 0.5),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: ClipOval(
-                        child: LupusAssets.adaptiveImage(
-                          assetPath: LupusAssets.wolfSealAsset,
-                          networkUrl: LupusAssets.wolfSealUrl,
-                          fit: BoxFit.cover,
-                          placeholder: const Text(
-                            '🐺',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    const Text(
-                      'LUPUS ARENA',
-                      style: TextStyle(
-                        fontFamily: 'serif',
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                        fontSize: 15,
-                        color: Colors.white,
-                      ),
-                    ),
-                    if (gameState.isAdmin as bool) ...[
-                      const SizedBox(width: 5),
-                      const Text('👑', style: TextStyle(fontSize: 12)),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Builder(
-                  builder: (_) {
-                    final isWolfVoice =
-                        (gameState.isWolfVoiceChannel == true) ||
-                        ((room.phase as GamePhase) ==
-                                GamePhase.nightWerewolves &&
-                            ((gameState.myRole as GameRole).isEvil ||
-                                isDevMode));
-                    final isAdmin = gameState.isAdmin as bool;
+            child: Builder(
+              builder: (_) {
+                final isWolfVoice =
+                    (gameState.isWolfVoiceChannel == true) ||
+                    ((room.phase as GamePhase) ==
+                            GamePhase.nightWerewolves &&
+                        ((role).isEvil || isDevMode));
+                final isAdmin = (gameState.isAdmin as bool?) ?? false;
 
-                    return Container(
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isWolfVoice
+                        ? const Color(0xCC7F1D1D)
+                        : (isAdmin
+                              ? const Color(0xFF422006)
+                              : const Color(0xCC12182E)),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isWolfVoice
+                          ? const Color(0xFFFF2A4B)
+                          : LupusColors.arcaneGold.withValues(alpha: 0.6),
+                      width: isWolfVoice ? 1.2 : 0.8,
+                    ),
+                    boxShadow: isWolfVoice
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFFF2A4B)
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 8,
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: LupusColors.arcaneGold
+                                  .withValues(alpha: 0.12),
+                              blurRadius: 6,
+                            ),
+                          ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isWolfVoice) ...[
+                        const Text('🐺', style: TextStyle(fontSize: 10)),
+                        const SizedBox(width: 3),
+                      ],
+                      Text(
+                        isWolfVoice
+                            ? '#${room.roomCode} • CANAL MEUTE'
+                            : '#${room.roomCode}',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
+                          color: isWolfVoice
+                              ? const Color(0xFFFFE4E6)
+                              : LupusColors.arcaneGold,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // 3. [Mon Rôle] : Bouton/capsule "MON RÔLE", placé et centré/ajusté dans l'espace disponible
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: GestureDetector(
+                    onTap: () => _showSecretRoleModal(
+                      context,
+                      role,
+                      isMeAlive,
+                      gameState,
+                    ),
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 1.5,
+                        vertical: 3.5,
                       ),
                       decoration: BoxDecoration(
-                        color: isWolfVoice
-                            ? const Color(0xCC7F1D1D)
-                            : (isAdmin
-                                  ? const Color(0xFF422006)
-                                  : const Color(0x991E1B4B)),
-                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0xE012182E),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: isWolfVoice
-                              ? const Color(0xFFFF2A4B)
-                              : (isAdmin
-                                    ? LupusColors.arcaneGold
-                                    : LupusColors.arcanePurple.withValues(
-                                        alpha: 0.4,
-                                      )),
-                          width: isWolfVoice ? 1.2 : 0.8,
+                          color: accentColor.withValues(alpha: 0.5),
+                          width: 0.9,
                         ),
-                        boxShadow: isWolfVoice
-                            ? [
-                                BoxShadow(
-                                  color: const Color(0xFFFF2A4B)
-                                      .withValues(alpha: 0.4),
-                                  blurRadius: 8,
-                                ),
-                              ]
-                            : null,
+                        boxShadow: [
+                          BoxShadow(
+                            color: accentColor.withValues(alpha: 0.2),
+                            blurRadius: 6,
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (isWolfVoice) ...[
-                            const Text('🐺', style: TextStyle(fontSize: 10)),
-                            const SizedBox(width: 4),
-                          ],
+                          Icon(
+                            Icons.shield_outlined,
+                            size: 13,
+                            color: accentColor,
+                          ),
+                          const SizedBox(width: 4),
                           Text(
-                            isWolfVoice
-                                ? '#${room.roomCode} • CANAL MEUTE'
-                                : '#${room.roomCode}',
+                            context.tr('my_role'),
                             style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 10,
+                              fontFamily: 'serif',
+                              fontSize: 10.5,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: 1.1,
-                              color: isWolfVoice
-                                  ? const Color(0xFFFFE4E6)
-                                  : (isAdmin
-                                        ? LupusColors.arcaneGold
-                                        : const Color(0xFFC7D2FE)),
+                              letterSpacing: 0.8,
+                              color: accentColor,
                             ),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          // Côté Droit : Pilule Nuit/Jour & Cœur Amoureux / Orbe
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isNight
-                      ? const Color(0x99450A0A)
-                      : const Color(0x99422006),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isNight
-                        ? LupusColors.arcaneCrimson.withValues(alpha: 0.5)
-                        : LupusColors.arcaneGold.withValues(alpha: 0.5),
-                  ),
-                  boxShadow: isNight
-                      ? LupusTheme.glowRed(opacity: 0.3)
-                      : LupusTheme.glowGold(opacity: 0.3),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isNight
-                            ? LupusColors.arcaneCrimson
-                            : LupusColors.arcaneGold,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      isNight
-                          ? '${context.tr('night')} • T${room.round}'
-                          : '${context.tr('day')} • T${room.round}',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.0,
-                        color: isNight
-                            ? const Color(0xFFFCA5A5)
-                            : const Color(0xFFFDE68A),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              // Bouton changement de langue en jeu
-              GestureDetector(
-                onTap: () => LanguageDialog.show(context, LocaleProvider.instance),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xC012182E),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: LupusColors.arcaneGold.withValues(alpha: 0.4)),
-                  ),
-                  child: const Icon(
-                    Icons.language_rounded,
-                    size: 16,
-                    color: LupusColors.arcaneGold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Bouton Parchemin / Journal des Chroniques avec Badge de notification
-              Builder(
-                builder: (_) {
-                  final logList = (room.logs is List) ? (room.logs as List) : const [];
-                  final unreadCount = (logList.length - _lastSeenLogCount).clamp(0, 999);
-
-                  return GestureDetector(
-                    onTap: () => _openChroniclesBottomSheet(
-                      context,
-                      List<String>.from((room.logs as Iterable?) ?? const []),
-                      room.roomCode.toString(),
-                    ),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xC012182E),
-                            border: Border.all(
-                              color: LupusColors.arcaneGold.withValues(alpha: 0.5),
-                              width: 1.0,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: LupusColors.arcaneGold.withValues(alpha: 0.2),
-                                blurRadius: 6,
-                              ),
-                            ],
-                          ),
-                          child: const Center(
-                            child: Text(
-                              '📜',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ),
-                        ),
-                        if (unreadCount > 0)
-                          Positioned(
-                            top: -3,
-                            right: -3,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: LupusColors.arcaneCrimson,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 1.0,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.5),
-                                    blurRadius: 4,
-                                  ),
-                                ],
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 16,
-                                minHeight: 16,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  unreadCount > 99 ? '99+' : '$unreadCount',
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 8),
-
-              // Orbe joueur / amoureux (cliquable pour consulter sa carte)
-              GestureDetector(
-                onTap: () =>
-                    _showSecretRoleModal(context, myRole, isMeAlive, gameState),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFDE68A), Color(0xFFFDA4AF)],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(1.5),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(0xFF1B172A),
-                    ),
-                    child: Center(
-                      child: Text(
-                        gameState.isLover
-                            ? '💖'
-                            : (gameState.isCaptain ? '⭐' : '🛡️'),
-                        style: const TextStyle(fontSize: 14),
-                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Sous-barre Stitch : Bouton Mon Rôle compact & Minuteur de tour réactif serveur
-  Widget _buildStitchSubBar(
-    BuildContext context,
-    dynamic myRole,
-    bool isMeAlive,
-    GameRoom room,
-    ValueNotifier<int> countdownNotifier,
-    bool isNight,
-    dynamic gameState,
-  ) {
-    final role = myRole is GameRole ? myRole : GameRole.simpleVillager;
-    final accentColor = role.accentColor;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Petit bouton compact Bento "MON RÔLE"
-          GestureDetector(
-            onTap: () =>
-                _showSecretRoleModal(context, role, isMeAlive, gameState),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: const Color(0xE012182E),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: accentColor.withValues(alpha: 0.5),
-                  width: 1.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: accentColor.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.shield_outlined, size: 14, color: accentColor),
-                  const SizedBox(width: 5),
-                  Text(
-                    context.tr('my_role'),
-                    style: TextStyle(
-                      fontFamily: 'serif',
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                      color: accentColor,
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
 
-          // Minuteur de tour réactif PURE fonction du temps serveur Firebase RTDB
+          // 4. [Chrono compact] : Minuteur de tour réactif en pilule compacte
           ServerCountdownTimerBadge(
+            isCompact: true,
             phaseEndsAt: room.phaseEndsAt,
-            fallbackSeconds: room.timerSeconds > 0 ? room.timerSeconds : (isNight ? 40 : 15),
+            fallbackSeconds: room.timerSeconds > 0
+                ? room.timerSeconds
+                : (isNight ? 40 : 15),
             isNight: isNight,
             phase: room.phase,
             round: room.round,
@@ -1060,7 +829,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
             onTimerExpired: () {
               final currentRoom = ref.read(gameNotifierProvider).room;
               if (currentRoom == null) return;
-              if (currentRoom.phase != room.phase || currentRoom.round != room.round) {
+              if (currentRoom.phase != room.phase ||
+                  currentRoom.round != room.round) {
                 // La phase ou le tour a déjà progressé entre-temps, ignorer l'expiration orpheline !
                 return;
               }
@@ -1070,6 +840,117 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                 ref.read(gameNotifierProvider.notifier).nextPhase();
               }
             },
+          ),
+          const SizedBox(width: 6),
+
+          // 5. [Parchemin] : Journal des Chroniques avec Badge de notification
+          Builder(
+            builder: (_) {
+              final logList =
+                  (room.logs is List) ? (room.logs as List) : const [];
+              final unreadCount =
+                  (logList.length - _lastSeenLogCount).clamp(0, 999);
+
+              return GestureDetector(
+                onTap: () => _openChroniclesBottomSheet(
+                  context,
+                  List<String>.from((room.logs as Iterable?) ?? const []),
+                  room.roomCode.toString(),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xC012182E),
+                        border: Border.all(
+                          color: LupusColors.arcaneGold.withValues(alpha: 0.5),
+                          width: 1.0,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: LupusColors.arcaneGold
+                                .withValues(alpha: 0.2),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '📜',
+                          style: TextStyle(fontSize: 15),
+                        ),
+                      ),
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        top: -3,
+                        right: -3,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: LupusColors.arcaneCrimson,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 1.0,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Center(
+                            child: Text(
+                              unreadCount > 99 ? '99+' : '$unreadCount',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 6),
+
+          // 6. [Globe de langue] : Bouton circulaire avec l'icône globe tout à droite
+          GestureDetector(
+            onTap: () =>
+                LanguageDialog.show(context, LocaleProvider.instance),
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: const Color(0xC012182E),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: LupusColors.arcaneGold.withValues(alpha: 0.4),
+                ),
+              ),
+              child: const Icon(
+                Icons.language_rounded,
+                size: 16,
+                color: LupusColors.arcaneGold,
+              ),
+            ),
           ),
         ],
       ),
@@ -1091,12 +972,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         : context.tr('day_phase_round', {'round': room.round});
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            margin: const EdgeInsets.only(bottom: 4),
+            margin: const EdgeInsets.only(bottom: 2),
             decoration: BoxDecoration(
               color: phase.isNight ? const Color(0x66450A0A) : const Color(0x66422006),
               borderRadius: BorderRadius.circular(10),
@@ -1122,7 +1003,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'serif',
-              fontSize: 18,
+              fontSize: 16.5,
               fontWeight: FontWeight.w900,
               letterSpacing: 0.8,
               color: Colors.white,
@@ -1134,13 +1015,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 1),
+          const SizedBox(height: 0.5),
           Text(
             subtitle,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontStyle: FontStyle.italic,
-              fontSize: 11,
+              fontSize: 10.5,
               color: Color(0xFFC7D2FE),
             ),
           ),
@@ -1407,26 +1288,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
               },
             ),
           ],
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1.5),
-            decoration: BoxDecoration(
-              color: const Color(0x991E1B4B),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: LupusColors.arcanePurple.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Text(
-              phaseChip.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 8.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
-                color: Color(0xFFA5B4FC),
-              ),
-            ),
-          ),
+
         ],
       ),
     );
@@ -1472,12 +1334,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     return GestureDetector(
       onTap: () => _openChroniclesBottomSheet(context, filteredLogs, roomCode),
       child: Container(
-        height: 26,
-        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        height: 24,
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1.5),
         decoration: BoxDecoration(
           color: const Color(0xB0080D1A),
-          borderRadius: BorderRadius.circular(13),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: LupusColors.arcaneGold.withValues(alpha: 0.35),
             width: 0.8,
@@ -1492,15 +1354,15 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('📜', style: TextStyle(fontSize: 11)),
-            const SizedBox(width: 6),
+            const Text('📜', style: TextStyle(fontSize: 10.5)),
+            const SizedBox(width: 5),
             Flexible(
               child: Text(
                 displayLog,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: LupusColors.textSecondary,
                 ),
@@ -1509,7 +1371,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
             const SizedBox(width: 4),
             const Icon(
               Icons.arrow_forward_ios_rounded,
-              size: 9,
+              size: 8.5,
               color: LupusColors.arcaneGold,
             ),
           ],
@@ -1536,10 +1398,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   Widget _buildViewModeToggle() {
     return Center(
       child: Container(
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(2),
         decoration: BoxDecoration(
           color: const Color(0xC00A0F1E),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
         child: Row(
@@ -1550,14 +1412,14 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 5,
+                  horizontal: 10,
+                  vertical: 3.5,
                 ),
                 decoration: BoxDecoration(
                   color: _useRadialView
                       ? LupusColors.arcanePurple.withValues(alpha: 0.35)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(11),
                   border: _useRadialView
                       ? Border.all(
                           color: LupusColors.arcanePurple.withValues(
@@ -1568,12 +1430,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Text('⭕', style: TextStyle(fontSize: 11)),
-                    const SizedBox(width: 5),
+                    const Text('⭕', style: TextStyle(fontSize: 10)),
+                    const SizedBox(width: 4),
                     Text(
                       context.tr('view_mystic_table'),
                       style: const TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1586,14 +1448,14 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 5,
+                  horizontal: 10,
+                  vertical: 3.5,
                 ),
                 decoration: BoxDecoration(
                   color: !_useRadialView
                       ? LupusColors.arcanePurple.withValues(alpha: 0.35)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(11),
                   border: !_useRadialView
                       ? Border.all(
                           color: LupusColors.arcanePurple.withValues(
@@ -1604,12 +1466,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Text('▦', style: TextStyle(fontSize: 11)),
-                    const SizedBox(width: 5),
+                    const Text('▦', style: TextStyle(fontSize: 10)),
+                    const SizedBox(width: 4),
                     Text(
                       context.tr('view_bento_grid'),
                       style: const TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1655,11 +1517,11 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       case GamePhase.mayorElection:
         return context.tr('phase_captain_election_title');
       case GamePhase.mayorSpeechOpening:
-        return 'Discours d\'Ouverture du Maire';
+        return context.tr('phase_mayor_speech_opening_title');
       case GamePhase.dayDebate:
         return context.tr('phase_debate_title');
       case GamePhase.mayorSpeechClosing:
-        return 'Clôture des Débats par le Maire';
+        return context.tr('phase_mayor_speech_closing_title');
       case GamePhase.dayVoting:
         return context.tr('phase_judgment_title');
       case GamePhase.dayDefense:
@@ -1688,14 +1550,14 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       case GamePhase.mayorElection:
         return context.tr('phase_captain_election_subtitle');
       case GamePhase.mayorSpeechOpening:
-        return 'Le Maire ouvre solennellement les débats de l\'arène.';
+        return context.tr('phase_mayor_speech_opening_subtitle');
       case GamePhase.dayDebate:
         return context.tr('phase_debate_subtitle');
       case GamePhase.mayorSpeechClosing:
-        return 'Le Maire prononce son mot de clôture avant le vote.';
+        return context.tr('phase_mayor_speech_closing_subtitle');
       case GamePhase.captainSuccession:
       case GamePhase.mayorSuccession:
-        return 'Le Maire défunt transmet son écharpe à son successeur.';
+        return context.tr('phase_captain_succession_subtitle');
       case GamePhase.nightSeer:
         return context.tr('seer_power_desc');
       case GamePhase.nightDefender:

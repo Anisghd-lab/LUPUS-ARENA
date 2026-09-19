@@ -34,6 +34,7 @@ class BentoActionPanel extends StatefulWidget {
   final ValueChanged<String>? onInfect;
   final ValueChanged<String>? onHunterShoot;
   final ValueChanged<String>? onCaptainPass;
+  final ValueChanged<String>? onCrowDesignate;
   final ValueChanged<String>? onPyromaniacDouse;
   final VoidCallback? onPyromaniacIgnite;
   final VoidCallback? onPyromaniacPass;
@@ -74,6 +75,7 @@ class BentoActionPanel extends StatefulWidget {
     this.onInfect,
     this.onHunterShoot,
     this.onCaptainPass,
+    this.onCrowDesignate,
     this.onPyromaniacDouse,
     this.onPyromaniacIgnite,
     this.onPyromaniacPass,
@@ -432,160 +434,210 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           ),
           const SizedBox(height: 6),
 
-          // Zone d'action dynamique ultra-compacte selon le rôle et la phase
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: KeyedSubtree(
-              key: ValueKey('${phase.name}_${selectedTarget?.id ?? 'none'}_${role.id}_$isDevMode'),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                // 1. CHASSEUR AU DERNIER SOUFFLE
-                if (phase == GamePhase.hunterDeathChoice) ...[
-                  if (widget.room.pendingHunterId == widget.currentUserId || isDevMode) ...[
-                    _buildHunterSection(selectedTarget),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.black26,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: LupusColors.textMuted.withValues(alpha: 0.2)),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'Le Chasseur désigne sa dernière cible...',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: LupusColors.textMuted, fontSize: 11),
-                      ),
-                    ),
-                  ],
-                ]
-                // 2. CAPITAINE / MAIRE DÉFUNT (TESTAMENT) OU SPECTATEUR / VILLAGE
-                else if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) ...[
-                  if (isDyingCaptain || isDevMode) ...[
-                    _buildCaptainSuccessionSection(selectedTarget),
-                  ] else ...[
-                    _buildCaptainSuccessionSpectatorSection(),
-                  ],
-                ]
-                // 3. JOUEUR ÉLIMINÉ SANS ACTION PARTICULIÈRE (HORS DEV-MODE)
-                else if (!isAlive && !isDevMode) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.black26,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: LupusColors.textMuted.withValues(alpha: 0.2)),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      context.tr('eliminated_spectator_msg'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: LupusColors.textMuted, fontSize: 11),
-                    ),
-                  ),
-                ]
-                // 4. VOLEUR (NUIT 1)
-                else if (phase == GamePhase.nightThief) ...[
-                  if (role == GameRole.thief || role == GameRole.thiefOfHearts || isDevMode) ...[
-                    _buildThiefSection(selectedTarget),
-                  ],
-                ]
-                // 5. CUPIDON (NUIT 1)
-                else if (phase == GamePhase.nightCupid) ...[
-                  if (role == GameRole.cupid || isDevMode) ...[
-                    _buildCupidSection(selectedTarget),
-                  ],
-                ]
-                // 6. VOYANTE
-                else if (phase == GamePhase.nightSeer) ...[
-                  if (role == GameRole.seer || isDevMode) ...[
-                    _buildSeerSection(selectedTarget),
-                  ],
-                ]
-                // 7. SALVATEUR
-                else if (phase == GamePhase.nightDefender) ...[
-                  if (role == GameRole.defender || isDevMode) ...[
-                    _buildDefenderSection(selectedTarget),
-                  ],
-                ]
-                // 8. LOUPS-GAROUS & LOUP NOIR
-                else if (phase == GamePhase.nightWerewolves || phase == GamePhase.nightBlackWolf) ...[
-                  if (role.isEvil || isDevMode) ...[
-                    _buildWerewolvesSection(me, selectedTarget),
-                  ],
-                ]
-                // 9. SORCIÈRE
-                else if (phase == GamePhase.nightWitch) ...[
-                  if (role == GameRole.witch || me.roleInitial == GameRole.witch || isDevMode) ...[
-                    _buildWitchSection(
-                      widget.room.playerList.firstWhere(
-                        (p) => p.role == GameRole.witch || p.roleInitial == GameRole.witch,
-                        orElse: () => me,
-                      ),
-                      selectedTarget,
-                    ),
-                  ],
-                ]
-                // 9.B PYROMANE
-                else if (phase == GamePhase.nightPyromaniac) ...[
-                  if (role == GameRole.pyromaniac || isDevMode) ...[
-                    _buildPyromaniacSection(selectedTarget),
-                  ],
-                ]
-                // 9.C JOUEUR DE FLÛTE
-                else if (phase == GamePhase.nightPiper) ...[
-                  if (role == GameRole.piedPiper || isDevMode) ...[
-                    _buildPiperSection(selectedTarget),
-                  ],
-                ]
-                // 10. ÉLECTION DU CAPITAINE / MAIRE
-                else if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) ...[
-                  _buildCaptainElectionSection(selectedTarget),
-                ]
-                // 10.B DISCOURS D'OUVERTURE DU MAIRE
-                else if (phase == GamePhase.mayorSpeechOpening) ...[
-                  _buildMayorSpeechOpeningSection(),
-                ]
-                // 11. DÉBAT TOUR PAR TOUR
-                else if (phase == GamePhase.dayDebate) ...[
-                  _buildDebateSection(),
-                ]
-                // 11.B DISCOURS DE CLÔTURE DU MAIRE
-                else if (phase == GamePhase.mayorSpeechClosing) ...[
-                  _buildMayorSpeechClosingSection(),
-                ]
-                // 12. SCRUTIN DU BÛCHER & SECOND VOTE
-                else if (phase == GamePhase.dayVoting || phase == GamePhase.dayTieBreakVote) ...[
-                  _buildVotingSection(me, selectedTarget),
-                ]
-                // PAR DÉFAUT : AUCUNE ACTION REQUISE
-                else ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      phase.isNight
-                          ? context.tr('night_in_progress_msg')
-                          : context.tr('silence_votes_closed_msg'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                        color: LupusColors.textMuted,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+          // Zone d'action standardisée et stabilisée (hauteur minimale calibrée sur la Sorcière)
+          Container(
+            constraints: const BoxConstraints(minHeight: 120),
+            alignment: Alignment.center,
+            width: double.infinity,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+                return currentChild ?? const SizedBox.shrink();
+              },
+              transitionBuilder: (child, animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: SizedBox(
+                width: double.infinity,
+                child: _buildRoleActionDispatcher(
+                  context: context,
+                  phase: phase,
+                  role: role,
+                  me: me,
+                  selectedTarget: selectedTarget,
+                  isAlive: isAlive,
+                  isDevMode: isDevMode,
+                  isDyingCaptain: isDyingCaptain,
+                ),
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
+
+  /// Dispatcher d'action stratégique selon la phase et le rôle actif
+  Widget _buildRoleActionDispatcher({
+    required BuildContext context,
+    required GamePhase phase,
+    required GameRole role,
+    required PlayerModel me,
+    required PlayerModel? selectedTarget,
+    required bool isAlive,
+    required bool isDevMode,
+    required bool isDyingCaptain,
+  }) {
+    // 1. CHASSEUR AU DERNIER SOUFFLE
+    if (phase == GamePhase.hunterDeathChoice) {
+      if (widget.room.pendingHunterId == widget.currentUserId || isDevMode) {
+        return _buildHunterSection(selectedTarget);
+      } else {
+        return _buildHunterSpectatorSection();
+      }
+    }
+
+    // 2. CAPITAINE / MAIRE DÉFUNT (TESTAMENT) OU SPECTATEUR
+    if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) {
+      if (isDyingCaptain || isDevMode) {
+        return _buildCaptainSuccessionSection(selectedTarget);
+      } else {
+        return _buildCaptainSuccessionSpectatorSection();
+      }
+    }
+
+    // 3. JOUEUR ÉLIMINÉ SANS ACTION PARTICULIÈRE (HORS DEV-MODE)
+    if (!isAlive && !isDevMode) {
+      return _buildEliminatedSection();
+    }
+
+    // 4. VOLEUR (NUIT 1)
+    if (phase == GamePhase.nightThief) {
+      if (role == GameRole.thief || role == GameRole.thiefOfHearts || isDevMode) {
+        return _buildThiefSection(selectedTarget);
+      } else if (role == GameRole.raven) {
+        return _buildRavenSection(selectedTarget);
+      } else {
+        return _buildNightSleepingSection();
+      }
+    }
+
+    // 5. CUPIDON (NUIT 1)
+    if (phase == GamePhase.nightCupid) {
+      if (role == GameRole.cupid || isDevMode) {
+        return _buildCupidSection(selectedTarget);
+      } else if (role == GameRole.raven) {
+        return _buildRavenSection(selectedTarget);
+      } else {
+        return _buildNightSleepingSection();
+      }
+    }
+
+    // 6. VOYANTE
+    if (phase == GamePhase.nightSeer) {
+      if (role == GameRole.seer || isDevMode) {
+        return _buildSeerSection(selectedTarget);
+      } else if (role == GameRole.raven) {
+        return _buildRavenSection(selectedTarget);
+      } else {
+        return _buildNightSleepingSection();
+      }
+    }
+
+    // 7. SALVATEUR
+    if (phase == GamePhase.nightDefender) {
+      if (role == GameRole.defender || isDevMode) {
+        return _buildDefenderSection(selectedTarget);
+      } else if (role == GameRole.raven) {
+        return _buildRavenSection(selectedTarget);
+      } else {
+        return _buildNightSleepingSection();
+      }
+    }
+
+    // 8. LOUPS-GAROUS & LOUP NOIR
+    if (phase == GamePhase.nightWerewolves || phase == GamePhase.nightBlackWolf) {
+      if (role.isEvil || isDevMode) {
+        return _buildWerewolvesSection(me, selectedTarget);
+      } else if (role == GameRole.raven) {
+        return _buildRavenSection(selectedTarget);
+      } else {
+        return _buildNightSleepingSection();
+      }
+    }
+
+    // 9. SORCIÈRE
+    if (phase == GamePhase.nightWitch) {
+      if (role == GameRole.witch || me.roleInitial == GameRole.witch || isDevMode) {
+        final witchPlayer = widget.room.playerList.firstWhere(
+          (p) => p.role == GameRole.witch || p.roleInitial == GameRole.witch,
+          orElse: () => me,
+        );
+        return _buildWitchSection(witchPlayer, selectedTarget);
+      } else if (role == GameRole.raven) {
+        return _buildRavenSection(selectedTarget);
+      } else {
+        return _buildNightSleepingSection();
+      }
+    }
+
+    // 9.B PYROMANE
+    if (phase == GamePhase.nightPyromaniac) {
+      if (role == GameRole.pyromaniac || isDevMode) {
+        return _buildPyromaniacSection(selectedTarget);
+      } else if (role == GameRole.raven) {
+        return _buildRavenSection(selectedTarget);
+      } else {
+        return _buildNightSleepingSection();
+      }
+    }
+
+    // 9.C JOUEUR DE FLÛTE
+    if (phase == GamePhase.nightPiper) {
+      if (role == GameRole.piedPiper || isDevMode) {
+        return _buildPiperSection(selectedTarget);
+      } else if (role == GameRole.raven) {
+        return _buildRavenSection(selectedTarget);
+      } else {
+        return _buildNightSleepingSection();
+      }
+    }
+
+    // 10. ÉLECTION DU CAPITAINE / MAIRE
+    if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) {
+      return _buildCaptainElectionSection(selectedTarget);
+    }
+
+    // 10.B DISCOURS D'OUVERTURE DU MAIRE
+    if (phase == GamePhase.mayorSpeechOpening) {
+      return _buildMayorSpeechOpeningSection();
+    }
+
+    // 11. DÉBAT TOUR PAR TOUR
+    if (phase == GamePhase.dayDebate) {
+      return _buildDebateSection();
+    }
+
+    // 11.B DISCOURS DE CLÔTURE DU MAIRE
+    if (phase == GamePhase.mayorSpeechClosing) {
+      return _buildMayorSpeechClosingSection();
+    }
+
+    // 12. SCRUTIN DU BÛCHER & SECOND VOTE
+    if (phase == GamePhase.dayVoting || phase == GamePhase.dayTieBreakVote) {
+      return _buildVotingSection(me, selectedTarget);
+    }
+
+    // 13. EXÉCUTION DU VERDICT (« Le Verdict Tombe ») / PLAIDOIRIE
+    if (phase == GamePhase.dayResolution || phase == GamePhase.dayDefense) {
+      return _buildVotesClosedBanner();
+    }
+
+    // 14. AUBE / ANNONCE DES MORTS (joueurs attendent la résolution)
+    if (phase == GamePhase.morningAnnouncement) {
+      return _buildNightSleepingSection();
+    }
+
+    // PAR DÉFAUT : NUIT OU JOUR
+    if (phase.isNight) {
+      if (role == GameRole.raven) {
+        return _buildRavenSection(selectedTarget);
+      }
+      return _buildNightSleepingSection();
+    }
+
+    return _buildVotesClosedBanner();
+  }
 
   // ==========================================
   // --- MODULES DE RÔLES COMPACTS SANS OVERFLOW ---
@@ -606,239 +658,265 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final hasActed = isHealed || poisonVictim != null;
     final isDechue = witch.potionsVie == 0 && witch.potionsMort == 0 && !widget.isAdmin;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Bandeau d'état des potions Sorcière (stocks indépendants + statut déchu si 0/0)
-        Container(
-          margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: isDechue ? const Color(0x1FF43F5E) : const Color(0x1F10B981),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isDechue
-                  ? LupusColors.bloodRed.withValues(alpha: 0.4)
-                  : LupusColors.poisonGreen.withValues(alpha: 0.3),
+    // ÉTAT 1 : Déchue en simple villageoise (0 potions restantes)
+    if (isDechue) {
+      return Column(
+        key: const ValueKey('action_witch_exhausted'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0x1FF43F5E),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: LupusColors.bloodRed.withValues(alpha: 0.4)),
             ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '🧪 Potions de Vie : ${witch.potionsVie}',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  color: witch.potionsVie > 0
-                      ? LupusColors.poisonGreen
-                      : LupusColors.textMuted,
-                ),
-              ),
-              if (isDechue)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: LupusColors.bloodRed.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    '🥀 Déchue en Villageoise',
-                    style: TextStyle(
-                      fontSize: 9.5,
+            child: Row(
+              children: [
+                const Text('🥀', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.tr('witch_exhausted_msg'),
+                    style: const TextStyle(
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFFFECDD3),
                     ),
                   ),
                 ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 38,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: LupusColors.textMuted,
+                side: const BorderSide(color: LupusColors.border),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: widget.onWitchPass,
+              icon: const Icon(Icons.bedtime_outlined, size: 15),
+              label: Text(context.tr('pass_my_turn'), style: const TextStyle(fontSize: 11)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // ÉTAT 2 : Toutes les actions ont été validées (sauvé et/ou empoisonné, plus de potion utilisable)
+    if (hasActed && (!hasHeal || wolfVictim == null) && (!hasPoison || poisonVictim != null)) {
+      return Column(
+        key: ValueKey('action_witch_confirmed_${isHealed}_${poisonVictimId ?? "none"}'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0x2210B981),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: LupusColors.poisonGreen.withValues(alpha: 0.6)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isHealed)
+                  Text(
+                    '✅ ${wolfVictim?.name ?? "La victime"} sauvée par votre potion !',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: LupusColors.poisonGreen),
+                  ),
+                if (poisonVictim != null)
+                  Text(
+                    '☠️ ${poisonVictim.name} empoisonné(e) pour l\'aube !',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFFECDD3)),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 38,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6366F1),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: widget.onWitchPass,
+              icon: const Icon(Icons.check_circle_outline, size: 15),
+              label: const Text('Terminer mon tour', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // ÉTAT 3 : En action active avec choix disponibles
+    return Column(
+      key: ValueKey('action_witch_active_${selectedTarget?.id ?? "none"}_${isHealed}_$hasPoison'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Bandeau stocks
+        Container(
+          margin: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0x1F10B981),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: LupusColors.poisonGreen.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
               Text(
-                '☠️ Potions de Mort : ${witch.potionsMort}',
+                '🧪 Vie : ${witch.potionsVie}',
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: witch.potionsMort > 0
-                      ? LupusColors.arcaneCrimson
-                      : LupusColors.textMuted,
+                  color: witch.potionsVie > 0 ? LupusColors.poisonGreen : LupusColors.textMuted,
+                ),
+              ),
+              Text(
+                '☠️ Mort : ${witch.potionsMort}',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: witch.potionsMort > 0 ? LupusColors.arcaneCrimson : LupusColors.textMuted,
                 ),
               ),
             ],
           ),
         ),
 
-        // --- 1. SECTION GUÉRISON / POTION DE VIE ---
-        if (isHealed) ...[
+        // Section Guérison
+        if (isHealed)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
               color: const Color(0x2210B981),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: LupusColors.poisonGreen.withValues(alpha: 0.6),
-              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: LupusColors.poisonGreen.withValues(alpha: 0.5)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: LupusColors.poisonGreen, size: 16),
-                const SizedBox(width: 8),
+                const Icon(Icons.check_circle_rounded, color: LupusColors.poisonGreen, size: 14),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '✅ ${wolfVictim?.name ?? "La victime"} sauvée par votre potion de guérison !',
+                    '✅ ${wolfVictim?.name ?? "Victime"} sauvée',
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: LupusColors.poisonGreen),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: LupusColors.poisonGreen,
-                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ] else if (wolfVictim != null) ...[
+          )
+        else if (wolfVictim != null)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
               color: const Color(0x221E1B4B),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: hasHeal
-                    ? LupusColors.poisonGreen.withValues(alpha: 0.6)
-                    : LupusColors.border.withValues(alpha: 0.3),
+                color: hasHeal ? LupusColors.poisonGreen.withValues(alpha: 0.6) : LupusColors.border.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 15,
+                  radius: 12,
                   backgroundColor: LupusColors.bloodRed.withValues(alpha: 0.25),
                   child: Icon(
-                    BentoPlayerTile.avatarIcons[
-                        wolfVictim.avatarIndex % BentoPlayerTile.avatarIcons.length],
-                    size: 15,
+                    BentoPlayerTile.avatarIcons[wolfVictim.avatarIndex % BentoPlayerTile.avatarIcons.length],
+                    size: 13,
                     color: const Color(0xFFFECDD3),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Victime : ${wolfVictim.name}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        hasHeal ? 'Potion de vie disponible' : 'Potion de vie épuisée',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                          color: hasHeal ? LupusColors.poisonGreen : LupusColors.textMuted,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'Victime : ${wolfVictim.name}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
                   ),
                 ),
-                const SizedBox(width: 6),
                 if (hasHeal)
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      elevation: 2,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     onPressed: () => widget.onWitchSave(wolfVictim.id),
-                    icon: const Icon(Icons.healing_rounded, size: 14),
-                    label: Text(
-                      'Sauver ${wolfVictim.name}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                    icon: const Icon(Icons.healing_rounded, size: 13),
+                    label: const Text(
+                      'Sauver',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10.5),
                     ),
                   ),
               ],
             ),
-          ),
-        ] else ...[
+          )
+        else
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
               color: const Color(0x1F1E293B),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Text('🕊️', style: TextStyle(fontSize: 13)),
-                const SizedBox(width: 8),
+                Text('🕊️', style: TextStyle(fontSize: 12)),
+                SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    context.tr('no_victim_to_save'),
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFBAE6FD),
-                    ),
+                    'Aucune victime des loups cette nuit',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFBAE6FD)),
                   ),
                 ),
               ],
             ),
           ),
-        ],
 
-        // --- 2. SECTION EMPOISONNEMENT & PASSER / TERMINER ---
-        if (poisonVictim != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            margin: const EdgeInsets.only(bottom: 6),
-            decoration: BoxDecoration(
-              color: const Color(0x22450A0A),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: LupusColors.bloodRed.withValues(alpha: 0.6),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.science_rounded, color: LupusColors.bloodRed, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '☠️ ${poisonVictim.name} a été empoisonné(e) pour l\'aube !',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFFECDD3),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-
+        // Section Poison & Passer
         Row(
           children: [
-            // Bouton ou état Empoisonner (1 clic direct sur la cible si pas encore empoisonné)
-            if (poisonVictim == null) ...[
+            if (poisonVictim != null)
+              Expanded(
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0x22450A0A),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: LupusColors.bloodRed.withValues(alpha: 0.6)),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '☠️ ${poisonVictim.name} empoisonné(e)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFFFECDD3)),
+                  ),
+                ),
+              )
+            else ...[
               Expanded(
                 child: SizedBox(
-                  height: 38,
+                  height: 36,
                   child: (hasPoison &&
                           selectedTarget != null &&
                           selectedTarget.isAlive &&
@@ -847,95 +925,66 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: LupusColors.bloodRed,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           onPressed: () => widget.onWitchPoison(selectedTarget.id),
-                          icon: const Icon(Icons.science_rounded, size: 14),
+                          icon: const Icon(Icons.science_rounded, size: 13),
                           label: Text(
                             '☠️ Empoisonner ${selectedTarget.name}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10.5),
                           ),
                         )
                       : Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
                           decoration: BoxDecoration(
                             color: const Color(0x1F450A0A),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: hasPoison
-                                  ? LupusColors.bloodRed.withValues(alpha: 0.3)
-                                  : Colors.white10,
+                              color: hasPoison ? LupusColors.bloodRed.withValues(alpha: 0.3) : Colors.white10,
                             ),
                           ),
                           alignment: Alignment.center,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.science_outlined,
-                                size: 13,
-                                color: hasPoison ? LupusColors.bloodRed : LupusColors.textMuted,
-                              ),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  hasPoison ? 'Touchez pour empoisonner' : 'Fiole épuisée',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: hasPoison ? const Color(0xFFFECDD3) : LupusColors.textMuted,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            hasPoison ? 'Touchez pour empoisonner' : 'Fiole épuisée',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: hasPoison ? const Color(0xFFFECDD3) : LupusColors.textMuted,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                 ),
               ),
               const SizedBox(width: 6),
             ],
-
-            // Bouton Passer / Terminer le tour
-            Expanded(
-              flex: poisonVictim != null ? 1 : 0,
-              child: SizedBox(
-                height: 38,
-                child: hasActed
-                    ? ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6366F1),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: widget.onWitchPass,
-                        icon: const Icon(Icons.check_circle_outline, size: 14),
-                        label: const Text(
-                          'Terminer mon tour',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
-                        ),
-                      )
-                    : OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: LupusColors.textSecondary,
-                          side: BorderSide(color: LupusColors.border.withValues(alpha: 0.6)),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: widget.onWitchPass,
-                        icon: const Icon(Icons.bedtime_outlined, size: 14),
-                        label: Text(
-                          context.tr('witch_pass'),
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
-                        ),
+            SizedBox(
+              height: 36,
+              child: hasActed
+                  ? ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-              ),
+                      onPressed: widget.onWitchPass,
+                      icon: const Icon(Icons.check_circle_outline, size: 13),
+                      label: const Text('Terminer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
+                    )
+                  : OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: LupusColors.textMuted,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: widget.onWitchPass,
+                      child: Text(context.tr('witch_pass'), style: const TextStyle(fontSize: 10.5)),
+                    ),
             ),
           ],
         ),
@@ -981,6 +1030,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     }
 
     return Column(
+      key: ValueKey('action_wolves_${effectiveVictimId ?? "none"}_${effectiveMuteId ?? "none"}'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1171,7 +1221,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Voyante : [Sonder (Nom)] + [Valider]
+  /// Module Voyante : 3 états étanches (Épuisé / Révélé / Enquête)
   Widget _buildSeerSection(PlayerModel? selectedTarget) {
     final me = widget.room.players[widget.currentUserId] ??
         widget.room.playerList.first;
@@ -1181,39 +1231,88 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
     final visionsLeft = seerPlayer.visionsRestantes;
 
-    if (widget.inspectedRole != null) {
-      final role = widget.inspectedRole!;
-      return Row(
+    // ÉTAT 1 : Épuisé / Déchue en simple villageois (0 visions restantes)
+    if (visionsLeft == 0 && !widget.isAdmin) {
+      return Column(
+        key: const ValueKey('action_seer_exhausted'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: role.accentColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: role.accentColor, width: 1.2),
-              ),
-              child: Row(
-                children: [
-                  Icon(role.icon, color: role.accentColor, size: 16),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '${selectedTarget?.name ?? context.tr("target")} : ${role.displayName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x1FF43F5E),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: LupusColors.arcaneCrimson.withValues(alpha: 0.4)),
+            ),
+            child: const Row(
+              children: [
+                Text('🔮', style: TextStyle(fontSize: 13)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Vos visions sont épuisées. Vous observez la nuit en simple villageoise.',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFFECDD3),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
           SizedBox(
-            height: 40,
+            height: 38,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: LupusColors.textMuted,
+                side: const BorderSide(color: LupusColors.border),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: widget.onCompleteSeerTurn,
+              icon: const Icon(Icons.check_rounded, size: 15),
+              label: const Text('Passer mon tour', style: TextStyle(fontSize: 11)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // ÉTAT 2 : Révélation de l'identité / Rôle inspecté
+    if (widget.inspectedRole != null) {
+      final role = widget.inspectedRole!;
+      return Column(
+        key: ValueKey('action_seer_revealed_${role.name}_${selectedTarget?.id ?? "unknown"}'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: role.accentColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: role.accentColor, width: 1.2),
+            ),
+            child: Row(
+              children: [
+                Icon(role.icon, color: role.accentColor, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${selectedTarget?.name ?? context.tr("target")} : ${role.displayName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 38,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: LupusColors.arcanePurple,
@@ -1222,26 +1321,29 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
               onPressed: widget.onCompleteSeerTurn,
               icon: const Icon(Icons.check_rounded, size: 15),
-              label: Text(context.tr('validate'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+              label: Text(
+                context.tr('validate'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+              ),
             ),
           ),
         ],
       );
     }
 
-    final String inspectLabel;
-    if (selectedTarget != null) {
-      inspectLabel = context.tr('inspect_target', {'name': selectedTarget.name});
-    } else {
-      inspectLabel = context.tr('inspect_select');
-    }
-
+    // ÉTAT 3 : Sélection de la cible à sonder
     final canInspect = (visionsLeft > 0 || widget.isAdmin) &&
         selectedTarget != null &&
         selectedTarget.isAlive &&
         selectedTarget.id != widget.currentUserId;
 
+    final String inspectLabel = selectedTarget != null
+        ? context.tr('inspect_target', {'name': selectedTarget.name})
+        : context.tr('inspect_select');
+
     return Column(
+      key: ValueKey('action_seer_select_${selectedTarget?.id ?? "waiting"}'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1275,28 +1377,28 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   ),
                 ],
               ),
-              if (visionsLeft == 0 && !widget.isAdmin)
-                const Text(
-                  'Déchu en Villageois',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    color: LupusColors.arcaneCrimson,
-                  ),
+              Text(
+                canInspect ? 'Prête à sonder' : 'Choisissez une cible',
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFC084FC),
                 ),
+              ),
             ],
           ),
         ),
         Row(
           children: [
-            // Bouton Sonder (Nom)
             Expanded(
               child: SizedBox(
-                height: 40,
+                height: 38,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: LupusColors.arcanePurple,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: LupusColors.arcanePurple.withValues(alpha: 0.25),
+                    disabledForegroundColor: Colors.white38,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -1315,9 +1417,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
             ),
             const SizedBox(width: 8),
-            // Bouton Valider
             SizedBox(
-              height: 40,
+              height: 38,
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: LupusColors.arcanePurple,
@@ -1335,17 +1436,74 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Salvateur : Bouton direct [Protéger (Nom)] sans affichage "null"
+  /// Module Salvateur : 3 états exclusifs (Déjà protégé / Interdit consécutif / Sélection active)
   Widget _buildDefenderSection(PlayerModel? selectedTarget) {
+    final currentProtectedId = widget.room.currentProtectedPlayerId;
+    final currentProtected = (currentProtectedId != null && currentProtectedId.isNotEmpty)
+        ? widget.room.players[currentProtectedId]
+        : null;
+
+    // ÉTAT 1 : Déjà sous protection cette nuit
+    if (currentProtected != null) {
+      return Column(
+        key: ValueKey('action_defender_confirmed_${currentProtected.id}'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x223A86FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF3A86FF).withValues(alpha: 0.6)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.security_rounded, size: 16, color: Color(0xFF60A5FA)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '🛡️ Protection active sur ${currentProtected.name} !',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFBFDBFE),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Votre égide le préserve des griffes nocturnes jusqu\'à l\'aurore.',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     final lastProtectedId = widget.room.lastProtectedPlayerId;
     final lastProtected = (lastProtectedId != null && lastProtectedId.isNotEmpty)
         ? widget.room.players[lastProtectedId]
         : null;
 
-    // Comparaison stricte : non-null et correspondance des IDs
     final isSameAsLast = selectedTarget != null &&
         lastProtectedId != null &&
         selectedTarget.id == lastProtectedId;
+
+    final bool canProtect = selectedTarget != null &&
+        selectedTarget.isAlive &&
+        !isSameAsLast;
 
     final String buttonText;
     if (selectedTarget == null) {
@@ -1357,22 +1515,47 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     }
 
     return Column(
+      key: ValueKey('action_defender_select_${selectedTarget?.id ?? "waiting"}_$isSameAsLast'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (isSameAsLast)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x22DC2626),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFFCA5A5)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${selectedTarget.name} a été protégé(e) la nuit dernière. Impossible 2 nuits de suite.',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFFECDD3)),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Row(
           children: [
             Expanded(
               child: SizedBox(
-                height: 40,
+                height: 38,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF3A86FF),
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFF3A86FF).withValues(alpha: 0.25),
+                    disabledForegroundColor: Colors.white38,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  onPressed: (selectedTarget != null && selectedTarget.isAlive && !isSameAsLast)
+                  onPressed: canProtect
                       ? () => widget.onDefenderProtect?.call(selectedTarget.id)
                       : null,
                   icon: const Icon(Icons.security_rounded, size: 15),
@@ -1388,7 +1571,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ),
             const SizedBox(width: 8),
             SizedBox(
-              height: 40,
+              height: 38,
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: LupusColors.textSecondary,
@@ -1401,7 +1584,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ),
           ],
         ),
-        if (lastProtected != null)
+        if (lastProtected != null && !isSameAsLast)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
@@ -1416,54 +1599,244 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
 
 
-  /// Module Chasseur au dernier souffle : Bouton direct [Tirer sur (Nom)] et [Passer]
+  /// Module Chasseur au dernier souffle : Tir de vengeance ultime
   Widget _buildHunterSection(PlayerModel? selectedTarget) {
-    return Row(
+    final bool canShoot = selectedTarget != null &&
+        selectedTarget.isAlive &&
+        selectedTarget.id != widget.currentUserId;
+
+    return Column(
+      key: ValueKey('action_hunter_ready_${selectedTarget?.id ?? "waiting"}'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LupusColors.sunAmber,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          margin: const EdgeInsets.only(bottom: 6),
+          decoration: BoxDecoration(
+            color: const Color(0x22F59E0B),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: LupusColors.sunAmber.withValues(alpha: 0.5)),
+          ),
+          child: const Row(
+            children: [
+              Text('🏹', style: TextStyle(fontSize: 13)),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Dernier souffle : Désignez un suspect à emporter avec vous !',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFFDE68A),
+                  ),
+                ),
               ),
-              onPressed: (selectedTarget != null &&
-                      selectedTarget.isAlive &&
-                      selectedTarget.id != widget.currentUserId)
-                  ? () => widget.onHunterShoot?.call(selectedTarget.id)
-                  : null,
-              icon: const Icon(Icons.crisis_alert_rounded, size: 15),
-              label: Text(
-                selectedTarget != null
-                    ? context.tr('shoot_target', {'name': selectedTarget.name})
-                    : context.tr('shoot_select'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+            ],
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 38,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: LupusColors.sunAmber,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor: LupusColors.sunAmber.withValues(alpha: 0.25),
+                    disabledForegroundColor: Colors.black38,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: canShoot
+                      ? () => widget.onHunterShoot?.call(selectedTarget.id)
+                      : null,
+                  icon: const Icon(Icons.crisis_alert_rounded, size: 15),
+                  label: Text(
+                    selectedTarget != null
+                        ? context.tr('shoot_target', {'name': selectedTarget.name})
+                        : context.tr('shoot_select'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 38,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0x33450A0A),
+                  foregroundColor: LupusColors.textMuted,
+                  side: BorderSide(color: LupusColors.border.withValues(alpha: 0.5)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: widget.onNextPhase,
+                icon: const Icon(Icons.cancel_outlined, size: 14),
+                label: const Text(
+                  'Passer',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Module Spectateur : Le Chasseur prend sa décision ultime
+  Widget _buildHunterSpectatorSection() {
+    return Container(
+      key: const ValueKey('action_hunter_spectator'),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x22F59E0B),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: LupusColors.sunAmber.withValues(alpha: 0.4)),
+      ),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.crisis_alert_rounded, color: LupusColors.sunAmber, size: 16),
+          SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              '🏹 Le Chasseur agonisant ajuste sa mire...',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Color(0xFFFDE68A),
+                fontWeight: FontWeight.w800,
+                fontSize: 11.5,
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Module Corbeau : Malédiction nocturne (+2 voix d'office le lendemain)
+  Widget _buildRavenSection(PlayerModel? selectedTarget) {
+    final crowTargetId = widget.room.expandedRolesState.crowTargetId;
+    final crowTarget = (crowTargetId != null && crowTargetId.isNotEmpty)
+        ? widget.room.players[crowTargetId]
+        : null;
+
+    // ÉTAT 1 : Malédiction déjà posée
+    if (crowTarget != null) {
+      return Column(
+        key: ValueKey('action_raven_confirmed_${crowTarget.id}'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x221E1B4B),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              children: [
+                const Text('🦅', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Malédiction posée sur ${crowTarget.name} (+2 voix demain)',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFE0E7FF),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Vos corbeaux hanteront ce suspect lors du prochain scrutin.',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // ÉTAT 2 : Sélection de la cible à maudire
+    final bool canDesignate = selectedTarget != null &&
+        selectedTarget.isAlive &&
+        selectedTarget.id != widget.currentUserId;
+
+    return Column(
+      key: ValueKey('action_raven_select_${selectedTarget?.id ?? "waiting"}'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          margin: const EdgeInsets.only(bottom: 6),
+          decoration: BoxDecoration(
+            color: const Color(0x22312E81),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.35)),
+          ),
+          child: const Row(
+            children: [
+              Text('🦅', style: TextStyle(fontSize: 13)),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Malédiction du Corbeau : Désignez un suspect (+2 voix d\'office demain)',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFC7D2FE),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: 8),
         SizedBox(
-          height: 40,
+          height: 38,
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0x33450A0A),
-              foregroundColor: LupusColors.textMuted,
-              side: BorderSide(color: LupusColors.border.withValues(alpha: 0.5)),
+              backgroundColor: const Color(0xFF4338CA),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(0xFF4338CA).withValues(alpha: 0.25),
+              disabledForegroundColor: Colors.white38,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: widget.onNextPhase,
-            icon: const Icon(Icons.cancel_outlined, size: 14),
-            label: const Text(
-              'Passer',
+            onPressed: canDesignate
+                ? () => widget.onCrowDesignate?.call(selectedTarget.id)
+                : null,
+            icon: const Icon(Icons.visibility_off_rounded, size: 15),
+            label: Text(
+              selectedTarget != null
+                  ? '🦅 Maudire ${selectedTarget.name}'
+                  : '🦅 Touchez un suspect à maudire',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
             ),
           ),
         ),
@@ -1471,43 +1844,241 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Scrutin du Bûcher : Bouton direct [Voter contre (Nom)]
+  /// Module Nuit : Sommeil du village pendant le tour des autres rôles
+  Widget _buildNightSleepingSection() {
+    return Container(
+      key: const ValueKey('action_night_sleeping'),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x221E1B4B),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.bedtime_rounded, color: Color(0xFFA5B4FC), size: 16),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              context.tr('night_in_progress_msg'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFE0E7FF),
+                fontWeight: FontWeight.w700,
+                fontSize: 11.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Module Spectateur : Joueur éliminé observant la partie
+  Widget _buildEliminatedSection() {
+    return Container(
+      key: const ValueKey('action_spectator_dead'),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x2218181B),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.visibility_outlined, color: Colors.white60, size: 16),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              context.tr('eliminated_spectator_msg'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w700,
+                fontSize: 11.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Bandeau d'état solennel lorsque les votes sont clos (Verdict du tribunal)
+  Widget _buildVotesClosedBanner({String? message}) {
+    return Container(
+      key: ValueKey('action_votes_closed_${message ?? "default"}'),
+      height: 40,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x22450A0A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: LupusColors.arcaneCrimson.withValues(alpha: 0.4),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text('⚖️', style: TextStyle(fontSize: 14)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              message ?? context.tr('silence_votes_closed_msg'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFFCA5A5),
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Module Scrutin du Bûcher : Flux conditionnel strict et mutuellement exclusif
   Widget _buildVotingSection(PlayerModel me, PlayerModel? selectedTarget) {
-    final isTieBreak = widget.room.phase == GamePhase.dayTieBreakVote;
+    final phase = widget.room.phase;
+    final isTieBreak = phase == GamePhase.dayTieBreakVote;
     final isEligible = !isTieBreak || widget.room.tiedPlayerIds.contains(selectedTarget?.id);
     final currentVoteTargetId = me.targetVoteId;
     final totalAlive = widget.room.alivePlayers.length;
     final totalVoted = widget.room.alivePlayers.where((p) => p.targetVoteId != null).length;
     final allVoted = totalAlive > 0 && totalVoted >= totalAlive;
 
-    if (allVoted) {
+    // Condition stricte de fermeture des votes
+    final dynamic roomDynamic = widget.room;
+    final isRoomVotesClosed = (roomDynamic.votesClosed as bool?) ?? false;
+    final isVotesClosed = isRoomVotesClosed ||
+        allVoted ||
+        (phase != GamePhase.dayVoting && phase != GamePhase.dayTieBreakVote);
+
+    // ÉTAT 1 : Les votes sont clos (Dépouillement / Verdict / Tous ont voté)
+    if (isVotesClosed) {
+      if (allVoted) {
+        return Container(
+          key: const ValueKey('action_voting_all_voted'),
+          height: 40,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: LupusColors.bloodRed.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: LupusColors.bloodRed.withValues(alpha: 0.6)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(LupusColors.bloodRed),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'Tous les votes sont enregistrés ($totalVoted/$totalAlive) • Dépouillement immédiat...',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      return _buildVotesClosedBanner();
+    }
+
+    // ÉTAT 2 : L'utilisateur a déjà voté et peut annuler
+    if (currentVoteTargetId != null) {
+      final votedTarget = widget.room.players[currentVoteTargetId];
+      final votedName = votedTarget?.name ?? 'suspect';
+
       return Container(
+        key: ValueKey('action_voting_voted_$currentVoteTargetId'),
         height: 40,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: LupusColors.bloodRed.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: LupusColors.bloodRed.withValues(alpha: 0.6)),
-        ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(LupusColors.bloodRed),
+            Expanded(
+              child: Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0x2E10B981),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                    width: 0.9,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 15,
+                      color: Color(0xFF34D399),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Vote émis contre $votedName${me.isCaptain ? " (x2)" : ""}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFD1FAE5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              'Tous les votes sont enregistrés ($totalVoted/$totalAlive) • Dépouillement immédiat...',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
+            SizedBox(
+              height: 40,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFFCA5A5),
+                  side: BorderSide(
+                    color: LupusColors.arcaneCrimson.withValues(alpha: 0.6),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                onPressed: () => widget.onVote(null),
+                icon: const Icon(Icons.close_rounded, size: 14),
+                label: Text(
+                  context.tr('cancel'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1515,6 +2086,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       );
     }
 
+    // ÉTAT 3 : L'utilisateur n'a pas encore voté
     final String voteText;
     if (selectedTarget != null) {
       voteText = '${context.tr("vote_against_target", {"name": selectedTarget.name})}${me.isCaptain ? " (x2)" : ""}';
@@ -1522,53 +2094,38 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       voteText = isTieBreak ? context.tr('vote_tie_break') : context.tr('vote_select');
     }
 
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LupusColors.bloodRed,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: (!DeathRegistryService.instance.isDead(widget.currentUserId) &&
-                      selectedTarget != null &&
-                      selectedTarget.isAlive &&
-                      !DeathRegistryService.instance.isDead(selectedTarget.id) &&
-                      selectedTarget.id != widget.currentUserId &&
-                      isEligible)
-                  ? () => widget.onVote(selectedTarget.id)
-                  : null,
-              icon: const Icon(Icons.how_to_vote_rounded, size: 15),
-              label: Text(
-                voteText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-              ),
-            ),
+    final bool canVote = !DeathRegistryService.instance.isDead(widget.currentUserId) &&
+        selectedTarget != null &&
+        selectedTarget.isAlive &&
+        !DeathRegistryService.instance.isDead(selectedTarget.id) &&
+        selectedTarget.id != widget.currentUserId &&
+        isEligible;
+
+    return SizedBox(
+      key: ValueKey('action_voting_select_${selectedTarget?.id ?? "waiting"}'),
+      height: 40,
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: LupusColors.bloodRed,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: LupusColors.bloodRed.withValues(alpha: 0.35),
+          disabledForegroundColor: Colors.white38,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
-        if (currentVoteTargetId != null) ...[
-          const SizedBox(width: 8),
-          SizedBox(
-            height: 40,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: LupusColors.textMuted,
-                side: const BorderSide(color: LupusColors.border),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () => widget.onVote(null),
-              child: Text(context.tr('cancel'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
-            ),
-          ),
-        ],
-      ],
+        onPressed: canVote ? () => widget.onVote(selectedTarget!.id) : null,
+        icon: const Icon(Icons.how_to_vote_rounded, size: 15),
+        label: Text(
+          voteText,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+        ),
+      ),
     );
   }
 
@@ -1582,6 +2139,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       builder: (context, countdown, _) {
         if (countdown <= 0) {
           return Container(
+            key: const ValueKey('action_captain_succession_expired'),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
             decoration: BoxDecoration(
               color: const Color(0x33450A0A),
@@ -1643,6 +2201,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             effectiveSuccessor.id != widget.currentUserId;
 
         return Column(
+          key: ValueKey('action_captain_succession_${effectiveSuccessorId ?? "none"}'),
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1907,6 +2466,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       valueListenable: countdownListenable,
       builder: (context, countdown, _) {
         return Container(
+          key: const ValueKey('action_captain_succession_spectator'),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: const Color(0xE60D111F),
@@ -2007,6 +2567,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   /// Module Élection du Capitaine
   Widget _buildCaptainElectionSection(PlayerModel? selectedTarget) {
     return SizedBox(
+      key: ValueKey('action_captain_election_${selectedTarget?.id ?? "none"}'),
       height: 40,
       child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
@@ -2040,6 +2601,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     if (isMayor) {
       return SizedBox(
+        key: const ValueKey('action_mayor_opening_speech_button'),
         height: 40,
         child: ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
@@ -2064,6 +2626,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     }
 
     return Container(
+      key: const ValueKey('action_mayor_opening_speech_waiting'),
       height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
@@ -2098,6 +2661,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final isSpeaker = widget.room.currentSpeakerId == widget.currentUserId;
     if (isSpeaker || widget.isAdmin) {
       return SizedBox(
+        key: const ValueKey('action_debate_speaker'),
         height: 40,
         child: ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
@@ -2123,6 +2687,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final speaker = widget.room.players[widget.room.currentSpeakerId];
     return Container(
+      key: const ValueKey('action_debate_listener'),
       height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
@@ -2160,6 +2725,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     if (isMayor) {
       return SizedBox(
+        key: const ValueKey('action_mayor_closing_button'),
         height: 40,
         child: ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
@@ -2184,6 +2750,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     }
 
     return Container(
+      key: const ValueKey('action_mayor_closing_waiting'),
       height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
@@ -2232,6 +2799,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     }
 
     return Column(
+      key: ValueKey('action_thief_${selectedTarget?.id ?? "waiting"}'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2346,6 +2914,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     }
 
     return Column(
+      key: ValueKey('action_cupid_${_cupidLover1Id ?? "none"}_${_cupidLover2Id ?? "none"}'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2477,6 +3046,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final isTargetDoused = selectedTarget?.isDoused == true;
 
     return Row(
+      key: ValueKey('action_pyromaniac_${selectedTarget?.id ?? "none"}'),
       children: [
         Expanded(
           child: SizedBox(
@@ -2557,6 +3127,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     }
 
     return Column(
+      key: ValueKey('action_piper_${_piperTarget1Id ?? "none"}_${_piperTarget2Id ?? "none"}'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

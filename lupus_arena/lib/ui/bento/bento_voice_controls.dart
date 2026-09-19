@@ -152,7 +152,7 @@ class BentoVoiceControls extends StatelessWidget {
 
                         return BentoCard(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
+                              horizontal: 14, vertical: 8),
                           borderColor: borderColor,
                           glowing: (isCurrentSpeaker && !muted) ||
                               (isGameOver && !muted && !isVictoryVoiceExpired),

@@ -148,11 +148,12 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
       if (!_isNavigatingToArena) {
         _isNavigatingToArena = true;
         WidgetsBinding.instance.addPostFrameCallback((_) async {
+          final nav = Navigator.of(context);
           // 1. COUPER D'ABORD ET ATTENDRE LE VERROU
           await LobbyAudioManager.instance.stopLobbyMusic();
           // 2. NAVIGUER ENSUITE
           if (mounted) {
-            Navigator.of(context).pushReplacement(
+            nav.pushReplacement(
               MaterialPageRoute(builder: (_) => const ArenaGameScreen()),
             );
           }
@@ -1631,7 +1632,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     );
   }
 
-  void _handleJoinOrAdmin() {
+  Future<void> _handleJoinOrAdmin() async {
     final inputCode = _codeController.text.trim();
     if (inputCode == '03031994') {
       ref.read(gameNotifierProvider.notifier).unlockAdmin('03031994');

@@ -1,11 +1,25 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.3.6%2B53-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.3.7%2B54-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.3.7 (Build 54)
+
+### 🧙‍♀️ Détection Robuste de la Victime des Loups & Sauvegarde de Secours (Sorcière)
+- **Détection Automatique Renforcée :** Récupération dynamique et transparente de la proie désignée par la meute de loups (`nightVictimId` / calcul instantané des votes des loups y compris pour les bots et rôles masqués).
+- **Mode de Sauvegarde de Secours (Fallback Manuel) :** Même si aucune proie n'a pu être synchronisée automatiquement (ou si la meute a voté blanc), la Sorcière peut désormais sélectionner manuellement n'importe quel joueur vivant sur la grille et déclencher `✨ Sauver [Nom]` en un clic direct.
+- **Double Potion & Rétrogradation :** Maintien de l'usage combiné des deux potions (Vie & Mort) dans la même nuit avec bascule dynamique en simple villageoise dès épuisement des 2 fioles.
+
+### 🎵 Optimisation Audio & AudioContext (`LupusAudioManager`)
+- **Configuration AudioContext Android dédiée :** Configuration avec `AndroidContentType.music`, `AndroidUsageType.media` et `AndroidAudioFocus.none` pour empêcher le moteur RTC Agora de couper ou étouffer la musique d'ambiance.
+- **Cycle de Vie Épuré (Lobby / Accueil) :** Suppression des appels redondants dans la méthode `build()`, remplacés par un listener d'état réactif propre (`ref.listen`) et initialisation post-frame callback.
+- **Déclaration d'Asset Globale :** Fichier `assets/audio/son-lupus.mp3` référencé explicitement dans le bundle de l'application avec fallback gracieux sans blocage.
 
 ---
 

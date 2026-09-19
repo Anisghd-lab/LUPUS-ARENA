@@ -21,7 +21,7 @@ class BentoActionPanel extends StatefulWidget {
   final ValueChanged<String?> onVote;
   final ValueChanged<String> onInspect;
   final VoidCallback onCompleteSeerTurn;
-  final VoidCallback onWitchSave;
+  final void Function([String? targetId]) onWitchSave;
   final ValueChanged<String> onWitchPoison;
   final VoidCallback onWitchPass;
   final ValueChanged<String>? onDefenderProtect;
@@ -61,7 +61,7 @@ class BentoActionPanel extends StatefulWidget {
     ValueChanged<String?>? onVote,
     ValueChanged<String>? onInspect,
     VoidCallback? onCompleteSeerTurn,
-    VoidCallback? onWitchSave,
+    void Function([String? targetId])? onWitchSave,
     ValueChanged<String>? onWitchPoison,
     VoidCallback? onWitchPass,
     this.onDefenderProtect,
@@ -91,7 +91,7 @@ class BentoActionPanel extends StatefulWidget {
         onVote = onVote ?? _noopValue,
         onInspect = onInspect ?? _noopValue,
         onCompleteSeerTurn = onCompleteSeerTurn ?? _noop,
-        onWitchSave = onWitchSave ?? _noop,
+        onWitchSave = onWitchSave ?? (([_]) => {}),
         onWitchPoison = onWitchPoison ?? _noopValue,
         onWitchPass = onWitchPass ?? _noop;
 
@@ -680,10 +680,84 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       elevation: 2,
                     ),
-                    onPressed: widget.onWitchSave,
+                    onPressed: () => widget.onWitchSave(wolfVictim.id),
                     icon: const Icon(Icons.healing_rounded, size: 14),
                     label: Text(
                       'Sauver ${wolfVictim.name}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ] else if (selectedTarget != null && selectedTarget.isAlive && selectedTarget.id != widget.currentUserId) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x221E1B4B),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: hasHeal
+                    ? LupusColors.poisonGreen.withValues(alpha: 0.6)
+                    : LupusColors.border.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 15,
+                  backgroundColor: LupusColors.poisonGreen.withValues(alpha: 0.25),
+                  child: Icon(
+                    BentoPlayerTile.avatarIcons[
+                        selectedTarget.avatarIndex % BentoPlayerTile.avatarIcons.length],
+                    size: 15,
+                    color: const Color(0xFFA7F3D0),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Cible choisie : ${selectedTarget.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        hasHeal ? 'Potion de vie prête à appliquer' : 'Potion de vie épuisée',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: hasHeal ? LupusColors.poisonGreen : LupusColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                if (hasHeal)
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 2,
+                    ),
+                    onPressed: () => widget.onWitchSave(selectedTarget.id),
+                    icon: const Icon(Icons.healing_rounded, size: 14),
+                    label: Text(
+                      'Sauver ${selectedTarget.name}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),

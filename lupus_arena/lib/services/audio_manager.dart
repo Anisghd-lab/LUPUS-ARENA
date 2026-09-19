@@ -15,7 +15,7 @@ class LupusAudioManager {
   bool _isInitialized = false;
   bool _isPlaying = false;
   bool _isMuted = false;
-  double _volume = 0.65;
+  double _volume = 0.70;
 
   static const String lobbyMusicAsset = 'audio/son-lupus.mp3';
 
@@ -24,36 +24,63 @@ class LupusAudioManager {
   bool get isInitialized => _isInitialized;
   double get volume => _volume;
 
-  AudioPlayer _getOrCreatePlayer() {
+  Future<AudioPlayer> _getOrCreatePlayer() async {
     if (_player == null) {
+      final player = AudioPlayer();
       try {
-        _player = AudioPlayer();
-        _player!.setReleaseMode(ReleaseMode.loop);
-        _player!.setVolume(_isMuted ? 0.0 : _volume);
+        await player.setAudioContext(
+          const AudioContext(
+            android: AudioContextAndroid(
+              isSpeakerphoneOn: true,
+              stayAwake: false,
+              contentType: AndroidContentType.music,
+              usageType: AndroidUsageType.media,
+              audioFocus: AndroidAudioFocus.none,
+            ),
+            iOS: AudioContextIOS(
+              category: AVAudioSessionCategory.ambient,
+              options: [
+                AVAudioSessionOptions.mixWithOthers,
+              ],
+            ),
+          ),
+        );
+        await player.setReleaseMode(ReleaseMode.loop);
+        await player.setVolume(_isMuted ? 0.0 : _volume);
 
-        _player!.onPlayerStateChanged.listen((state) {
+        player.onPlayerStateChanged.listen((state) {
           _isPlaying = (state == PlayerState.playing);
         });
 
         _isInitialized = true;
+        _player = player;
       } catch (e) {
-        debugPrint('[LupusAudioManager] Erreur création AudioPlayer: $e');
+        debugPrint('[LupusAudioManager] Configuration AudioPlayer: $e');
+        _player = player;
+        _isInitialized = true;
       }
     }
     return _player!;
   }
 
   /// Joue la musique d'ambiance du Lobby en boucle infinie
-  Future<void> playLobbyMusic({bool resetPosition = true}) async {
+  Future<void> playLobbyMusic({bool resetPosition = false}) async {
     if (_isPlaying) return; // Zéro doublon
     try {
-      final player = _getOrCreatePlayer();
+      final player = await _getOrCreatePlayer();
       await player.setReleaseMode(ReleaseMode.loop);
       await player.setVolume(_isMuted ? 0.0 : _volume);
       if (resetPosition) {
-        await player.seek(Duration.zero);
+        try {
+          await player.seek(Duration.zero);
+        } catch (_) {}
       }
-      await player.play(AssetSource(lobbyMusicAsset));
+      try {
+        await player.play(AssetSource(lobbyMusicAsset));
+      } catch (e) {
+        debugPrint('[LupusAudioManager] Fallback play: $e');
+        await player.play(AssetSource('assets/audio/son-lupus.mp3'));
+      }
       _isPlaying = true;
       debugPrint('[LupusAudioManager] Musique du lobby lancée en boucle.');
     } catch (e) {

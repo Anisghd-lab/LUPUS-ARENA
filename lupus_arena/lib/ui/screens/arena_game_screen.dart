@@ -534,9 +534,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           onCompleteSeerTurn: () => ref
                               .read(gameNotifierProvider.notifier)
                               .completeSeerTurn(),
-                          onWitchSave: () => ref
+                          onWitchSave: ([targetId]) => ref
                               .read(gameNotifierProvider.notifier)
-                              .witchSaveVictim(),
+                              .witchSaveVictim(targetId),
                           onWitchPoison: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
                               .witchPoison(targetId),

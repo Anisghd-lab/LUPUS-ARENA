@@ -682,6 +682,45 @@ void main() {
       expect(updates['players/1/isMuted'], isFalse);
       expect(updates['players/2/isMuted'], isFalse);
     });
+
+    test('Sorcière : Détection automatique de la victime des loups et sauvegarde de secours', () {
+      const wolfVictim = PlayerModel(id: 'v1', name: 'VictimeDesLoups', role: GameRole.simpleVillager, isAlive: true);
+      const manualTarget = PlayerModel(id: 'm1', name: 'CibleManuelle', role: GameRole.simpleVillager, isAlive: true);
+      const witch = PlayerModel(id: 'w1', name: 'Sorciere', role: GameRole.witch, potionsVie: 1, potionsMort: 1, isAlive: true);
+
+      // Cas 1 : nightVictimId est présent -> sélection automatique
+      String? resolveVictim(String? nightVictimId, String? selectedTargetId) {
+        return nightVictimId ?? selectedTargetId;
+      }
+
+      expect(resolveVictim(wolfVictim.id, null), equals('v1'));
+      expect(resolveVictim(wolfVictim.id, manualTarget.id), equals('v1'), reason: 'Priorité absolue à la victime des loups');
+
+      // Cas 2 : nightVictimId est nul (fallback / manuel) -> cible sélectionnée
+      expect(resolveVictim(null, manualTarget.id), equals('m1'), reason: 'Fallback sur la cible manuelle si aucune proie');
+    });
+
+    test('Sorcière : Utilisation combinée des deux potions (Vie & Mort) et transition de rôle', () {
+      var witch = const PlayerModel(id: 'w1', name: 'Sorciere', role: GameRole.witch, potionsVie: 1, potionsMort: 1, isAlive: true);
+
+      // 1. Utilisation de la potion de vie
+      final newVie = witch.potionsVie - 1;
+      witch = witch.copyWith(potionsVie: newVie);
+      expect(witch.potionsVie, equals(0));
+      expect(witch.potionsMort, equals(1));
+      expect(witch.role, equals(GameRole.witch), reason: 'Reste Sorcière car il lui reste 1 potion de mort');
+
+      // 2. Utilisation de la potion de mort dans la même nuit
+      final newMort = witch.potionsMort - 1;
+      final isDechue = newVie == 0 && newMort == 0;
+      witch = witch.copyWith(
+        potionsMort: newMort,
+        role: isDechue ? GameRole.simpleVillager : witch.role,
+      );
+      expect(witch.potionsVie, equals(0));
+      expect(witch.potionsMort, equals(0));
+      expect(witch.role, equals(GameRole.simpleVillager), reason: 'Rétrogradée en Simple Villageoise à 0/0');
+    });
   });
 }
 

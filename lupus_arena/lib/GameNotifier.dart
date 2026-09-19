@@ -1175,7 +1175,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
         // Si les loups terminent leur phase, calculer et fixer leur cible pour la Voyante et la Sorcière
         if (current == GamePhase.nightWerewolves) {
-          String? wolfVictimId = _tallyWerewolfVotes() ?? room.nightVictimId;
+          String? wolfVictimId = _tallyWerewolfVotes(realRoles) ?? room.nightVictimId;
 
           if (wolfVictimId == null) {
             final innocentLiving = room.alivePlayers
@@ -1190,6 +1190,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
           if (wolfVictimId != null) {
             updates['nightVictimId'] = wolfVictimId;
+            updates['public_state/nightVictimId'] = wolfVictimId;
             // CONFIDENTIALITÉ STRICTE : Ne JAMAIS divulguer l'identité de la victime dans le journal public avant l'Aube !
           }
 
@@ -1202,6 +1203,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
               final autoSilenceTarget =
                   silenceCandidates[Random().nextInt(silenceCandidates.length)];
               updates['blackWolfTargetId'] = autoSilenceTarget.id;
+              updates['public_state/blackWolfTargetId'] = autoSilenceTarget.id;
               // CONFIDENTIALITÉ STRICTE : Ne JAMAIS divulguer la cible du silence dans le journal public avant l'Aube !
             }
           }
@@ -2769,7 +2771,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     return true;
   }
 
-  Future<void> witchSaveVictim() async {
+  Future<void> witchSaveVictim([String? fallbackTargetId]) async {
     if ((state.myRole != GameRole.witch &&
             state.currentPlayer?.roleInitial != GameRole.witch &&
             !state.isAdmin) ||
@@ -2777,7 +2779,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         state.room == null) {
       return;
     }
-    final wolfVictimId = state.room!.nightVictimId ?? _tallyWerewolfVotes();
+    final wolfVictimId = state.room!.nightVictimId ?? _tallyWerewolfVotes() ?? fallbackTargetId;
     if (wolfVictimId == null) {
       return; // Aucune cible des loups à sauver
     }
@@ -2808,6 +2810,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     await _syncState({
       'witchHealed': true,
+      'nightVictimId': wolfVictimId,
       'players/$witchId/hasUsedHealPotion': newVie == 0,
       'players/$witchId/potionsVie': newVie,
       if (isDechue) 'players/$witchId/role': GameRole.simpleVillager.name,
@@ -3322,11 +3325,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   // UTILITAIRES ET INTÉGRATION VOCALE AGORA
   // ===========================================================================
 
-  String? _tallyWerewolfVotes() {
+  String? _tallyWerewolfVotes([Map<String, GameRole>? realRoles]) {
     if (state.room == null) return null;
     final votes = <String, int>{};
     for (final p in state.room!.alivePlayers) {
-      if ((p.role.isEvil || (p.id == state.currentUserId && state.isAdmin)) &&
+      final role = realRoles?[p.id] ?? p.role;
+      if ((role.isEvil || role == GameRole.whiteWerewolf || (p.id == state.currentUserId && state.isAdmin)) &&
           p.targetVoteId != null) {
         votes[p.targetVoteId!] = (votes[p.targetVoteId!] ?? 0) + 1;
       }

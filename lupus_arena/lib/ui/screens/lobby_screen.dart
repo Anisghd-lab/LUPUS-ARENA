@@ -102,19 +102,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     _nameController.dispose();
     _codeController.dispose();
     super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
+    ref.listen<LupusGameState>(gameNotifierProvider, (previous, next) {
+      if (next.room == null || next.room?.phase == GamePhase.lobby) {
+        LupusAudioManager.instance.playLobbyMusic();
+      } else {
+        LupusAudioManager.instance.stopLobbyMusic();
+      }
+    });
+
     final gameState = ref.watch(gameNotifierProvider);
     final room = gameState.room;
-
-    // Gestion de la musique d'ambiance : jouée sur l'accueil, arrêtée en salle
-    if (room == null) {
-      LupusAudioManager.instance.playLobbyMusic();
-    } else {
-      LupusAudioManager.instance.stopLobbyMusic();
-    }
 
     // Navigation automatique vers l'arène dès que la partie commence
     if (room != null && room.phase != GamePhase.lobby) {

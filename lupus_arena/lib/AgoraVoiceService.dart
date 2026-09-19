@@ -16,7 +16,9 @@ import 'services/lupus_permission_service.dart';
 class AgoraVoiceService {
   static final AgoraVoiceService _instance = AgoraVoiceService._internal();
   factory AgoraVoiceService() => _instance;
-  AgoraVoiceService._internal();
+  AgoraVoiceService._internal() {
+    LupusPermissionService.onPermissionsRefreshed = refreshAndRecover;
+  }
 
   RtcEngine? _engine;
   bool _isInitialized = false;
@@ -412,6 +414,41 @@ class AgoraVoiceService {
         uid: _lastUid!,
         initialMute: _lastInitialMute,
       );
+    }
+  }
+
+  /// Rafraîchit les autorisations en arrière-plan et répare/réarme le moteur Agora
+  Future<void> refreshAndRecover() async {
+    try {
+      final isMicOk = await LupusPermissionService().isMicGranted();
+      if (isMicOk) {
+        if (!_isInitialized || _engine == null) {
+          addLog('🎤 Permission micro confirmée en arrière-plan -> Initialisation du moteur Agora...');
+          await initialize();
+        } else {
+          try {
+            await _engine?.enableAudio();
+            await _engine?.enableLocalAudio(true);
+            await _engine?.muteLocalAudioStream(isMuted.value);
+          } catch (_) {}
+        }
+
+        // Si une connexion précédente avait échoué, réinitialiser l'état d'échec
+        if (_hasFailed) {
+          _hasFailed = false;
+          _failedChannelId = null;
+          connectionError.value = null;
+          lastErrorMessage.value = null;
+        }
+
+        // Si nous avons un canal cible mais que nous sommes déconnectés
+        if (_lastChannelId != null && !isConnected.value && !_isConnecting) {
+          addLog('🔄 Reconnexion automatique au canal vocal $_lastChannelId...');
+          await retryJoin();
+        }
+      }
+    } catch (e) {
+      debugPrint('[AgoraVoiceService] Erreur refreshAndRecover: $e');
     }
   }
 

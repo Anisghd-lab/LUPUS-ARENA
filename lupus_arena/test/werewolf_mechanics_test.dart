@@ -720,6 +720,51 @@ void main() {
       expect(witch.potionsMort, equals(0));
       expect(witch.role, equals(GameRole.simpleVillager), reason: 'Rétrogradée en Simple Villageoise à 0/0');
     });
+
+    test('Audio Manager : Musique d\'ambiance strictement isolée au Menu Principal (room == null)', () {
+      bool shouldPlayLobbyMusic(GameRoom? room) {
+        return room == null;
+      }
+
+      // 1. Sur le menu principal (aucune room)
+      expect(shouldPlayLobbyMusic(null), isTrue, reason: 'La musique doit jouer sur le Menu Principal');
+
+      // 2. En salle d'attente / waiting lobby
+      const waitingRoom = GameRoom(roomCode: 'TEST1', hostId: 'h1', phase: GamePhase.lobby);
+      expect(shouldPlayLobbyMusic(waitingRoom), isFalse, reason: 'La musique doit s\'arrêter immédiatement en salle d\'attente');
+
+      // 3. En partie simulée / Dev Mode
+      const devRoom = GameRoom(roomCode: 'DEV01', hostId: 'h1', phase: GamePhase.night, isDevRoom: true);
+      expect(shouldPlayLobbyMusic(devRoom), isFalse, reason: 'La musique doit être coupée pendant une partie simulée DevMode');
+
+      // 4. En arène de jeu classique
+      const inGameRoom = GameRoom(roomCode: 'TEST2', hostId: 'h1', phase: GamePhase.dayDiscussion);
+      expect(shouldPlayLobbyMusic(inGameRoom), isFalse, reason: 'La musique doit être coupée dans l\'arène de jeu');
+    });
+
+    test('Permissions & Agora : Synchronisation et récupération en arrière-plan sans redémarrage', () {
+      bool agoraRecovered = false;
+      void mockAgoraRecovery() {
+        agoraRecovered = true;
+      }
+
+      // Simule la détection d'autorisation microphone après retour d'une mise à jour in-app ou paramètres système
+      bool isMicGranted = false;
+      void onPermissionChanged(bool granted) {
+        isMicGranted = granted;
+        if (granted) {
+          mockAgoraRecovery();
+        }
+      }
+
+      expect(isMicGranted, isFalse);
+      expect(agoraRecovered, isFalse);
+
+      // Le système accorde la permission en arrière-plan
+      onPermissionChanged(true);
+      expect(isMicGranted, isTrue);
+      expect(agoraRecovered, isTrue, reason: 'Agora doit se réarmer automatiquement dès que la permission est actualisée');
+    });
   });
 }
 

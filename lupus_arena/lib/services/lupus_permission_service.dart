@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,9 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// 2. Baffles / Enceintes / Bluetooth Audio (BLUETOOTH_CONNECT)
 /// 3. Notifications de jeu (POST_NOTIFICATIONS)
 ///
-/// Garantit que les autorisations ne sont sollicitées qu'une seule fois,
-/// et que le choix de l'utilisateur est persisté dans SharedPreferences.
-class LupusPermissionService {
+/// Intègre un rafraîchisseur en arrière-plan et un observateur de cycle de vie (AppLifecycleState)
+/// pour détecter immédiatement les changements d'autorisations (ex: après mise à jour in-app,
+/// retour depuis les Paramètres Android ou bascule d'application) sans forcer l'utilisateur à
+/// redémarrer l'application.
+class LupusPermissionService with WidgetsBindingObserver {
   static final LupusPermissionService _instance =
       LupusPermissionService._internal();
   factory LupusPermissionService() => _instance;
@@ -23,6 +27,58 @@ class LupusPermissionService {
   static const String _keyBluetoothGranted =
       'lupus_permission_bluetooth_granted';
   static const String _keyLastRequested = 'lupus_permissions_timestamp';
+
+  // Notifiers d'état réactifs en arrière-plan
+  final ValueNotifier<bool> isMicGrantedNotifier = ValueNotifier(false);
+  final ValueNotifier<bool> isNotificationGrantedNotifier = ValueNotifier(false);
+  final ValueNotifier<bool> isBluetoothGrantedNotifier = ValueNotifier(false);
+
+  // Hook de rappel global pour la synchronisation Agora RTC
+  static void Function()? onPermissionsRefreshed;
+
+  Timer? _backgroundTimer;
+  bool _isMonitoring = false;
+
+  /// Démarre le moniteur et rafraîchisseur d'autorisations en arrière-plan
+  void startBackgroundPermissionMonitor() {
+    if (_isMonitoring) return;
+    _isMonitoring = true;
+
+    try {
+      WidgetsBinding.instance.addObserver(this);
+    } catch (e) {
+      debugPrint('[LupusPermissionService] Erreur ajout observateur: $e');
+    }
+
+    // Premier rafraîchissement silencieux immédiat
+    refreshPermissionsSilently();
+
+    // Rafraîchissement périodique non-intrusif toutes les 15 secondes
+    _backgroundTimer?.cancel();
+    _backgroundTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      refreshPermissionsSilently();
+    });
+
+    debugPrint('[LupusPermissionService] Moniteur de permissions en arrière-plan démarré.');
+  }
+
+  /// Arrête le moniteur d'arrière-plan
+  void stopBackgroundPermissionMonitor() {
+    _isMonitoring = false;
+    _backgroundTimer?.cancel();
+    _backgroundTimer = null;
+    try {
+      WidgetsBinding.instance.removeObserver(this);
+    } catch (_) {}
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('[LupusPermissionService] Application reprise (resumed) -> Rafraîchissement des autorisations...');
+      refreshPermissionsSilently();
+    }
+  }
 
   /// Liste des permissions requises selon la plateforme (Web vs Mobile/Desktop)
   static List<Permission> get requiredPermissions {
@@ -64,7 +120,7 @@ class LupusPermissionService {
         '[LupusPermissionService] Permissions déjà demandées précédemment. '
         'Synchronisation silencieuse sans ré-interpeller l\'utilisateur.',
       );
-      return await _syncCachedStatuses();
+      return await refreshPermissionsSilently();
     }
 
     debugPrint('[LupusPermissionService] Première demande groupée des permissions...');
@@ -99,6 +155,12 @@ class LupusPermissionService {
         DateTime.now().toIso8601String(),
       );
 
+      isMicGrantedNotifier.value = micGranted;
+      isNotificationGrantedNotifier.value = notifGranted;
+      isBluetoothGrantedNotifier.value = btGranted;
+
+      onPermissionsRefreshed?.call();
+
       debugPrint(
         '[LupusPermissionService] Choix sauvegardés avec succès -> '
         'Micro: $micGranted, Notif: $notifGranted, Bluetooth/Baffles: $btGranted',
@@ -110,8 +172,9 @@ class LupusPermissionService {
     return statuses;
   }
 
-  /// Synchronise et retourne les statuts réels actuels sans boîte de dialogue
-  Future<Map<Permission, PermissionStatus>> _syncCachedStatuses() async {
+  /// Synchronise et rafraîchit en arrière-plan les statuts réels actuels auprès de l'OS
+  /// sans jamais bloquer l'UI ni afficher de boîte de dialogue intrusive.
+  Future<Map<Permission, PermissionStatus>> refreshPermissionsSilently() async {
     final statuses = <Permission, PermissionStatus>{};
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -124,20 +187,28 @@ class LupusPermissionService {
         }
       }
 
-      await prefs.setBool(
-        _keyMicGranted,
-        statuses[Permission.microphone]?.isGranted ?? false,
-      );
-      await prefs.setBool(
-        _keyNotificationGranted,
-        statuses[Permission.notification]?.isGranted ?? false,
-      );
+      final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+      final notifGranted = statuses[Permission.notification]?.isGranted ?? false;
+      final btGranted = kIsWeb
+          ? true
+          : (statuses[Permission.bluetoothConnect]?.isGranted ?? false);
+
+      await prefs.setBool(_keyMicGranted, micGranted);
+      await prefs.setBool(_keyNotificationGranted, notifGranted);
       if (!kIsWeb) {
-        await prefs.setBool(
-          _keyBluetoothGranted,
-          statuses[Permission.bluetoothConnect]?.isGranted ?? false,
-        );
+        await prefs.setBool(_keyBluetoothGranted, btGranted);
       }
+
+      final bool micChanged = isMicGrantedNotifier.value != micGranted;
+      isMicGrantedNotifier.value = micGranted;
+      isNotificationGrantedNotifier.value = notifGranted;
+      isBluetoothGrantedNotifier.value = btGranted;
+
+      if (micChanged) {
+        debugPrint('[LupusPermissionService] Statut Microphone actualisé: $micGranted');
+      }
+
+      onPermissionsRefreshed?.call();
     } catch (e) {
       debugPrint('[LupusPermissionService] Erreur synchronisation silencieuse: $e');
     }
@@ -149,7 +220,10 @@ class LupusPermissionService {
   Future<bool> ensureMicrophonePermission() async {
     try {
       final micStatus = await Permission.microphone.status;
-      if (micStatus.isGranted) return true;
+      if (micStatus.isGranted) {
+        isMicGrantedNotifier.value = true;
+        return true;
+      }
 
       // Solliciter la permission microphone (déclenche la popup navigateur ou système)
       final requestStatus = await Permission.microphone.request();
@@ -157,7 +231,9 @@ class LupusPermissionService {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_keyMicGranted, isGranted);
+      isMicGrantedNotifier.value = isGranted;
 
+      onPermissionsRefreshed?.call();
       return isGranted;
     } catch (e) {
       debugPrint('[LupusPermissionService] Erreur ensureMicrophonePermission: $e');
@@ -169,10 +245,13 @@ class LupusPermissionService {
   Future<bool> isMicGranted() async {
     try {
       final status = await Permission.microphone.status;
+      isMicGrantedNotifier.value = status.isGranted;
       return status.isGranted;
     } catch (_) {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyMicGranted) ?? false;
+      final val = prefs.getBool(_keyMicGranted) ?? false;
+      isMicGrantedNotifier.value = val;
+      return val;
     }
   }
 
@@ -180,10 +259,13 @@ class LupusPermissionService {
   Future<bool> isNotificationGranted() async {
     try {
       final status = await Permission.notification.status;
+      isNotificationGrantedNotifier.value = status.isGranted;
       return status.isGranted;
     } catch (_) {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyNotificationGranted) ?? false;
+      final val = prefs.getBool(_keyNotificationGranted) ?? false;
+      isNotificationGrantedNotifier.value = val;
+      return val;
     }
   }
 
@@ -191,10 +273,13 @@ class LupusPermissionService {
   Future<bool> isBluetoothGranted() async {
     try {
       final status = await Permission.bluetoothConnect.status;
+      isBluetoothGrantedNotifier.value = status.isGranted;
       return status.isGranted;
     } catch (_) {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyBluetoothGranted) ?? false;
+      final val = prefs.getBool(_keyBluetoothGranted) ?? false;
+      isBluetoothGrantedNotifier.value = val;
+      return val;
     }
   }
 
@@ -206,6 +291,9 @@ class LupusPermissionService {
     await prefs.remove(_keyNotificationGranted);
     await prefs.remove(_keyBluetoothGranted);
     await prefs.remove(_keyLastRequested);
+    isMicGrantedNotifier.value = false;
+    isNotificationGrantedNotifier.value = false;
+    isBluetoothGrantedNotifier.value = false;
     debugPrint('[LupusPermissionService] Choix des permissions réinitialisé.');
   }
 }

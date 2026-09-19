@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'firebase_options.dart';
 import 'services/locale_provider.dart';
+import 'services/lupus_permission_service.dart';
 import 'ui/screens/lobby_screen.dart';
 import 'ui/theme/lupus_theme.dart';
 
@@ -37,6 +38,9 @@ void main() async {
       debugPrint('[Firebase] Initialisation par défaut : $e2');
     }
   }
+
+  // Démarrage du rafraîchisseur et moniteur d'autorisations en arrière-plan
+  LupusPermissionService().startBackgroundPermissionMonitor();
 
   // Initialisation de la langue persistée
   final localeProvider = LocaleProvider.instance;

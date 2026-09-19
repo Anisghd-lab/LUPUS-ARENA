@@ -72,10 +72,17 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     // Vérification en arrière-plan d'une nouvelle mise à jour GitHub Releases
     _checkForUpdateInBackground();
 
-    // Démarrage de la musique d'ambiance du Lobby
+    // Démarrage de la surveillance globale des permissions en arrière-plan
+    LupusPermissionService().startBackgroundPermissionMonitor();
+
+    // Démarrage de la musique d'ambiance STRICTEMENT sur l'accueil (Menu principal / room == null)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && ref.read(gameNotifierProvider).room == null) {
-        LupusAudioManager.instance.playLobbyMusic();
+      if (mounted) {
+        if (ref.read(gameNotifierProvider).room == null) {
+          LupusAudioManager.instance.playLobbyMusic();
+        } else {
+          LupusAudioManager.instance.stopLobbyMusic();
+        }
       }
     });
   }
@@ -107,7 +114,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen<LupusGameState>(gameNotifierProvider, (previous, next) {
-      if (next.room == null || next.room?.phase == GamePhase.lobby) {
+      if (next.room == null) {
         LupusAudioManager.instance.playLobbyMusic();
       } else {
         LupusAudioManager.instance.stopLobbyMusic();
@@ -853,6 +860,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   /// Écran d'attente du Salon quand une partie a été créée ou rejointe
   Widget _buildWaitingLobby(BuildContext context, LupusGameState gameState, GameRoom room) {
+    // Coupe immédiatement la musique dès l'entrée dans le salon d'attente
+    LupusAudioManager.instance.stopLobbyMusic();
+
     return SizedBox.expand(
       child: Stack(
         fit: StackFit.expand,

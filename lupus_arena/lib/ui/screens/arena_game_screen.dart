@@ -215,7 +215,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     _countdownNotifier.dispose();
     _victoryVoiceTimer?.cancel();
     _victoryVoiceCountdownNotifier.dispose();
-    LupusAudioManager.instance.playLobbyMusic();
+    if (ref.read(gameNotifierProvider).room == null) {
+      LupusAudioManager.instance.playLobbyMusic();
+    }
     super.dispose();
   }
 

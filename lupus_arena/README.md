@@ -1,11 +1,23 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.3.7%2B54-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.3.8%2B55-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.3.8 (Build 55)
+
+### 🎵 Isolation Stricte de la Musique d'Ambiance au Menu d'Accueil (`room == null`)
+- **Extinction Immédiate dès l'Entrée en Salle :** La bande-son `son-lupus.mp3` est strictement réservée au menu principal. Dès qu'un utilisateur crée, rejoint ou entre dans une salle (`room != null` : salon d'attente, partie simulée DevMode, ou arène en jeu), la musique est instantanément coupée pour laisser 100% de la bande passante et de la clarté sonore au chat vocal Agora RTC.
+- **Reprise Exclusif au Retour Accueil :** La musique ne redémarre que lorsque l'utilisateur quitte définitivement la partie/salle pour revenir au menu principal.
+
+### 🛡️ Rafraîchisseur d'Autorisations en Arrière-Plan & Auto-Récupération Agora
+- **Moniteur d'Autorisations Invisible :** Intégration d'un service de rafraîchissement d'autorisations (Microphone, Bluetooth/Baffles, Notifications) tournant en arrière-plan et réactif aux cycles de vie de l'application (`AppLifecycleState.resumed`).
+- **Auto-Réparation sans Redémarrage :** Détecte automatiquement l'octroi des permissions (suite à une mise à jour in-app, un retour des réglages système Android ou une boîte de dialogue) et réarme/reconnecte le moteur vocal Agora sans nécessiter de fermeture/réouverture manuelle de l'application.
 
 ---
 

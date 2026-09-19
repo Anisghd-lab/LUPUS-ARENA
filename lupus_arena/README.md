@@ -1,11 +1,34 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.4.2%2B59-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.4.3%2B60-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.4.3 (Build 60)
+
+### 🧠 Intégration du Moteur de Jeu Modulaire (`lib/engine/`)
+- **Architecture Pure & Découplée (`GameController` & `game_engine_models.dart`) :**
+  - Contrôleur universel réactif fondé sur `ChangeNotifier`, entièrement découplé de la persistance réseau, testable en isolation.
+  - Ordonnancement canonique de nuit via une file dynamique (`Queue<GameStep>`) : Nuit préliminaire (Voleur, Cupidon) puis Nuit régulière (Comédien, Voyante, Renard, Corbeau, Pyromane, Salvateur, Loups, Grand Méchant Loup, Loup Blanc, Sorcière).
+  - Vérification stricte de présence et survie (`_isRolePresentAndAlive`, `_areWerewolvesPresentAndAlive`) couplée au singleton `DeathRegistryService` pour interdire toute activation d'un rôle absent ou décédé.
+- **Buffer d'Actions Non Destructif (`NightActionBuffer`) :**
+  - Mémorisation et différé des attaques (`KillIntent`), boucliers (Salvateur), potions (Sorcière) et infections (Père des Loups), résolus de façon atomique au matin sans altération prématurée de l'état des joueurs.
+  - Propagation instantanée du chagrin d'amour pour les amoureux liés.
+- **Scrutin Diurne & Pouvoirs Spéciaux :**
+  - Dépouillement des votes avec prise en compte de la double voix du Maire (`isCaptain`), des +2 voix automatiques du Corbeau, et de l'activation du Juge Bègue pour relancer un second vote dans la journée.
+- **Cycle de Vie des Timers Sécurisé :**
+  - Arrêt systématique (`_stopTimer()`) avant chaque transition d'état et lors du `dispose()`, garantissant l'absence de fuites mémoire ou d'exécutions asynchrones fantômes.
+
+### 🧪 Suite Complète de Tests Unitaires (`test/game_controller_engine_test.dart`)
+- Validation automatisée des phases préliminaires, de la séquence nocturne, de l'immunité octroyée par le Salvateur, des potions de la Sorcière, de la contagion amoureuse et de la victoire du village.
+
+### 📋 Audit Complet de la Codebase (Fonctionnement, Logique & Performances)
+- Publication du rapport d'audit exhaustif couvrant le sharding Firebase RTDB, la synchronisation sub-seconde `ServerTimeService`, la gestion Agora RTC, le verrou audio `LobbyAudioManager` et les optimisations graphiques `RepaintBoundary`.
 
 ---
 

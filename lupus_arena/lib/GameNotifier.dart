@@ -195,7 +195,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   /// Registre inviolable des défunts (délégué au singleton DeathRegistryService).
   /// Règle d'or : "Celui qui meurt meurt".
   DeathRegistryService get _deathRegistry => DeathRegistryService.instance;
-  Set<String> get _cemeteryRegistry => _deathRegistry.deadPlayerIds;
 
   /// Exception unique de résurrection : Potion de vie de la Sorcière
   void applyWitchRevive(String victimId) {
@@ -2847,7 +2846,6 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         state.room?.expandedRolesState.bannedVotersForToday.contains(state.currentUserId) == true) {
       return;
     }
-    final voterId = state.effectiveUserId;
     final voteUpdates = <String, dynamic>{
       'players/$voterId/targetVoteId': targetId,
       'votes/$voterId': targetId,
@@ -4831,6 +4829,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         'cause': reason.toUpperCase(),
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
+    };
     updates['cemetery/$playerId'] = true;
     DeathRegistryService.instance.markDead(playerId);
 

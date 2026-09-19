@@ -6,7 +6,6 @@ import 'package:lupus_arena/models/game_room.dart';
 import 'package:lupus_arena/services/update_service.dart';
 import 'package:lupus_arena/services/fog_of_war_service.dart';
 import 'package:lupus_arena/services/death_registry_service.dart';
-import 'package:lupus_arena/services/lobby_audio_manager.dart';
 import 'package:lupus_arena/services/audio_manager.dart';
 
 void main() {

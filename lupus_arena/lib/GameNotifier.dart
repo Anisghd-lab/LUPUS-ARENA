@@ -10,9 +10,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'AgoraVoiceService.dart';
+import 'engine/handlers/role_handlers_registry.dart';
 import 'models/expanded_roles_state.dart';
 import 'models/game_phase.dart';
 import 'models/game_room.dart';
+import 'models/game_state.dart';
 import 'models/player_model.dart';
 import 'services/death_registry_service.dart';
 import 'services/conditional_role_distributor.dart';
@@ -1163,7 +1165,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     // Ordre : Voleur -> Cupidon -> Salvateur -> Loups -> Voyante -> Sorcière
     final assignedRoleIds = flatRoles.map((r) => r.id).toSet();
     GamePhase firstPhase;
-    if (assignedRoleIds.contains('thief')) {
+    if (assignedRoleIds.contains('thief') ||
+        assignedRoleIds.contains('thief_of_hearts') ||
+        assignedRoleIds.contains('soul_stealer')) {
       firstPhase = GamePhase.nightThief;
     } else if (assignedRoleIds.contains('cupid')) {
       firstPhase = GamePhase.nightCupid;
@@ -2412,47 +2416,243 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   // ===========================================================================
 
   Future<void> thiefSteal(String targetPlayerId) async {
-    if ((state.myRole != GameRole.thief && !state.isAdmin) ||
-        _currentRoomRef == null) {
+    final bool canAct = state.myRole == GameRole.thief ||
+        state.myRole == GameRole.thiefOfHearts ||
+        state.isAdmin ||
+        state.isDevMode;
+    if (!canAct || _currentRoomRef == null) {
       return;
     }
     final target = state.room?.players[targetPlayerId];
     if (target == null) return;
+    final roomCode = state.room?.roomCode;
+    if (roomCode == null) return;
 
-    final stolenRole = target.role;
-    final thiefId = state.effectiveUserId;
-    await _syncState({
-      'players/$thiefId/role': stolenRole.id,
-      'players/$targetPlayerId/role': GameRole.simpleVillager.id,
-      'logs': [
-        ...?state.room?.logs,
-        'Une ombre a dérobé l\'identité d\'un citoyen cette nuit...',
-      ],
-    });
-    await processNightTransitions();
-  }
-
-  Future<void> thiefChooseRole(GameRole chosenRole) async {
-    if ((state.myRole != GameRole.thief && !state.isAdmin) ||
-        _currentRoomRef == null) {
-      return;
-    }
+    // Détermination de l'ID effectif du voleur
     String thiefId = state.effectiveUserId;
-    if (state.isAdmin && state.myRole != GameRole.thief) {
+    if (state.myRole != GameRole.thief && state.myRole != GameRole.thiefOfHearts) {
       final t = state.room?.alivePlayers.cast<PlayerModel?>().firstWhere(
-            (p) => p != null && p.role == GameRole.thief,
+            (p) => p != null && (p.role == GameRole.thief || p.role == GameRole.thiefOfHearts),
             orElse: () => null,
           );
       if (t != null) thiefId = t.id;
     }
 
+    final thiefPlayer = state.room?.players[thiefId];
+    final thiefRole = thiefPlayer?.role ?? state.myRole;
+    final isSoulStealer = thiefRole == GameRole.thiefOfHearts || state.myRole == GameRole.thiefOfHearts;
+
+    // Résolution du rôle authentique de la cible (démasquage live et dev)
+    GameRole stolenRole = target.role;
+    if (stolenRole == GameRole.simpleVillager || target.encryptedRole != null) {
+      if (target.encryptedRole != null && target.encryptedRole!.isNotEmpty) {
+        final dec = RoleSecurityService.decryptRole(
+          target.encryptedRole,
+          target.id,
+          roomCode,
+        );
+        if (dec != null) stolenRole = dec;
+      }
+      try {
+        final sSnap = await _database
+            .ref('rooms/$roomCode/secret_roles/$targetPlayerId/roleId')
+            .get();
+        if (sSnap.exists && sSnap.value != null) {
+          stolenRole = GameRole.fromId(sSnap.value.toString());
+        }
+      } catch (_) {}
+    }
+
+    // Exécution du handler métier
+    final inMemoryState = GameState(
+      currentTurn: state.room?.round ?? 1,
+      currentPhase: state.room?.phase ?? GamePhase.nightThief,
+      playerRoles: {
+        for (final p in (state.room?.playerList ?? <PlayerModel>[]))
+          p.id: p.role,
+        thiefId: thiefRole,
+        targetPlayerId: stolenRole,
+      },
+    );
+    RoleHandlersRegistry.dispatchAction(
+      inMemoryState,
+      role: isSoulStealer ? GameRole.thiefOfHearts : GameRole.thief,
+      actorId: thiefId,
+      payload: {'targetId': targetPlayerId},
+    );
+
+    final encryptedThiefRole = RoleSecurityService.encryptRole(
+      stolenRole.id,
+      thiefId,
+      roomCode,
+    );
+    final encryptedTargetRole = RoleSecurityService.encryptRole(
+      GameRole.simpleVillager.id,
+      targetPlayerId,
+      roomCode,
+    );
+
+    final updates = <String, dynamic>{
+      'players/$thiefId/role': stolenRole.id,
+      'players/$thiefId/encryptedRole': encryptedThiefRole,
+      'players/$targetPlayerId/role': GameRole.simpleVillager.id,
+      'players/$targetPlayerId/encryptedRole': encryptedTargetRole,
+      'players/$targetPlayerId/potionsVie': 0,
+      'players/$targetPlayerId/potionsMort': 0,
+      'players/$targetPlayerId/visionsRestantes': 0,
+      'logs': [
+        ...?state.room?.logs,
+        isSoulStealer
+            ? 'Une ombre insaisissable a dérobé l\'âme d\'un citoyen cette nuit...'
+            : 'Une ombre a dérobé l\'identité d\'un citoyen cette nuit...',
+      ],
+    };
+
+    // Attribution des charges de pouvoir si applicable
+    if (stolenRole == GameRole.witch) {
+      final maxP = (state.room?.maxPotionsPerGame ?? 1).clamp(1, 2);
+      updates['players/$thiefId/potionsVie'] = maxP;
+      updates['players/$thiefId/potionsMort'] = maxP;
+    } else if (stolenRole == GameRole.seer) {
+      final maxV = (state.room?.maxVisionsPerGame ?? 1).clamp(1, 99);
+      updates['players/$thiefId/visionsRestantes'] = maxV;
+    }
+
+    // Gestion de la meute de loups
+    final allAlive = state.room?.alivePlayers ?? [];
+    final wolfIds = allAlive
+        .where((p) =>
+            (p.id == thiefId && stolenRole.isEvil) ||
+            (p.id != targetPlayerId && p.id != thiefId && p.role.isEvil))
+        .map((p) => p.id)
+        .toList();
+    if (stolenRole.isEvil && !wolfIds.contains(thiefId)) {
+      wolfIds.add(thiefId);
+    }
+    try {
+      final encWolves = RoleSecurityService.encryptWolfRoster(wolfIds, roomCode);
+      updates['encryptedWolfRoster'] = encWolves;
+      await _database.ref('rooms/$roomCode/wolf_pack').set({'data': encWolves});
+    } catch (_) {}
+
+    await _syncState(updates);
+
+    // CRUCIAL : Mise à jour des rôles secrets dans Firebase RTDB
+    try {
+      await Future.wait([
+        _database
+            .ref('rooms/$roomCode/secret_roles/$thiefId/roleId')
+            .set(stolenRole.id),
+        _database
+            .ref('rooms/$roomCode/secret_roles/$thiefId/roleName')
+            .set(stolenRole.displayName),
+        _database
+            .ref('rooms/$roomCode/secret_roles/$targetPlayerId/roleId')
+            .set(GameRole.simpleVillager.id),
+        _database
+            .ref('rooms/$roomCode/secret_roles/$targetPlayerId/roleName')
+            .set(GameRole.simpleVillager.displayName),
+      ]);
+    } catch (e) {
+      debugPrint('[Thief Steal secret_roles error] $e');
+    }
+
+    // Mise à jour optimiste du state local
+    if (state.room != null) {
+      final curPlayers = Map<String, PlayerModel>.from(state.room!.players);
+      if (curPlayers.containsKey(thiefId)) {
+        curPlayers[thiefId] = curPlayers[thiefId]!.copyWith(
+          role: stolenRole,
+          encryptedRole: encryptedThiefRole,
+          potionsVie: stolenRole == GameRole.witch ? 1 : 0,
+          potionsMort: stolenRole == GameRole.witch ? 1 : 0,
+          visionsRestantes: stolenRole == GameRole.seer ? 1 : 0,
+        );
+      }
+      if (curPlayers.containsKey(targetPlayerId)) {
+        curPlayers[targetPlayerId] = curPlayers[targetPlayerId]!.copyWith(
+          role: GameRole.simpleVillager,
+          encryptedRole: encryptedTargetRole,
+          potionsVie: 0,
+          potionsMort: 0,
+          visionsRestantes: 0,
+        );
+      }
+      final updatedRoom = state.room!.copyWith(players: curPlayers);
+      state = state.copyWith(room: updatedRoom);
+
+      if (thiefId == state.currentUserId && stolenRole.isEvil) {
+        _syncWolfRoster(roomCode);
+      }
+    }
+
+    await processNightTransitions();
+  }
+
+  Future<void> thiefChooseRole(GameRole chosenRole) async {
+    final bool canAct = state.myRole == GameRole.thief ||
+        state.myRole == GameRole.thiefOfHearts ||
+        state.isAdmin ||
+        state.isDevMode;
+    if (!canAct || _currentRoomRef == null) {
+      return;
+    }
+    final roomCode = state.room?.roomCode;
+    if (roomCode == null) return;
+
+    String thiefId = state.effectiveUserId;
+    if (state.myRole != GameRole.thief && state.myRole != GameRole.thiefOfHearts) {
+      final t = state.room?.alivePlayers.cast<PlayerModel?>().firstWhere(
+            (p) => p != null && (p.role == GameRole.thief || p.role == GameRole.thiefOfHearts),
+            orElse: () => null,
+          );
+      if (t != null) thiefId = t.id;
+    }
+
+    final thiefPlayer = state.room?.players[thiefId];
+    final thiefRole = thiefPlayer?.role ?? state.myRole;
+    final isSoulStealer = thiefRole == GameRole.thiefOfHearts || state.myRole == GameRole.thiefOfHearts;
+
+    // Dispatch métier via handler
+    final inMemoryState = GameState(
+      currentTurn: state.room?.round ?? 1,
+      currentPhase: state.room?.phase ?? GamePhase.nightThief,
+      playerRoles: {
+        for (final p in (state.room?.playerList ?? <PlayerModel>[]))
+          p.id: p.role,
+        thiefId: thiefRole,
+      },
+    );
+    RoleHandlersRegistry.dispatchAction(
+      inMemoryState,
+      role: isSoulStealer ? GameRole.thiefOfHearts : GameRole.thief,
+      actorId: thiefId,
+      payload: {'chosenRole': chosenRole},
+    );
+
+    final encryptedThiefRole = RoleSecurityService.encryptRole(
+      chosenRole.id,
+      thiefId,
+      roomCode,
+    );
+
     final updates = <String, dynamic>{
       'players/$thiefId/role': chosenRole.id,
+      'players/$thiefId/encryptedRole': encryptedThiefRole,
       'logs': [
         ...?state.room?.logs,
         'Le Voleur a choisi une nouvelle destinée parmi les cartes dissimulées...',
       ],
     };
+
+    if (chosenRole == GameRole.witch) {
+      final maxP = (state.room?.maxPotionsPerGame ?? 1).clamp(1, 2);
+      updates['players/$thiefId/potionsVie'] = maxP;
+      updates['players/$thiefId/potionsMort'] = maxP;
+    } else if (chosenRole == GameRole.seer) {
+      final maxV = (state.room?.maxVisionsPerGame ?? 1).clamp(1, 99);
+      updates['players/$thiefId/visionsRestantes'] = maxV;
+    }
 
     if (chosenRole.isEvil) {
       try {
@@ -2461,17 +2661,44 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             .map((p) => p.id)
             .toList() ?? [thiefId];
         final encrypted = RoleSecurityService.encryptWolfRoster(
-            wolfIds, state.room!.roomCode);
+            wolfIds, roomCode);
         updates['encryptedWolfRoster'] = encrypted;
+        await _database.ref('rooms/$roomCode/wolf_pack').set({'data': encrypted});
       } catch (_) {}
     }
 
     await _syncState(updates);
     try {
-      await _database
-          .ref('rooms/${state.room!.roomCode}/secret_roles/$thiefId/roleId')
-          .set(chosenRole.id);
+      await Future.wait([
+        _database
+            .ref('rooms/$roomCode/secret_roles/$thiefId/roleId')
+            .set(chosenRole.id),
+        _database
+            .ref('rooms/$roomCode/secret_roles/$thiefId/roleName')
+            .set(chosenRole.displayName),
+      ]);
     } catch (_) {}
+
+    // Mise à jour optimiste du state local
+    if (state.room != null) {
+      final curPlayers = Map<String, PlayerModel>.from(state.room!.players);
+      if (curPlayers.containsKey(thiefId)) {
+        curPlayers[thiefId] = curPlayers[thiefId]!.copyWith(
+          role: chosenRole,
+          encryptedRole: encryptedThiefRole,
+          potionsVie: chosenRole == GameRole.witch ? 1 : 0,
+          potionsMort: chosenRole == GameRole.witch ? 1 : 0,
+          visionsRestantes: chosenRole == GameRole.seer ? 1 : 0,
+        );
+      }
+      final updatedRoom = state.room!.copyWith(players: curPlayers);
+      state = state.copyWith(room: updatedRoom);
+
+      if (thiefId == state.currentUserId && chosenRole.isEvil) {
+        _syncWolfRoster(roomCode);
+      }
+    }
+
     await processNightTransitions();
   }
 
@@ -3361,26 +3588,27 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final canAdvanceNight = phase.isNight &&
         (state.isHost ||
             state.isAdmin ||
+            state.isDevMode ||
             (phase == GamePhase.nightWerewolves &&
-                (state.myRole.isEvil || state.isAdmin)) ||
+                (state.myRole.isEvil || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightSeer &&
-                (state.myRole == GameRole.seer || state.isAdmin)) ||
+                (state.myRole == GameRole.seer || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightWitch &&
-                (state.myRole == GameRole.witch || state.isAdmin)) ||
+                (state.myRole == GameRole.witch || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightDefender &&
-                (state.myRole == GameRole.defender || state.isAdmin)) ||
+                (state.myRole == GameRole.defender || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightCupid &&
-                (state.myRole == GameRole.cupid || state.isAdmin)) ||
+                (state.myRole == GameRole.cupid || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightThief &&
-                (state.myRole == GameRole.thief || state.isAdmin)) ||
+                (state.myRole == GameRole.thief || state.myRole == GameRole.thiefOfHearts || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightPyromaniac &&
-                (state.myRole == GameRole.pyromaniac || state.isAdmin)) ||
+                (state.myRole == GameRole.pyromaniac || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightPiper &&
-                (state.myRole == GameRole.piedPiper || state.isAdmin)) ||
+                (state.myRole == GameRole.piedPiper || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightBlackWolf &&
-                (state.myRole == GameRole.blackWolf || state.isAdmin)));
+                (state.myRole == GameRole.blackWolf || state.isAdmin || state.isDevMode)));
 
-    if (!state.isHost && !state.isAdmin && !canAdvanceNight) return;
+    if (!state.isHost && !state.isAdmin && !state.isDevMode && !canAdvanceNight) return;
 
     if (phase == GamePhase.nightWerewolves && !state.isAdmin && !state.isHost) {
       final victimId = _tallyWerewolfVotes() ?? state.room!.nightVictimId;
@@ -4639,7 +4867,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       // Détermination de la première phase nocturne canonique selon les rôles présents
       final assignedRoleIds = allPlayers.values.map((p) => p.role.id).toSet();
       GamePhase firstPhase;
-      if (assignedRoleIds.contains('thief')) {
+      if (assignedRoleIds.contains('thief') ||
+          assignedRoleIds.contains('thief_of_hearts') ||
+          assignedRoleIds.contains('soul_stealer')) {
         firstPhase = GamePhase.nightThief;
       } else if (assignedRoleIds.contains('cupid')) {
         firstPhase = GamePhase.nightCupid;

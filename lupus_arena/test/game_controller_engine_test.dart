@@ -9,6 +9,37 @@ void main() {
   });
 
   group('GameController & Modular Game Engine Tests', () {
+    test('Nuit préliminaire (Turn 0) : Voleur vole le rôle d\'un joueur', () {
+      final controller = GameController();
+      final players = [
+        Player(id: 'p1', name: 'Alice', role: RoleType.stealer),
+        Player(id: 'p2', name: 'Bob', role: RoleType.werewolf, faction: Faction.werewolves),
+        Player(id: 'p3', name: 'Charlie', role: RoleType.villager),
+      ];
+
+      controller.startGame(players);
+
+      expect(controller.currentPhase, equals(GamePhase.preliminaryNight));
+      expect(controller.activeStep, equals(GameStep.preStealer));
+
+      // Voleur vole le rôle du loup
+      controller.actionStealerStealRole('p1', 'p2');
+
+      final thief = controller.players.firstWhere((p) => p.id == 'p1');
+      final victim = controller.players.firstWhere((p) => p.id == 'p2');
+
+      expect(thief.role, equals(RoleType.werewolf));
+      expect(thief.faction, equals(Faction.werewolves));
+      expect(victim.role, equals(RoleType.villager));
+      expect(victim.faction, equals(Faction.villagers));
+
+      // Passe à la nuit 1
+      expect(controller.currentPhase, equals(GamePhase.night));
+      expect(controller.currentTurn, equals(1));
+
+      controller.dispose();
+    });
+
     test('Nuit préliminaire (Turn 0) : Enregistre Cupidon et Voleur uniquement', () {
       final controller = GameController();
       final players = [

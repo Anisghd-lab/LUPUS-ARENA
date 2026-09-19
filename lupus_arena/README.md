@@ -1,11 +1,35 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.4.3%2B60-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.4.4%2B61-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.4.4 (Build 61)
+
+### 🎭 Résolution du Bug du Voleur & Voleur d'Âmes (`ThiefHandler` & `SoulStealerHandler`)
+- **Correction du Vol de Rôle en Direct / Multijoueur :**
+  - **Démasquage du Rôle Réel :** Correction de la faille où le Voleur ne récupérait que le rôle public masqué (`simpleVillager`). Désormais, le rôle authentique de la cible est résolu soit par déchiffrement local du jeton, soit via le nœud sécurisé `secret_roles/$targetId/roleId`.
+  - **Persistance Atomique dans `secret_roles` :** Mise à jour synchrone de `secret_roles/$thiefId/roleId` et `secret_roles/$targetId/roleId`, empêchant l'écouteur `_secretRoleSubscription` d'écraser immédiatement le rôle volé.
+  - **Chiffrement du Trousseau (`encryptedRole`) :** Recalcul et ré-enregistrement des tokens chiffrés pour le voleur et sa victime.
+  - **Transfert des Pouvoirs et Meute de Loups :** Si le Voleur subtilise un rôle de loup-garou, il est automatiquement intégré au `wolf_pack` et son canal audio de meute est synchronisé ; la victime en est exclue. Si le rôle volé est Sorcière ou Voyante, les potions et visions sont transférées et réinitialisées à zéro pour la victime.
+
+### 🧩 Architecture Modulaire des Handlers (`lib/engine/handlers/`)
+- **Création de `ThiefHandler` :** Implémentation complète de `RoleActionHandler` pour `GameRole.thief`, supportant le vol ciblé, le choix de cartes orphelines au centre et l'option de passer (`skip`).
+- **Enregistrement dans `RoleHandlersRegistry` :** `GameRole.thief` et `GameRole.thiefOfHearts` sont désormais tous deux orchestrés via le registre des gestionnaires de rôles à pouvoirs.
+- **Ajout de `actionStealerStealRole` dans `GameController` :** Le contrôleur d'état du moteur modulaire gère nativement le changement de rôles et de factions lors de l'étape `preStealer`.
+
+### ⚡ Coordination des Phases & Interface Utilisateur (`BentoActionPanel`)
+- **Prise en Compte de `thiefOfHearts` :** `GamePhaseCoordinator` et `ConditionalRoleDistributor` activent désormais correctement la phase `nightThief` si un Voleur d'Âmes est présent dans la partie.
+- **Interface Réactive :** `BentoActionPanel` prend en charge l'affichage dynamique pour le Voleur et le Voleur d'Âmes, empêche l'auto-sélection du voleur et permet la validation fluide en mode joueur, hôte et DevMode.
+
+### 🧪 Tests Unitaires et Validation
+- Création de `test/thief_handlers_test.dart` validant les scénarios de vol, de choix de cartes et de passage.
+- Enrichissement de `test/game_controller_engine_test.dart` avec la validation de l'action `preStealer`.
 
 ---
 

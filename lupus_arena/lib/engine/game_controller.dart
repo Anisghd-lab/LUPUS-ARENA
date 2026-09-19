@@ -205,6 +205,26 @@ class GameController extends ChangeNotifier {
   // 5. ACTIONS DES RÔLES PENDANT LA NUIT (BUFFERISATION)
   // ===========================================================================
 
+  void actionStealerStealRole(String stealerId, String targetPlayerId) {
+    if (_activeStep != GameStep.preStealer) return;
+    final stealerIndex = _players.indexWhere((p) => p.id == stealerId);
+    final targetIndex = _players.indexWhere((p) => p.id == targetPlayerId);
+
+    if (stealerIndex != -1 && targetIndex != -1) {
+      final stolenRole = _players[targetIndex].role;
+      final stolenFaction = _players[targetIndex].faction;
+
+      _players[targetIndex].role = RoleType.villager;
+      _players[targetIndex].faction = Faction.villagers;
+
+      _players[stealerIndex].role = stolenRole;
+      _players[stealerIndex].faction = stolenFaction;
+    }
+
+    _stopTimer();
+    _executeNextNightStep();
+  }
+
   void actionCupidLinkLovers(String player1Id, String player2Id) {
     if (_activeStep != GameStep.preCupid) return;
     for (var p in _players) {

@@ -78,7 +78,7 @@ class GamePhaseCoordinator {
     }
 
     GamePhase findNext(int afterIndex) {
-      if (afterIndex < 1 && round == 1 && hasAlive(GameRole.thief)) {
+      if (afterIndex < 1 && round == 1 && (hasAlive(GameRole.thief) || hasAlive(GameRole.thiefOfHearts))) {
         return GamePhase.nightThief;
       }
       if (afterIndex < 2 && round == 1 && hasAlive(GameRole.cupid)) {

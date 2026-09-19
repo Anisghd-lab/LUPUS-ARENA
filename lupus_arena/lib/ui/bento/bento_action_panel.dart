@@ -478,7 +478,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ]
                 // 4. VOLEUR (NUIT 1)
                 else if (phase == GamePhase.nightThief) ...[
-                  if (role == GameRole.thief || isDevMode) ...[
+                  if (role == GameRole.thief || role == GameRole.thiefOfHearts || isDevMode) ...[
                     _buildThiefSection(selectedTarget),
                   ],
                 ]
@@ -2194,9 +2194,23 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Voleur (Nuit 1) : Choix entre 2 cartes non attribuées ou rester Voleur
+  /// Module Voleur / Voleur d'Âmes (Nuit 1) : Choix entre cartes non attribuées ou vol d'identité
   Widget _buildThiefSection(PlayerModel? selectedTarget) {
     final available = widget.room.thiefAvailableRoles;
+    final myPlayer = widget.room.players[widget.currentUserId];
+    final bool isSoulStealer = myPlayer?.role == GameRole.thiefOfHearts ||
+        (!widget.room.players.values.any((p) => p.role == GameRole.thief && p.isAlive) &&
+            widget.room.players.values.any((p) => p.role == GameRole.thiefOfHearts && p.isAlive));
+
+    // Détermination de l'ID effectif du voleur (pour empêcher de voler sa propre carte)
+    String thiefActorId = widget.currentUserId;
+    if (myPlayer?.role != GameRole.thief && myPlayer?.role != GameRole.thiefOfHearts) {
+      final activeThief = widget.room.players.values.cast<PlayerModel?>().firstWhere(
+            (p) => p != null && p.isAlive && (p.role == GameRole.thief || p.role == GameRole.thiefOfHearts),
+            orElse: () => null,
+          );
+      if (activeThief != null) thiefActorId = activeThief.id;
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -2253,20 +2267,24 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 height: 40,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8338EC),
+                    backgroundColor: isSoulStealer ? const Color(0xFFFF0054) : const Color(0xFF8338EC),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: (selectedTarget != null &&
                           selectedTarget.isAlive &&
-                          selectedTarget.id != widget.currentUserId)
+                          selectedTarget.id != thiefActorId)
                       ? () => widget.onThiefSteal?.call(selectedTarget.id)
                       : null,
-                  icon: const Icon(Icons.swap_horiz_rounded, size: 15),
+                  icon: Icon(isSoulStealer ? Icons.heart_broken_rounded : Icons.swap_horiz_rounded, size: 15),
                   label: Text(
                     selectedTarget != null
-                        ? context.tr('steal_target', {'name': selectedTarget.name})
-                        : context.tr('steal_select'),
+                        ? (isSoulStealer
+                            ? 'Dérober l\'âme (${selectedTarget.name})'
+                            : context.tr('steal_target', {'name': selectedTarget.name}))
+                        : (isSoulStealer
+                            ? 'Dérober une âme'
+                            : context.tr('steal_select')),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
@@ -2285,7 +2303,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 onPressed: widget.onNextPhase,
-                child: const Text('Rester Voleur', style: TextStyle(fontSize: 10.5)),
+                child: Text(isSoulStealer ? 'Conserver mon statut' : 'Rester Voleur', style: const TextStyle(fontSize: 10.5)),
               ),
             ),
           ],

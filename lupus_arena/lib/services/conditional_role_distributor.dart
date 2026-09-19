@@ -222,7 +222,7 @@ class ConditionalRoleDistributor {
     bool hasRole(GameRole role) => players.any((p) => p.role == role);
     bool hasWolves() => players.any((p) => p.role.isEvil);
 
-    if (hasRole(GameRole.thief)) return GamePhase.nightThief;
+    if (hasRole(GameRole.thief) || hasRole(GameRole.thiefOfHearts)) return GamePhase.nightThief;
     if (hasRole(GameRole.cupid)) return GamePhase.nightCupid;
     if (hasRole(GameRole.defender)) return GamePhase.nightDefender;
     if (hasWolves()) return GamePhase.nightWerewolves;

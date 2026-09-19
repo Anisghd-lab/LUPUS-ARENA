@@ -14,6 +14,7 @@ import 'rusty_sword_knight_handler.dart';
 import 'scapegoat_handler.dart';
 import 'soul_stealer_handler.dart';
 import 'stuttering_judge_handler.dart';
+import 'thief_handler.dart';
 import 'three_brothers_handler.dart';
 import 'two_sisters_handler.dart';
 import 'wild_child_handler.dart';
@@ -38,6 +39,7 @@ class RoleHandlersRegistry {
     GameRole.raven: CrowHandler(),
     GameRole.sectLeader: AbominableSectarianHandler(),
     GameRole.thiefOfHearts: SoulStealerHandler(),
+    GameRole.thief: ThiefHandler(),
   };
 
   static RoleActionHandler? getHandlerFor(GameRole role) => _handlers[role];

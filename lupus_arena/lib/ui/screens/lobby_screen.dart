@@ -102,6 +102,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     _nameController.dispose();
     _codeController.dispose();
     super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<LupusGameState>(gameNotifierProvider, (previous, next) {

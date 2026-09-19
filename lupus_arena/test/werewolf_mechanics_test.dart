@@ -686,7 +686,6 @@ void main() {
     test('Sorcière : Détection automatique de la victime des loups et sauvegarde de secours', () {
       const wolfVictim = PlayerModel(id: 'v1', name: 'VictimeDesLoups', role: GameRole.simpleVillager, isAlive: true);
       const manualTarget = PlayerModel(id: 'm1', name: 'CibleManuelle', role: GameRole.simpleVillager, isAlive: true);
-      const witch = PlayerModel(id: 'w1', name: 'Sorciere', role: GameRole.witch, potionsVie: 1, potionsMort: 1, isAlive: true);
 
       // Cas 1 : nightVictimId est présent -> sélection automatique
       String? resolveVictim(String? nightVictimId, String? selectedTargetId) {

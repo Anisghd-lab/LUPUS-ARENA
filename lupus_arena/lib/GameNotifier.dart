@@ -4184,6 +4184,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     _syncOmniscientAudioChannel();
   }
 
+  void adminToggleOmniscientVoice() => toggleDevOmniscientAudio();
+
   Future<void> _syncOmniscientAudioChannel() async {
     if (_currentRoomRef == null || state.room == null) return;
     final isMeWolf = state.myRole.isEvil || state.myRole == GameRole.whiteWerewolf;
@@ -4375,6 +4377,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           : (firstPhase.isNight ? 20 : 60);
 
       final seatingOrder = allPlayers.keys.toList();
+      final currentServerTime = ServerTimeService().currentServerEstimatedTime;
 
       final newRoom = GameRoom(
         roomCode: roomCode,

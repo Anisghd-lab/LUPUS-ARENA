@@ -999,7 +999,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   itemCount: room.playerList.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (context, index) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final p = room.playerList[index];
                     final isCurrentIncarnated = p.id == gameState.effectiveUserId;

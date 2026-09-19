@@ -3588,13 +3588,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return;
     }
     if (room.pendingCaptainId != null) {
-        updates['phase'] = GamePhase.captainSuccession.name;
-      } else if (room.morningVictims.isNotEmpty) {
-        updates['phase'] = GamePhase.morningAnnouncement.name;
-        updates['timerSeconds'] = 20;
-      } else {
-        _finishDayCycle(room, updates, logs);
-      }
+      updates['phase'] = GamePhase.captainSuccession.name;
+    } else if (room.morningVictims.isNotEmpty) {
+      updates['phase'] = GamePhase.morningAnnouncement.name;
+      updates['timerSeconds'] = 20;
+    } else {
+      _finishDayCycle(room, updates, logs);
     }
 
     updates['logs'] = logs;

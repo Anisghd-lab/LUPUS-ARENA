@@ -1,11 +1,26 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.3.5%2B52-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.3.6%2B53-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.3.6 (Build 53)
+
+### 🎵 Gestionnaire Audio Global (`LupusAudioManager`)
+- **Musique d'ambiance immersive au Lobby / Menu :** Joue la bande originale `son-lupus.mp3` en boucle infinie dès l'arrivée sur le salon d'accueil.
+- **Arrêt instantané en salle de jeu :** Coupe immédiatement et sans latence la musique dès l'entrée dans une salle d'attente ou arène de jeu, afin d'assurer une clarté totale pour les communications vocales Agora RTC.
+- **Reprise automatique au retour :** Reprend la lecture automatiquement lors du retour au menu principal.
+- **Architecture isolée & sécurisée :** Pattern Singleton protégé par try/catch pour garantir zéro crash, zéro interférence réseau/Firebase et zéro chevauchement de pistes.
+
+### 🛡️ Correction Critique : Persistance des Morts & Cycle des Tours
+- **Persistance stricte des éliminations :** Éradication du bug où des joueurs morts réapparaissaient vivants suite aux transitions de phase ou en Dev Mode (parsing booléen rigoureux contre les chaînes `'false'` et entiers `0` issus de Firebase RTDB).
+- **Synchronisation atomique de l'état :** Préservation systématique des variables d'état de partie (`round`, `winner`, `isTieBreakActive`, `blackWolfTargetId`, `expandedRolesState`) lors des rafraîchissements locaux.
+- **Affichage dynamique du compteur de tours :** Intégration réactive du tour (`Tour X` / `T{round}`) dans la barre supérieure et le badge de phase (bannière Stitch).
 
 ---
 

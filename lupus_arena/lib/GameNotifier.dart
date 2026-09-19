@@ -378,7 +378,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             final p = updatedPlayers[pid];
             if (p != null) {
               if (field == 'isAlive') {
-                updatedPlayers[pid] = p.copyWith(isAlive: entry.value == true);
+                final val = entry.value;
+                final isDead = (val == false || val == 'false' || val == 0 || val == '0');
+                updatedPlayers[pid] = p.copyWith(isAlive: !isDead);
               } else if (field == 'role') {
                 updatedPlayers[pid] = p.copyWith(role: GameRole.fromId(entry.value.toString()));
               } else if (field == 'isCaptain') {
@@ -425,8 +427,25 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
       final provisionalRoom = state.room!.copyWith(
         phase: updatedPhase,
+        round: updates.containsKey('round')
+            ? (updates['round'] is num ? (updates['round'] as num).toInt() : state.room!.round)
+            : state.room!.round,
         timerSeconds: updatedTimer,
         players: updatedPlayers,
+        winner: updates.containsKey('winner')
+            ? updates['winner']?.toString()
+            : state.room!.winner,
+        isTieBreakActive: updates.containsKey('isTieBreakActive')
+            ? updates['isTieBreakActive'] == true
+            : state.room!.isTieBreakActive,
+        blackWolfTargetId: updates.containsKey('blackWolfTargetId')
+            ? updates['blackWolfTargetId']?.toString()
+            : state.room!.blackWolfTargetId,
+        expandedRolesState: updates.containsKey('expandedRolesState')
+            ? (updates['expandedRolesState'] is Map
+                ? ExpandedRolesState.fromMap(updates['expandedRolesState'] as Map)
+                : state.room!.expandedRolesState)
+            : state.room!.expandedRolesState,
         phaseEndsAt: updates.containsKey('phaseEndsAt')
             ? (updates['phaseEndsAt'] as int?)
             : state.room!.phaseEndsAt,

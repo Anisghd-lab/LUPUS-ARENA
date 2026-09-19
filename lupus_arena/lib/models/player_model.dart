@@ -248,8 +248,20 @@ class PlayerModel {
           ? map['avatarIndex'] as int
           : int.tryParse(map['avatarIndex']?.toString() ?? '0') ?? 0,
       role: resolvedRole,
-      estDechu: map['estDechu'] == true || (resolvedRole == GameRole.simpleVillager && (initialRole != null && initialRole != GameRole.simpleVillager)),
-      isAlive: map['isAlive'] != false,
+      estDechu: map['estDechu'] == true ||
+          (resolvedRole == GameRole.simpleVillager &&
+              (initialRole != null && initialRole != GameRole.simpleVillager)),
+      isAlive: (map['isAlive'] == false ||
+              map['isAlive'] == 'false' ||
+              map['isAlive'] == 0 ||
+              map['isAlive'] == '0')
+          ? false
+          : (map['isAlive'] == true ||
+                  map['isAlive'] == 'true' ||
+                  map['isAlive'] == 1 ||
+                  map['isAlive'] == '1')
+              ? true
+              : (map['isAlive'] != false),
       isHost: map['isHost'] == true,
       isReady: map['isReady'] == true,
       isOnline: map['isOnline'] != false,

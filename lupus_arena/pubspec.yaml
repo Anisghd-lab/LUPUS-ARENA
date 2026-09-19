@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 2.3.5+52
+version: 2.3.6+53
 
 environment:
   sdk: ^3.13.2
@@ -39,6 +39,9 @@ dependencies:
 
   # Agora RTC Engine
   agora_rtc_engine: ^6.3.0
+
+  # Audio Management
+  audioplayers: ^6.1.0
 
   # State Management & Utilities
   flutter_riverpod: ^2.6.1
@@ -79,6 +82,7 @@ flutter:
   assets:
     - assets/images/
     - assets/cards/
+    - assets/audio/
     - LOUP GAROU ENHANCED/
     - village_background.png
 

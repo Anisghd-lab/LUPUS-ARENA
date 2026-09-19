@@ -19,6 +19,7 @@ import '../../services/update_service.dart';
 import '../theme/lupus_assets.dart';
 import '../theme/lupus_avatars.dart';
 import '../theme/lupus_theme.dart';
+import '../../services/audio_manager.dart';
 import '../../services/locale_provider.dart';
 import '../../services/app_translations.dart';
 import '../bento/language_dialog.dart';
@@ -70,6 +71,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     // Vérification en arrière-plan d'une nouvelle mise à jour GitHub Releases
     _checkForUpdateInBackground();
+
+    // Démarrage de la musique d'ambiance du Lobby
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ref.read(gameNotifierProvider).room == null) {
+        LupusAudioManager.instance.playLobbyMusic();
+      }
+    });
   }
 
   Future<void> _checkForUpdateInBackground() async {
@@ -100,6 +108,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   Widget build(BuildContext context) {
     final gameState = ref.watch(gameNotifierProvider);
     final room = gameState.room;
+
+    // Gestion de la musique d'ambiance : jouée sur l'accueil, arrêtée en salle
+    if (room == null) {
+      LupusAudioManager.instance.playLobbyMusic();
+    } else {
+      LupusAudioManager.instance.stopLobbyMusic();
+    }
 
     // Navigation automatique vers l'arène dès que la partie commence
     if (room != null && room.phase != GamePhase.lobby) {

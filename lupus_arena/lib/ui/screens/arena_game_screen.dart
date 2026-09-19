@@ -21,6 +21,7 @@ import '../bento/server_countdown_timer.dart';
 import '../theme/lupus_assets.dart';
 import '../theme/lupus_theme.dart';
 import '../../services/app_translations.dart';
+import '../../services/audio_manager.dart';
 import '../../services/locale_provider.dart';
 import '../../services/server_time_service.dart';
 import '../bento/language_dialog.dart';
@@ -129,6 +130,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       ValueNotifier<int>(60);
   bool _victoryVoiceStarted = false;
 
+  @override
+  void initState() {
+    super.initState();
+    LupusAudioManager.instance.stopLobbyMusic();
+  }
+
   void _checkAndQueueDeathAnnouncements(GameRoom room) {
     bool hasNewDeaths = false;
 
@@ -208,6 +215,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     _countdownNotifier.dispose();
     _victoryVoiceTimer?.cancel();
     _victoryVoiceCountdownNotifier.dispose();
+    LupusAudioManager.instance.playLobbyMusic();
     super.dispose();
   }
 
@@ -814,7 +822,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      isNight ? context.tr('night') : context.tr('day'),
+                      isNight
+                          ? '${context.tr('night')} • T${room.round}'
+                          : '${context.tr('day')} • T${room.round}',
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w900,
@@ -1073,6 +1083,29 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       child: Column(
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            margin: const EdgeInsets.only(bottom: 4),
+            decoration: BoxDecoration(
+              color: phase.isNight ? const Color(0x66450A0A) : const Color(0x66422006),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: phase.isNight
+                    ? LupusColors.arcaneCrimson.withValues(alpha: 0.4)
+                    : LupusColors.arcaneGold.withValues(alpha: 0.4),
+                width: 0.8,
+              ),
+            ),
+            child: Text(
+              phaseChip,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0,
+                color: phase.isNight ? const Color(0xFFFCA5A5) : const Color(0xFFFDE68A),
+              ),
+            ),
+          ),
           Text(
             title,
             textAlign: TextAlign.center,

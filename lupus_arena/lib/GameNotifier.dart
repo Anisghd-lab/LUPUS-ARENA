@@ -628,6 +628,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           isOnline: true,
         );
 
+        final updatedLogs = [
+          ...room.logs,
+          '🔄 ${state.currentUserName} s\'est reconnecté(e) au salon.',
+        ];
+
         final leafPlayerUpdates = <String, dynamic>{
           'players/${state.currentUserId}/id': state.currentUserId,
           'players/${state.currentUserId}/agoraUid': state.agoraUid,
@@ -3672,6 +3677,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             );
           }
         }
+      }
       // GARDE STRICT ANTI-RÉSURRECTION :
       // Un joueur éliminé (isAlive == false) ne peut JAMAIS revenir à la vie,
       // sauf si la Sorcière a utilisé sa potion de vie (witchHealed == true) sur la victime de nuit.

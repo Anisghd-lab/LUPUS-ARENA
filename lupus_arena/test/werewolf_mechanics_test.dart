@@ -951,7 +951,6 @@ void main() {
 
     test('Anti-Résurrection : Seule la potion de vie de la sorcière sur la victime des loups peut sauver', () {
       const deadPlayer = PlayerModel(id: 'p1', name: 'Dead', role: GameRole.simpleVillager, isAlive: false);
-      const livingPlayer = PlayerModel(id: 'p2', name: 'Living', role: GameRole.simpleVillager, isAlive: true);
 
       // Simule le garde appliqué dans _playersSubscription et _syncState
       bool canPlayerRevive({

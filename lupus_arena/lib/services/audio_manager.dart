@@ -29,8 +29,8 @@ class LupusAudioManager {
       final player = AudioPlayer();
       try {
         await player.setAudioContext(
-          const AudioContext(
-            android: AudioContextAndroid(
+          AudioContext(
+            android: const AudioContextAndroid(
               isSpeakerphoneOn: true,
               stayAwake: false,
               contentType: AndroidContentType.music,
@@ -39,9 +39,9 @@ class LupusAudioManager {
             ),
             iOS: AudioContextIOS(
               category: AVAudioSessionCategory.ambient,
-              options: [
+              options: {
                 AVAudioSessionOptions.mixWithOthers,
-              ],
+              },
             ),
           ),
         );

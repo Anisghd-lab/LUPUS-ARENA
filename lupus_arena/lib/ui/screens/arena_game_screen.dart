@@ -317,7 +317,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     final isNight = room.phase.isNight;
     final isDevModeActive = gameState.isDevModeActive;
     final isDevRoom = room.isDevRoom;
-    final isDevMode = isDevModeActive || isDevRoom;
+    final isDevMode = isDevModeActive || isDevRoom || gameState.isAdmin;
     final isMeEvil = myRole.isEvil || isDevMode;
     final revealRoles = room.phase == GamePhase.gameOver || isDevMode;
 
@@ -513,7 +513,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           selectedTargetId: _selectedPlayerId,
                           inspectedRole: gameState.inspectedRole,
                           isHost: gameState.isHost,
-                          isAdmin: gameState.isAdmin,
+                          isAdmin: isDevMode,
                           onNextPhase: () => ref
                               .read(gameNotifierProvider.notifier)
                               .nextPhase(),

@@ -212,6 +212,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final isAlive = widget.isAlive ?? me.isAlive;
     final role = me.role;
     final phase = widget.phase ?? room.phase;
+    final isDevMode = widget.room.isDevRoom || widget.isAdmin;
     final isDyingCaptain = (widget.isCaptain == true && widget.isAlive == false) ||
         (room.pendingCaptainId == currentUserId) ||
         (me.isCaptain && !isAlive) ||
@@ -312,14 +313,14 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: KeyedSubtree(
-              key: ValueKey('${phase.name}_${selectedTarget?.id ?? 'none'}_${role.id}'),
+              key: ValueKey('${phase.name}_${selectedTarget?.id ?? 'none'}_${role.id}_$isDevMode'),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                 // 1. CHASSEUR AU DERNIER SOUFFLE
                 if (phase == GamePhase.hunterDeathChoice) ...[
-                  if (widget.room.pendingHunterId == widget.currentUserId) ...[
+                  if (widget.room.pendingHunterId == widget.currentUserId || isDevMode) ...[
                     _buildHunterSection(selectedTarget),
                   ] else ...[
                     Container(
@@ -340,14 +341,14 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ]
                 // 2. CAPITAINE / MAIRE DÉFUNT (TESTAMENT) OU SPECTATEUR / VILLAGE
                 else if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) ...[
-                  if (isDyingCaptain) ...[
+                  if (isDyingCaptain || isDevMode) ...[
                     _buildCaptainSuccessionSection(selectedTarget),
                   ] else ...[
                     _buildCaptainSuccessionSpectatorSection(),
                   ],
                 ]
-                // 3. JOUEUR ÉLIMINÉ SANS ACTION PARTICULIÈRE
-                else if (!isAlive) ...[
+                // 3. JOUEUR ÉLIMINÉ SANS ACTION PARTICULIÈRE (HORS DEV-MODE)
+                else if (!isAlive && !isDevMode) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                     decoration: BoxDecoration(
@@ -365,37 +366,37 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ]
                 // 4. VOLEUR (NUIT 1)
                 else if (phase == GamePhase.nightThief) ...[
-                  if (role == GameRole.thief) ...[
+                  if (role == GameRole.thief || isDevMode) ...[
                     _buildThiefSection(selectedTarget),
                   ],
                 ]
                 // 5. CUPIDON (NUIT 1)
                 else if (phase == GamePhase.nightCupid) ...[
-                  if (role == GameRole.cupid) ...[
+                  if (role == GameRole.cupid || isDevMode) ...[
                     _buildCupidSection(selectedTarget),
                   ],
                 ]
                 // 6. VOYANTE
                 else if (phase == GamePhase.nightSeer) ...[
-                  if (role == GameRole.seer) ...[
+                  if (role == GameRole.seer || isDevMode) ...[
                     _buildSeerSection(selectedTarget),
                   ],
                 ]
                 // 7. SALVATEUR
                 else if (phase == GamePhase.nightDefender) ...[
-                  if (role == GameRole.defender) ...[
+                  if (role == GameRole.defender || isDevMode) ...[
                     _buildDefenderSection(selectedTarget),
                   ],
                 ]
                 // 8. LOUPS-GAROUS & LOUP NOIR
                 else if (phase == GamePhase.nightWerewolves || phase == GamePhase.nightBlackWolf) ...[
-                  if (role.isEvil) ...[
+                  if (role.isEvil || isDevMode) ...[
                     _buildWerewolvesSection(me, selectedTarget),
                   ],
                 ]
                 // 9. SORCIÈRE
                 else if (phase == GamePhase.nightWitch) ...[
-                  if (role == GameRole.witch) ...[
+                  if (role == GameRole.witch || isDevMode) ...[
                     _buildWitchSection(
                       widget.room.playerList.firstWhere(
                         (p) => p.role == GameRole.witch,
@@ -407,13 +408,13 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ]
                 // 9.B PYROMANE
                 else if (phase == GamePhase.nightPyromaniac) ...[
-                  if (role == GameRole.pyromaniac) ...[
+                  if (role == GameRole.pyromaniac || isDevMode) ...[
                     _buildPyromaniacSection(selectedTarget),
                   ],
                 ]
                 // 9.C JOUEUR DE FLÛTE
                 else if (phase == GamePhase.nightPiper) ...[
-                  if (role == GameRole.piedPiper) ...[
+                  if (role == GameRole.piedPiper || isDevMode) ...[
                     _buildPiperSection(selectedTarget),
                   ],
                 ]

@@ -74,7 +74,7 @@ class LupusGameState {
 
   bool get isInGame => room != null;
   bool get isHost => room != null && room!.hostId == currentUserId;
-  bool get isDevMode => isDevModeActive || (room?.isDevRoom == true);
+  bool get isDevMode => isDevModeActive || (room?.isDevRoom == true) || isAdmin;
 
   /// UID effectif pour l'émission d'actions (permet à l'Hôte Dev d'incarner n'importe quel personnage)
   String get effectiveUserId =>

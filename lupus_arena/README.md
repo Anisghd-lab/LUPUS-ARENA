@@ -1,11 +1,29 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.3.8%2B55-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.3.9%2B56-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.3.9 (Build 56)
+
+### 🐺 Loups-Garous : Sélection Séquentielle 2 Cibles (Dévorer + Museler) & Changement Fluide de Victime
+- **Assignation Séquentielle en 2 Clics :** Le panneau tactique des loups fonctionne désormais selon le standard ergonomique de Cupidon et du Joueur de Flûte :
+  * **1er clic :** Sélectionne la proie à **DÉVORER** (vote de meute / `nightVictimId`).
+  * **2e clic :** Sélectionne le joueur à **MUSELER** (`blackWolfTargetId` / réduction au silence pour le jour suivant).
+- **Changement de Proie par 2nd Clic :** Un second clic sur la même victime (ou directement sur l'emplacement Dévorer) annule la sélection et permet de choisir une autre victime en toute fluidité avant de museler.
+- **Auto-Validation Instantanée :** Dès que les 2 cibles distinctes sont choisies, le tour est instantanément validé et passe à la phase suivante sans étape de confirmation superflue.
+- **Résolution Nocturne Impérative :** La phase nocturne des loups se termine obligatoirement avec un joueur dévoré et un joueur muselé (attribution automatique de secours si le chronomètre expire).
+
+### 🧙‍♀️ Sorcière : Verrouillage Strict de la Potion de Vie sur la Victime des Loups
+- **Ciblage Exclusif de la Proie :** La potion de vie ne peut plus cibler de joueur arbitraire ; elle est strictement verrouillée sur la victime désignée par les loups (`nightVictimId`).
+- **Choix Binaire (Sauver / Passer) :** La sorcière dispose du choix simple d'appliquer sa fiole (`✨ Sauver [Nom]`) ou de passer son tour (`🌙 Passer`). Si aucune proie n'existe, la potion reste grisée.
+- **Liberté sur la Potion de Mort :** La potion de poison conserve sa sélection libre sur n'importe quel joueur vivant.
+- **Usage Combiné & Rétrogradation :** Possibilité d'utiliser 0, 1 ou 2 potions dans la nuit avec rétrogradation automatique en Simple Villageois à l'épuisement total (0/0).
 
 ---
 

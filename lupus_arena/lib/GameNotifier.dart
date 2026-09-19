@@ -2734,11 +2734,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'votes/$voterId': targetId,
     };
 
-    if (state.room?.phase == GamePhase.nightWerewolves && targetId != null) {
+    if (state.room?.phase == GamePhase.nightWerewolves) {
       voteUpdates['nightVictimId'] = targetId;
       voteUpdates['public_state/nightVictimId'] = targetId;
       state = state.copyWith(
-        room: state.room?.copyWith(nightVictimId: targetId),
+        room: state.room?.copyWith(
+          nightVictimId: targetId,
+          clearNightVictimId: targetId == null,
+        ),
       );
     }
     await _currentRoomRef!.update(voteUpdates);

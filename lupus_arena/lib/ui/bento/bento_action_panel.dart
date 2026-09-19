@@ -177,6 +177,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   String? _piperTarget1Id;
   String? _piperTarget2Id;
 
+  // Sélection des deux cibles par les Loups (1er: Dévorer, 2ème: Museler)
+  String? _wolfVictimId;
+  String? _wolfMuteId;
+
   // Sélection du successeur par le Capitaine défunt (Testament)
   String? _selectedCaptainSuccessorId;
 
@@ -217,6 +221,38 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     }
   }
 
+  void _handleWerewolfSelection(String id) {
+    final target = widget.room.players[id];
+    if (target == null || !target.isAlive) return;
+
+    final victimId = _wolfVictimId ?? widget.room.nightVictimId;
+    final muteId = _wolfMuteId ?? widget.room.blackWolfTargetId;
+
+    if (victimId == null) {
+      // 1ère sélection : Dévorer (la proie des loups)
+      setState(() => _wolfVictimId = id);
+      widget.onVote(id);
+    } else if (victimId == id) {
+      // Second clic sur la même victime : Dé-sélection / annulation pour choisir une autre victime
+      setState(() => _wolfVictimId = null);
+      widget.onVote(null);
+    } else if (muteId == null) {
+      // 2ème sélection : Museler (Loup Noir / silence)
+      setState(() => _wolfMuteId = id);
+      widget.onBlackWolfSilence?.call(id);
+      // Auto-validation directe dès que les 2 cibles sont sélectionnées !
+      widget.onNextPhase();
+    } else if (muteId == id) {
+      // Dé-sélection de la 2ème cible
+      setState(() => _wolfMuteId = null);
+    } else {
+      // Remplacement de la 2ème cible et auto-validation directe
+      setState(() => _wolfMuteId = id);
+      widget.onBlackWolfSilence?.call(id);
+      widget.onNextPhase();
+    }
+  }
+
   @override
   void didUpdateWidget(covariant BentoActionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -230,13 +266,40 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       _cupidLover2Id = null;
       _piperTarget1Id = null;
       _piperTarget2Id = null;
+      _wolfVictimId = null;
+      _wolfMuteId = null;
       _selectedCaptainSuccessorId = null;
-    } else if (widget.selectedTargetId != null && widget.selectedTargetId != oldWidget.selectedTargetId) {
+    } else if (widget.selectedTargetId != oldWidget.selectedTargetId) {
       final myRole = widget.room.players[widget.currentUserId]?.role;
-      if (newPhase == GamePhase.nightCupid && (myRole == GameRole.cupid || widget.isAdmin)) {
-        _handleCupidSelection(widget.selectedTargetId!);
-      } else if (newPhase == GamePhase.nightPiper && (myRole == GameRole.piedPiper || widget.isAdmin)) {
-        _handlePiperSelection(widget.selectedTargetId!);
+      final isEvil = myRole?.isEvil == true || myRole?.isWolfTeam == true || myRole == GameRole.whiteWerewolf || widget.isAdmin;
+
+      if (widget.selectedTargetId != null) {
+        if (newPhase == GamePhase.nightCupid && (myRole == GameRole.cupid || widget.isAdmin)) {
+          _handleCupidSelection(widget.selectedTargetId!);
+        } else if (newPhase == GamePhase.nightPiper && (myRole == GameRole.piedPiper || widget.isAdmin)) {
+          _handlePiperSelection(widget.selectedTargetId!);
+        } else if (newPhase == GamePhase.nightWerewolves && isEvil) {
+          _handleWerewolfSelection(widget.selectedTargetId!);
+        }
+      } else if (oldWidget.selectedTargetId != null) {
+        // Désélection déclenchée par un second clic sur la même carte (selectedTargetId repasse à null)
+        final unselectedId = oldWidget.selectedTargetId!;
+        if (newPhase == GamePhase.nightWerewolves && isEvil) {
+          if (_wolfVictimId == unselectedId || widget.room.nightVictimId == unselectedId) {
+            setState(() => _wolfVictimId = null);
+            widget.onVote(null);
+          } else if (_wolfMuteId == unselectedId || widget.room.blackWolfTargetId == unselectedId) {
+            setState(() => _wolfMuteId = null);
+          }
+        } else if (newPhase == GamePhase.nightCupid && (myRole == GameRole.cupid || widget.isAdmin)) {
+          if (_cupidLover1Id == unselectedId) {
+            setState(() => _cupidLover1Id = null);
+          }
+        } else if (newPhase == GamePhase.nightPiper && (myRole == GameRole.piedPiper || widget.isAdmin)) {
+          if (_piperTarget1Id == unselectedId) {
+            setState(() => _piperTarget1Id = null);
+          }
+        }
       }
     }
   }
@@ -692,80 +755,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ],
             ),
           ),
-        ] else if (selectedTarget != null && selectedTarget.isAlive && selectedTarget.id != widget.currentUserId) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            margin: const EdgeInsets.only(bottom: 6),
-            decoration: BoxDecoration(
-              color: const Color(0x221E1B4B),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: hasHeal
-                    ? LupusColors.poisonGreen.withValues(alpha: 0.6)
-                    : LupusColors.border.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 15,
-                  backgroundColor: LupusColors.poisonGreen.withValues(alpha: 0.25),
-                  child: Icon(
-                    BentoPlayerTile.avatarIcons[
-                        selectedTarget.avatarIndex % BentoPlayerTile.avatarIcons.length],
-                    size: 15,
-                    color: const Color(0xFFA7F3D0),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Cible choisie : ${selectedTarget.name}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        hasHeal ? 'Potion de vie prête à appliquer' : 'Potion de vie épuisée',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                          color: hasHeal ? LupusColors.poisonGreen : LupusColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                if (hasHeal)
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      elevation: 2,
-                    ),
-                    onPressed: () => widget.onWitchSave(selectedTarget.id),
-                    icon: const Icon(Icons.healing_rounded, size: 14),
-                    label: Text(
-                      'Sauver ${selectedTarget.name}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
-                    ),
-                  ),
-              ],
-            ),
-          ),
         ] else ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -938,43 +927,19 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Loups-Garous : Double action obligatoire (Dévorer ET Museler) + [Valider l'Assaut]
+  /// Module Loups-Garous : Sélection multi-cibles séquentielle (1er: Dévorer, 2e: Museler) + Auto-Validation
   Widget _buildWerewolvesSection(PlayerModel me, PlayerModel? selectedTarget) {
-    final effectiveVictimId = widget.room.nightVictimId ?? me.targetVoteId;
-    final currentVoteTarget = effectiveVictimId != null
-        ? widget.room.players[effectiveVictimId]
-        : null;
+    final effectiveVictimId = _wolfVictimId ?? widget.room.nightVictimId ?? me.targetVoteId;
+    final victim = effectiveVictimId != null ? widget.room.players[effectiveVictimId] : null;
 
-    final silencedTargetId = widget.room.blackWolfTargetId;
-    final silencedTarget = (silencedTargetId != null && silencedTargetId.isNotEmpty)
-        ? widget.room.players[silencedTargetId]
+    final effectiveMuteId = _wolfMuteId ?? widget.room.blackWolfTargetId;
+    final muted = (effectiveMuteId != null && effectiveMuteId.isNotEmpty)
+        ? widget.room.players[effectiveMuteId]
         : null;
 
     final isDoubleActionComplete = effectiveVictimId != null &&
-        silencedTargetId != null &&
-        effectiveVictimId != silencedTargetId;
-
-    final isTargetWolf = selectedTarget != null &&
-        (selectedTarget.role.isEvil ||
-            selectedTarget.role.isWolfTeam ||
-            selectedTarget.role == GameRole.whiteWerewolf);
-
-    final isSilencedWolf = silencedTarget != null &&
-        (silencedTarget.role.isEvil ||
-            silencedTarget.role.isWolfTeam ||
-            silencedTarget.role == GameRole.whiteWerewolf);
-
-    final isSelf = selectedTarget != null && selectedTarget.id == widget.currentUserId;
-    final isSilencedSelf = silencedTarget != null && silencedTarget.id == widget.currentUserId;
-
-    final canDevour = selectedTarget != null &&
-        selectedTarget.isAlive &&
-        !isTargetWolf &&
-        !isSelf;
-
-    final canSilence = selectedTarget != null &&
-        selectedTarget.isAlive &&
-        selectedTarget.id != effectiveVictimId;
+        effectiveMuteId != null &&
+        effectiveVictimId != effectiveMuteId;
 
     final hasInfectWolf = widget.room.alivePlayers.any(
       (p) => p.role == GameRole.vileFatherOfWolves,
@@ -982,254 +947,202 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final canInfect = (hasInfectWolf || widget.isAdmin) && !widget.room.vileFatherInfectionUsed;
     final isInfected = effectiveVictimId != null && widget.room.infectedPlayerId == effectiveVictimId;
 
-    final canValidate = widget.isAdmin || isDoubleActionComplete;
-
-    final devourButtonText = selectedTarget != null
-        ? '🥩 Dévorer ${selectedTarget.name}'
-        : (currentVoteTarget != null ? '🥩 Proie : ${currentVoteTarget.name}' : '🥩 Choisir Proie');
-
-    final silenceButtonText = selectedTarget != null
-        ? (isSelf ? '🔇 Me Museler' : '🔇 Museler ${selectedTarget.name}')
-        : (silencedTarget != null ? '🔇 Silence : ${silencedTarget.name}' : '🔇 Museler');
+    final String statusText;
+    if (victim == null) {
+      statusText = '🐺 1/2 : Touchez le 1er joueur à DÉVORER';
+    } else if (muted == null) {
+      statusText = '🤫 2/2 : Proie (${victim.name}) choisie • Touchez le 2e joueur à MUSELER';
+    } else {
+      statusText = '🩸 Assaut prêt : ${victim.name} (Dévoré) & ${muted.name} (Muselé) !';
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 1. Synthèse Double Action : Deux emplacements obligatoires (Proie & Silence)
+        // 1. Bandeau de statut réactif
         Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: isDoubleActionComplete
-                ? const Color(0x1F06D6A0)
-                : const Color(0x221E1B4B),
-            borderRadius: BorderRadius.circular(10),
+                ? const Color(0x2206D6A0)
+                : const Color(0x22DC2626),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isDoubleActionComplete
-                  ? LupusColors.poisonGreen.withValues(alpha: 0.6)
-                  : const Color(0xFF9333EA).withValues(alpha: 0.4),
-              width: 1.2,
+                  ? const Color(0xFF06D6A0).withValues(alpha: 0.6)
+                  : const Color(0xFFDC2626).withValues(alpha: 0.5),
             ),
           ),
-          child: Column(
+          child: Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    isDoubleActionComplete
-                        ? '✅ ASSAUT PRÊT (2/2) : PROIE & SILENCE'
-                        : '🐺 DOUBLE OBLIGATION : PROIE & SILENCE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                      color: isDoubleActionComplete
-                          ? LupusColors.poisonGreen
-                          : const Color(0xFFFECDD3),
-                    ),
+              const Text('🐺', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  statusText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: isDoubleActionComplete
+                        ? const Color(0xFFA7F3D0)
+                        : const Color(0xFFFECDD3),
                   ),
-                  if (selectedTarget != null && (isTargetWolf || isSelf))
-                    Text(
-                      isSelf ? 'Moi-même (Auto-Silence)' : 'Allié (Bluff Silence)',
-                      style: const TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFC084FC),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  // Emplacement 1 : Proie désignée
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: effectiveVictimId != null
-                            ? const Color(0x33B91C1C)
-                            : Colors.black26,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: effectiveVictimId != null
-                              ? LupusColors.bloodRed
-                              : Colors.white10,
-                        ),
-                      ),
-                      child: Text(
-                        effectiveVictimId != null
-                            ? '🥩 Proie : ${currentVoteTarget?.name ?? "Cible"}'
-                            : '🥩 Proie : Aucune',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: effectiveVictimId != null
-                              ? const Color(0xFFFECDD3)
-                              : LupusColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  // Emplacement 2 : Cible du silence
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: silencedTarget != null
-                            ? const Color(0x33581C87)
-                            : Colors.black26,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: silencedTarget != null
-                              ? const Color(0xFFC084FC)
-                              : Colors.white10,
-                        ),
-                      ),
-                      child: Text(
-                        silencedTarget != null
-                            ? '🔇 Silence : ${silencedTarget.name}${isSilencedSelf ? " (Auto-Silence)" : (isSilencedWolf ? " (Bluff)" : "")}'
-                            : '🔇 Silence : Aucun',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: silencedTarget != null
-                              ? const Color(0xFFE9D5FF)
-                              : LupusColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
         ),
-        // 2. Boutons d'Action Distincts
+
+        // 2. Deux emplacements côte à côte (1er: Dévorer, 2e: Museler)
         Row(
           children: [
-            // Bouton Dévorer
+            // Emplacement 1 : DÉVORER (Rouge Sang)
             Expanded(
-              child: SizedBox(
-                height: 40,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: LupusColors.bloodRed,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: canDevour
-                      ? () => widget.onVote(selectedTarget.id)
-                      : null,
-                  icon: const Icon(Icons.pets_rounded, size: 14),
-                  label: Text(
-                    devourButtonText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            // Bouton Faire Taire (Silence)
-            Expanded(
-              child: SizedBox(
-                height: 40,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF311042),
-                    foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: canSilence ? const Color(0xFFC084FC) : Colors.white12,
-                      width: 1.2,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: canSilence
-                      ? () => widget.onBlackWolfSilence?.call(selectedTarget.id)
-                      : null,
-                  icon: const Icon(Icons.volume_off_rounded, size: 14, color: Color(0xFFC084FC)),
-                  label: Text(
-                    silenceButtonText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            // Bouton Valider l'Assaut
-            SizedBox(
-              height: 40,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: canValidate ? const Color(0xFF7F1D1D) : const Color(0x992B1010),
-                  foregroundColor: const Color(0xFFFECDD3),
-                  side: BorderSide(
-                    color: canValidate
-                        ? LupusColors.arcaneCrimson
-                        : LupusColors.arcaneCrimson.withValues(alpha: 0.3),
-                  ),
+              child: GestureDetector(
+                onTap: () {
+                  if (effectiveVictimId != null) {
+                    // Si une proie est déjà sélectionnée, un clic sur le slot l'annule pour choisir une autre victime
+                    if (selectedTarget != null && selectedTarget.id != effectiveVictimId && selectedTarget.isAlive) {
+                      setState(() => _wolfVictimId = selectedTarget.id);
+                      widget.onVote(selectedTarget.id);
+                    } else {
+                      setState(() => _wolfVictimId = null);
+                      widget.onVote(null);
+                    }
+                  } else if (selectedTarget != null && selectedTarget.isAlive) {
+                    setState(() => _wolfVictimId = selectedTarget.id);
+                    widget.onVote(selectedTarget.id);
+                  }
+                },
+                child: Container(
+                  height: 38,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: canValidate ? widget.onNextPhase : null,
-                icon: const Icon(Icons.check_rounded, size: 14),
-                label: Text(
-                  isDoubleActionComplete ? 'Valider (2/2)' : context.tr('validate'),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                  decoration: BoxDecoration(
+                    color: victim != null
+                        ? const Color(0xFFDC2626).withValues(alpha: 0.25)
+                        : Colors.black26,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: victim != null
+                          ? const Color(0xFFDC2626)
+                          : LupusColors.border.withValues(alpha: 0.5),
+                      width: victim != null ? 1.4 : 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.restaurant_rounded, size: 14, color: Color(0xFFF87171)),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          victim != null ? '🥩 ${victim.name}' : '1. Dévorer (Proie)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: victim != null ? FontWeight.w900 : FontWeight.w600,
+                            color: victim != null ? Colors.white : LupusColors.textMuted,
+                          ),
+                        ),
+                      ),
+                      if (victim != null)
+                        const Icon(Icons.close_rounded, size: 12, color: Color(0xFFF87171)),
+                    ],
+                  ),
                 ),
               ),
             ),
+            const SizedBox(width: 6),
+
+            // Emplacement 2 : MUSELER (Violet Silence)
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (effectiveMuteId != null) {
+                    if (selectedTarget != null && selectedTarget.id != effectiveMuteId && selectedTarget.isAlive) {
+                      setState(() => _wolfMuteId = selectedTarget.id);
+                      widget.onBlackWolfSilence?.call(selectedTarget.id);
+                      if (effectiveVictimId != null) {
+                        widget.onNextPhase();
+                      }
+                    } else {
+                      setState(() => _wolfMuteId = null);
+                    }
+                  } else if (selectedTarget != null && selectedTarget.isAlive) {
+                    setState(() => _wolfMuteId = selectedTarget.id);
+                    widget.onBlackWolfSilence?.call(selectedTarget.id);
+                    if (effectiveVictimId != null) {
+                      widget.onNextPhase();
+                    }
+                  }
+                },
+                child: Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: muted != null
+                        ? const Color(0xFF9333EA).withValues(alpha: 0.25)
+                        : Colors.black26,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: muted != null
+                          ? const Color(0xFFC084FC)
+                          : LupusColors.border.withValues(alpha: 0.5),
+                      width: muted != null ? 1.4 : 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.volume_off_rounded, size: 14, color: Color(0xFFC084FC)),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          muted != null ? '🔇 ${muted.name}' : '2. Museler (Silence)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: muted != null ? FontWeight.w900 : FontWeight.w600,
+                            color: muted != null ? Colors.white : LupusColors.textMuted,
+                          ),
+                        ),
+                      ),
+                      if (muted != null)
+                        const Icon(Icons.close_rounded, size: 12, color: Color(0xFFC084FC)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Optionnel : Bouton Infection de l'Infect Père des Loups
+            if (canInfect && victim != null) ...[
+              const SizedBox(width: 6),
+              SizedBox(
+                height: 38,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isInfected
+                        ? LupusColors.poisonGreen
+                        : const Color(0xFF7C3AED),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => widget.onInfect?.call(victim.id),
+                  child: Text(
+                    isInfected ? '🧟 Infecté' : '🧬 Infecter',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10.5),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
-        // Option Loup Infect (Pouvoir Unique)
-        if (canInfect && effectiveVictimId != null) ...[
-          const SizedBox(height: 6),
-          SizedBox(
-            height: 34,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                backgroundColor: isInfected ? const Color(0x33DC2626) : Colors.transparent,
-                foregroundColor: isInfected ? const Color(0xFFF87171) : const Color(0xFFE2E8F0),
-                side: BorderSide(
-                  color: isInfected ? const Color(0xFFDC2626) : const Color(0x66DC2626),
-                  width: isInfected ? 1.5 : 1.0,
-                ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () => widget.onInfect?.call(effectiveVictimId),
-              icon: Icon(
-                isInfected ? Icons.check_circle_rounded : Icons.pest_control_rounded,
-                size: 14,
-                color: isInfected ? const Color(0xFFF87171) : const Color(0xFFEF4444),
-              ),
-              label: Text(
-                isInfected ? '🩸 Proie infectée (Transformée en Loup à l\'Aube)' : '🩸 Infecter la proie au lieu de l\'exécuter (Infect Père des Loups)',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isInfected ? FontWeight.w900 : FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }

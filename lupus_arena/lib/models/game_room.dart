@@ -209,6 +209,7 @@ class GameRoom {
     String? lastProtectedPlayerId,
     String? currentProtectedPlayerId,
     String? nightVictimId,
+    bool clearNightVictimId = false,
     bool? witchHealed,
     String? witchPoisonVictimId,
     bool? pyromaniacIgnited,
@@ -253,12 +254,15 @@ class GameRoom {
       lastProtectedPlayerId: lastProtectedPlayerId ?? this.lastProtectedPlayerId,
       currentProtectedPlayerId:
           currentProtectedPlayerId ?? this.currentProtectedPlayerId,
-      nightVictimId: nightVictimId,
+      nightVictimId: clearNightVictimId
+          ? null
+          : (nightVictimId ?? this.nightVictimId),
       witchHealed: witchHealed ?? this.witchHealed,
-      witchPoisonVictimId: witchPoisonVictimId,
+      witchPoisonVictimId: witchPoisonVictimId ?? this.witchPoisonVictimId,
       pyromaniacIgnited: pyromaniacIgnited ?? this.pyromaniacIgnited,
-      seerInspectedTargetId: seerInspectedTargetId,
-      seerInspectedRole: seerInspectedRole,
+      seerInspectedTargetId:
+          seerInspectedTargetId ?? this.seerInspectedTargetId,
+      seerInspectedRole: seerInspectedRole ?? this.seerInspectedRole,
       blackWolfTargetId: clearBlackWolfTargetId
           ? null
           : (blackWolfTargetId ?? this.blackWolfTargetId),

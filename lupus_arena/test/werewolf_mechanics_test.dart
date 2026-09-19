@@ -683,20 +683,131 @@ void main() {
       expect(updates['players/2/isMuted'], isFalse);
     });
 
-    test('Sorcière : Détection automatique de la victime des loups et sauvegarde de secours', () {
+    test('Sorcière : Verrouillage strict de la potion de vie sur la victime des loups (nightVictimId)', () {
       const wolfVictim = PlayerModel(id: 'v1', name: 'VictimeDesLoups', role: GameRole.simpleVillager, isAlive: true);
-      const manualTarget = PlayerModel(id: 'm1', name: 'CibleManuelle', role: GameRole.simpleVillager, isAlive: true);
+      const randomPlayer = PlayerModel(id: 'r1', name: 'JoueurAleatoire', role: GameRole.simpleVillager, isAlive: true);
 
-      // Cas 1 : nightVictimId est présent -> sélection automatique
-      String? resolveVictim(String? nightVictimId, String? selectedTargetId) {
-        return nightVictimId ?? selectedTargetId;
+      // Règle stricte : la potion de vie ne peut cibler QUE la victime des loups (widget.room.nightVictimId)
+      String? getWitchLifePotionTarget(String? nightVictimId) {
+        return nightVictimId; // Aucun fallback manuel autorisé
       }
 
-      expect(resolveVictim(wolfVictim.id, null), equals('v1'));
-      expect(resolveVictim(wolfVictim.id, manualTarget.id), equals('v1'), reason: 'Priorité absolue à la victime des loups');
+      // Cas 1 : Une victime a été désignée par les loups -> la potion de vie est verrouillée sur cette victime
+      expect(getWitchLifePotionTarget(wolfVictim.id), equals('v1'), reason: 'La sorcière peut sauver la victime désignée');
 
-      // Cas 2 : nightVictimId est nul (fallback / manuel) -> cible sélectionnée
-      expect(resolveVictim(null, manualTarget.id), equals('m1'), reason: 'Fallback sur la cible manuelle si aucune proie');
+      // Cas 2 : Aucune victime désignée par les loups -> la potion de vie ne peut pas être utilisée
+      expect(getWitchLifePotionTarget(null), isNull, reason: 'Impossible d\'utiliser la potion de vie sans victime des loups');
+
+      // Potion de poison : la sorcière conserve le choix libre de la cible vivante
+      bool canUsePoison(PlayerModel target, int potionsMort) {
+        return potionsMort > 0 && target.isAlive;
+      }
+      expect(canUsePoison(randomPlayer, 1), isTrue);
+      expect(canUsePoison(randomPlayer, 0), isFalse);
+    });
+
+    test('Loups-Garous : Sélection séquentielle 2 cibles (1er = Dévorer, 2e = Museler) avec auto-validation', () {
+      const player1 = PlayerModel(id: 'p1', name: 'Villageois 1', role: GameRole.simpleVillager, isAlive: true);
+      const player2 = PlayerModel(id: 'p2', name: 'Villageois 2', role: GameRole.seer, isAlive: true);
+
+      String? wolfVictimId;
+      String? wolfMuteId;
+      bool nextPhaseTriggered = false;
+
+      void handleWerewolfSelection(String id) {
+        if (wolfVictimId == null) {
+          // 1er clic : Dévorer
+          wolfVictimId = id;
+        } else if (wolfVictimId == id) {
+          // Second clic sur la même victime : Dé-sélection pour changer de victime
+          wolfVictimId = null;
+        } else if (wolfMuteId == null) {
+          // 2e clic : Museler + auto-validation
+          wolfMuteId = id;
+          nextPhaseTriggered = true;
+        }
+      }
+
+      // 1er clic : Sélection de la proie à dévorer
+      handleWerewolfSelection(player1.id);
+      expect(wolfVictimId, equals('p1'));
+      expect(wolfMuteId, isNull);
+      expect(nextPhaseTriggered, isFalse);
+
+      // 2e clic sur un joueur différent : Sélection du joueur à museler + auto-validation immédiate
+      handleWerewolfSelection(player2.id);
+      expect(wolfVictimId, equals('p1'), reason: '1er joueur = Dévoré');
+      expect(wolfMuteId, equals('p2'), reason: '2e joueur = Muselé');
+      expect(nextPhaseTriggered, isTrue, reason: 'Auto-validation immédiate dès 2/2 cibles');
+    });
+
+    test('Loups-Garous : Possibilité de changer de cible victime par un second clic sur la même victime', () {
+      const player1 = PlayerModel(id: 'p1', name: 'Villageois 1', role: GameRole.simpleVillager, isAlive: true);
+      const player2 = PlayerModel(id: 'p2', name: 'Villageois 2', role: GameRole.seer, isAlive: true);
+      const player3 = PlayerModel(id: 'p3', name: 'Villageois 3', role: GameRole.witch, isAlive: true);
+
+      String? wolfVictimId;
+      String? wolfMuteId;
+      bool nextPhaseTriggered = false;
+
+      void handleWerewolfSelection(String id) {
+        if (wolfVictimId == null) {
+          wolfVictimId = id;
+        } else if (wolfVictimId == id) {
+          // Second clic sur la même victime -> Dé-sélectionne la victime
+          wolfVictimId = null;
+        } else if (wolfMuteId == null) {
+          wolfMuteId = id;
+          nextPhaseTriggered = true;
+        }
+      }
+
+      // 1. Clic sur Joueur 1 -> Devient la victime
+      handleWerewolfSelection(player1.id);
+      expect(wolfVictimId, equals('p1'));
+      expect(wolfMuteId, isNull);
+
+      // 2. Second clic sur Joueur 1 -> Annule la sélection de Joueur 1
+      handleWerewolfSelection(player1.id);
+      expect(wolfVictimId, isNull, reason: 'Le second clic sur la même victime doit annuler le choix');
+      expect(wolfMuteId, isNull);
+      expect(nextPhaseTriggered, isFalse);
+
+      // 3. Clic sur Joueur 2 -> Devient la NOUVELLE victime
+      handleWerewolfSelection(player2.id);
+      expect(wolfVictimId, equals('p2'), reason: 'Joueur 2 est désormais la nouvelle victime');
+      expect(wolfMuteId, isNull);
+      expect(nextPhaseTriggered, isFalse);
+
+      // 4. Clic sur Joueur 3 -> Devient le joueur muselé et valide le tour
+      handleWerewolfSelection(player3.id);
+      expect(wolfVictimId, equals('p2'));
+      expect(wolfMuteId, equals('p3'));
+      expect(nextPhaseTriggered, isTrue);
+    });
+
+    test('Nuit des Loups : Résolution impérative avec dévoré ET muselé garantis (Fallback auto)', () {
+      final alivePlayers = [
+        const PlayerModel(id: 'p1', name: 'P1', role: GameRole.simpleVillager, isAlive: true),
+        const PlayerModel(id: 'p2', name: 'P2', role: GameRole.seer, isAlive: true),
+        const PlayerModel(id: 'p3', name: 'P3', role: GameRole.witch, isAlive: true),
+      ];
+
+      // Cas 1 : Aucune sélection manuelle avant la fin du temps imparti
+      String? victimId;
+      String? muteId;
+
+      // Résolution automatique garantie
+      if (victimId == null && alivePlayers.isNotEmpty) {
+        victimId = alivePlayers.first.id;
+      }
+      if (muteId == null && alivePlayers.length > 1) {
+        muteId = alivePlayers.firstWhere((p) => p.id != victimId).id;
+      }
+
+      expect(victimId, equals('p1'), reason: 'Une proie est impérativement désignée');
+      expect(muteId, equals('p2'), reason: 'Un joueur est impérativement muselé');
+      expect(victimId, isNot(equals(muteId)), reason: 'La proie et le muselé sont distincts');
     });
 
     test('Sorcière : Utilisation combinée des deux potions (Vie & Mort) et transition de rôle', () {

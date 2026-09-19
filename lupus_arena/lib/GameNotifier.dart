@@ -186,6 +186,51 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   bool _isTransitioningPhase = false;
   Timer? _phaseExpirationTimer;
 
+  /// Registre local inviolable des défunts (Tombstone Local / Verrou d'Immortalité Inverse).
+  /// Une fois qu'un joueur y est inscrit, aucune mise à jour Firebase entrante ne peut le ressusciter,
+  /// sauf utilisation explicite de la potion de guérison par la Sorcière.
+  final Set<String> _cemeteryRegistry = <String>{};
+
+  /// Exception unique de résurrection : Potion de vie de la Sorcière
+  void applyWitchRevive(String victimId) {
+    _cemeteryRegistry.remove(victimId);
+  }
+
+  /// Correction immédiate en base de données si un zombie a été détecté
+  Future<void> _fixZombieOnDatabase(String pid) async {
+    if (_currentRoomRef == null) return;
+    try {
+      await _currentRoomRef!.child('players/$pid/isAlive').set(false);
+      debugPrint('[_fixZombieOnDatabase] 🛡️ Verrou anti-zombie appliqué sur Firebase pour $pid');
+    } catch (e) {
+      debugPrint('[_fixZombieOnDatabase] Erreur fixation zombie de $pid: $e');
+    }
+  }
+
+  /// Reconnexion sécurisée : ré-impose l'état serveur et préserve l'état de mort
+  Future<void> handlePlayerReconnect(String roomId, String uid) async {
+    try {
+      final snapshot = await _database.ref('rooms/$roomId/players/$uid').get();
+      if (!snapshot.exists || snapshot.value == null) return;
+
+      final data = Map<String, dynamic>.from(snapshot.value as Map);
+      bool serverIsAlive = data['isAlive'] == true;
+      if (_cemeteryRegistry.contains(uid)) {
+        serverIsAlive = false;
+      } else if (!serverIsAlive) {
+        _cemeteryRegistry.add(uid);
+      }
+
+      await _database.ref('rooms/$roomId/players/$uid').update({
+        'isOnline': true,
+        'lastSeen': ServerValue.timestamp,
+        'isAlive': serverIsAlive,
+      });
+    } catch (e) {
+      debugPrint('[handlePlayerReconnect] Erreur: $e');
+    }
+  }
+
   GameNotifier()
       : super(
           () {
@@ -382,10 +427,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
                 final isDead = (val == false || val == 'false' || val == 0 || val == '0');
                 final bool isWitchHeal = (state.room?.witchHealed == true && pid == state.room?.nightVictimId) ||
                     (updates['witchHealed'] == true && pid == updates['nightVictimId']);
-                if (!isDead && !p.isAlive && !isWitchHeal && !state.isAdmin) {
+                if (_cemeteryRegistry.contains(pid) && !isWitchHeal && !state.isAdmin) {
+                  updatedPlayers[pid] = p.copyWith(isAlive: false);
+                } else if (isDead) {
+                  _cemeteryRegistry.add(pid);
                   updatedPlayers[pid] = p.copyWith(isAlive: false);
                 } else {
-                  updatedPlayers[pid] = p.copyWith(isAlive: !isDead);
+                  if (isWitchHeal || state.isAdmin) {
+                    _cemeteryRegistry.remove(pid);
+                  }
+                  updatedPlayers[pid] = p.copyWith(isAlive: true);
                 }
               } else if (field == 'role') {
                 updatedPlayers[pid] = p.copyWith(role: GameRole.fromId(entry.value.toString()));
@@ -511,6 +562,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   /// Créer un salon de jeu
   Future<bool> createRoom() async {
+    _cemeteryRegistry.clear();
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final roomCode = _generateRoomCode();
@@ -618,6 +670,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           'sock_${state.currentUserId}_${DateTime.now().millisecondsSinceEpoch}';
 
       if (existingPlayer != null) {
+        // Enregistre tous les morts connus du salon dans le registre de cimetière local
+        for (final p in room.playerList) {
+          if (!p.isAlive) {
+            _cemeteryRegistry.add(p.id);
+          }
+        }
+        bool serverIsAlive = existingPlayer.isAlive;
+        if (_cemeteryRegistry.contains(state.currentUserId)) {
+          serverIsAlive = false;
+        } else if (!serverIsAlive) {
+          _cemeteryRegistry.add(state.currentUserId);
+        }
+
         // JOUEUR DÉJÀ EXISTANT : RECONNEXION & REMPLACEMENT DU SOCKET
         // Conserve le rôle, le statut de vie et les privilèges du joueur sans dupliquer son entrée
         final updatedPlayer = existingPlayer.copyWith(
@@ -626,6 +691,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           name: state.currentUserName,
           avatarIndex: state.currentUserAvatar,
           isOnline: true,
+          isAlive: serverIsAlive,
         );
 
         final updatedLogs = [
@@ -642,6 +708,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           'players/${state.currentUserId}/isOnline': true,
           'players/${state.currentUserId}/lastSeen': ServerValue.timestamp,
           'players/${state.currentUserId}/lastReconnectedAt': ServerValue.timestamp,
+          'players/${state.currentUserId}/isAlive': serverIsAlive,
           'logs': updatedLogs,
         };
 
@@ -1341,6 +1408,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final List<Map<String, dynamic>> deathQueueList = [];
       for (final id in allDeaths) {
         updates['players/$id/isAlive'] = false;
+        _cemeteryRegistry.add(id);
         final player = room.players[id];
         if (player != null) {
           GameRole revealedRole = player.roleInitial;
@@ -1958,6 +2026,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
 
     updates['players/$condemnedId/isAlive'] = false;
+    _cemeteryRegistry.add(condemnedId);
     updates['players/$condemnedId/role'] = condemnedRealRole.id;
     final voteDeathEntry = {
       'action': 'FLIP_CARTE_MORT',
@@ -1977,6 +2046,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final deadPartnerId = handleLoverDeath(condemnedId, room.players, logs);
     if (deadPartnerId != null) {
       updates['players/$deadPartnerId/isAlive'] = false;
+      _cemeteryRegistry.add(deadPartnerId);
       final deadPartner = room.players[deadPartnerId];
       if (deadPartner != null) {
         GameRole partnerRole = deadPartner.role;
@@ -2938,6 +3008,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'players/$targetId/role': victimRealRole.id,
       'pendingHunterId': null,
     };
+    _cemeteryRegistry.add(targetId);
     final logs = List<String>.from(room.logs);
     logs.add(
       '💥 Le Chasseur a abattu ${victim.name} (${victimRealRole.displayNameFr}) dans son dernier râle !',
@@ -2958,6 +3029,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final deadPartnerId = handleLoverDeath(targetId, room.players, logs);
     if (deadPartnerId != null) {
       updates['players/$deadPartnerId/isAlive'] = false;
+      _cemeteryRegistry.add(deadPartnerId);
       final deadPartner = room.players[deadPartnerId];
       if (deadPartner != null) {
         GameRole partnerRole = deadPartner.role;
@@ -3054,9 +3126,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['players/${room.pendingCaptainId}/isCaptain'] = false;
     }
 
-    // Confirmation explicite de l'état de mort pour tous les défunts
+    // Confirmation explicite et inviolable de l'état de mort pour tous les défunts
+    for (final pid in _cemeteryRegistry) {
+      updates['players/$pid/isAlive'] = false;
+    }
     for (final p in room.playerList) {
       if (!p.isAlive) {
+        _cemeteryRegistry.add(p.id);
         updates['players/${p.id}/isAlive'] = false;
       }
     }
@@ -3145,6 +3221,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       );
     }
 
+    // Confirmation explicite et inviolable de l'état de mort pour tous les défunts
+    for (final pid in _cemeteryRegistry) {
+      updates['players/$pid/isAlive'] = false;
+    }
+    for (final p in room.playerList) {
+      if (!p.isAlive) {
+        _cemeteryRegistry.add(p.id);
+        updates['players/${p.id}/isAlive'] = false;
+      }
+    }
+
     if (room.morningVictims.isNotEmpty) {
       updates['phase'] = GamePhase.morningAnnouncement.name;
       updates['timerSeconds'] = 20;
@@ -3186,9 +3273,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         isMayorElected: true,
       ).toMap(),
     };
-    // Confirmation explicite de l'état de mort pour tous les défunts
+    // Confirmation explicite et inviolable de l'état de mort pour tous les défunts
+    for (final pid in _cemeteryRegistry) {
+      updates['players/$pid/isAlive'] = false;
+    }
     for (final p in room.playerList) {
       if (!p.isAlive) {
+        _cemeteryRegistry.add(p.id);
         updates['players/${p.id}/isAlive'] = false;
       }
     }
@@ -3678,23 +3769,35 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           }
         }
       }
-      // GARDE STRICT ANTI-RÉSURRECTION :
-      // Un joueur éliminé (isAlive == false) ne peut JAMAIS revenir à la vie,
+      // ── VERROU D'IMMORTALITÉ INVERSE (TOMBSTONE LOCAL & ANTI-RÉSURRECTION) ──
+      // Un joueur éliminé (inscrit au _cemeteryRegistry) ne peut JAMAIS revenir à la vie,
       // sauf si la Sorcière a utilisé sa potion de vie (witchHealed == true) sur la victime de nuit.
-      if (state.room != null && state.room!.players.isNotEmpty) {
-        final localPlayers = state.room!.players;
-        final bool witchHealed = state.room!.witchHealed;
-        final String? nightVictimId = state.room!.nightVictimId;
+      final bool witchHealed = state.room?.witchHealed == true;
+      final String? nightVictimId = state.room?.nightVictimId;
 
-        parsedPlayers.forEach((pid, p) {
-          final localP = localPlayers[pid];
-          if (localP != null && !localP.isAlive) {
-            final bool isSavedByWitchPotion = witchHealed && pid == nightVictimId;
-            if (!isSavedByWitchPotion && p.isAlive && !state.isAdmin) {
-              parsedPlayers[pid] = p.copyWith(isAlive: false);
-            }
+      for (final entry in parsedPlayers.entries) {
+        final pid = entry.key;
+        var player = entry.value;
+
+        // Exception Sorcière : si la Sorcière a soigné la victime de cette nuit
+        if (witchHealed && pid == nightVictimId) {
+          _cemeteryRegistry.remove(pid);
+        }
+
+        // Si le joueur est déjà marqué comme mort dans notre cimetière local :
+        if (_cemeteryRegistry.contains(pid) && !state.isAdmin) {
+          // FORÇAGE : Il RESTE mort, peu importe ce que prétend le snapshot réseau
+          if (player.isAlive) {
+            player = player.copyWith(isAlive: false);
+            // Corriger Firebase en tâche de fond si le serveur était désynchronisé
+            _fixZombieOnDatabase(pid);
           }
-        });
+        } else if (!player.isAlive) {
+          // Dès qu'on apprend qu'il est mort, on l'inscrit définitivement au registre
+          _cemeteryRegistry.add(pid);
+        }
+
+        parsedPlayers[pid] = player;
       }
 
       final updatedRoom = state.room!.copyWith(players: parsedPlayers);
@@ -3859,6 +3962,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         .onValue
         .listen((event) {
       if (event.snapshot.value != null && state.room != null) {
+        _cemeteryRegistry.clear();
         state = state.copyWith(isVictoryVoiceExpired: false);
       }
     });
@@ -4652,6 +4756,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
     };
+    _cemeteryRegistry.add(playerId);
 
     final partnerDead = handleLoverDeath(playerId, state.room!.players, logs);
     if (partnerDead != null) {
@@ -4659,6 +4764,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final partnerRole = realRoles[partnerDead] ?? pPartner?.role ?? GameRole.simpleVillager;
       updates['players/$partnerDead/isAlive'] = false;
       updates['players/$partnerDead/role'] = partnerRole.id;
+      _cemeteryRegistry.add(partnerDead);
     }
 
     if (targetRole == GameRole.hunter) {
@@ -4688,6 +4794,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (_currentRoomRef == null || state.room == null) return;
     final target = state.room!.players[playerId];
     if (target == null) return;
+    _cemeteryRegistry.remove(playerId);
     final logs = List<String>.from(state.room!.logs);
     logs.insert(0, '✨ [DEV RÉANIMATION] ${target.name} a été ressuscité(e) par le Maître du Jeu.');
     await _syncState({
@@ -5045,6 +5152,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   /// - PV = 100, isAlive = true, isMuted = false
   /// - Émission de game_reset_to_lobby
   Future<void> resetGameAndRedistributeRoles(String roomCode) async {
+    _cemeteryRegistry.clear();
     final roomRef = _database.ref('rooms/');
     final roomSnap = await roomRef.get();
     if (!roomSnap.exists || roomSnap.value == null) return;
@@ -5218,6 +5326,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       debugPrint('[LeaveRoom Error] $e');
     } finally {
       // Libération des flux et du canal Agora
+      _cemeteryRegistry.clear();
       _cancelAllRoomSubscriptions();
       _lastAppliedVoiceChannel = null;
       _lastAppliedVoicePhase = null;

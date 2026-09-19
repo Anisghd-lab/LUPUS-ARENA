@@ -264,7 +264,7 @@ class PlayerModel {
                   map['isAlive'] == 1 ||
                   map['isAlive'] == '1')
               ? true
-              : (map['isAlive'] != false),
+              : (map['isAlive'] is bool ? map['isAlive'] as bool : false),
       isHost: map['isHost'] == true,
       isReady: map['isReady'] == true,
       isOnline: map['isOnline'] != false,

@@ -112,10 +112,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
-      LupusAudioManager.instance.pauseLobbyMusic();
+      LobbyAudioManager.instance.pauseLobbyMusic();
     } else if (state == AppLifecycleState.resumed) {
+      // Reprend UNIQUEMENT si on est encore dans le lobby et pas dans une salle active
       if (ref.read(gameNotifierProvider).room == null) {
-        LupusAudioManager.instance.playLobbyMusic();
+        LobbyAudioManager.instance.resumeLobbyMusic();
       }
     }
   }
@@ -123,7 +124,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    LupusAudioManager.instance.stopLobbyMusic();
+    LobbyAudioManager.instance.stopLobbyMusic();
     _nameController.dispose();
     _codeController.dispose();
     super.dispose();
@@ -133,9 +134,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
   Widget build(BuildContext context) {
     ref.listen<LupusGameState>(gameNotifierProvider, (previous, next) {
       if (next.room == null) {
-        LupusAudioManager.instance.playLobbyMusic();
+        LobbyAudioManager.instance.playLobbyMusic();
       } else {
-        LupusAudioManager.instance.stopLobbyMusic();
+        LobbyAudioManager.instance.stopLobbyMusic();
       }
     });
 
@@ -146,8 +147,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     if (room != null && room.phase != GamePhase.lobby) {
       if (!_isNavigatingToArena) {
         _isNavigatingToArena = true;
-        LupusAudioManager.instance.stopLobbyMusic();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          // 1. COUPER D'ABORD ET ATTENDRE LE VERROU
+          await LobbyAudioManager.instance.stopLobbyMusic();
+          // 2. NAVIGUER ENSUITE
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const ArenaGameScreen()),
@@ -708,7 +711,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
               child: MedievalFantasyButton.amethyst(
                 onTap: gameState.isLoading
                     ? null
-                    : () => ref.read(gameNotifierProvider.notifier).createRoom(),
+                    : () async {
+                        await LobbyAudioManager.instance.stopLobbyMusic();
+                        await ref.read(gameNotifierProvider.notifier).createRoom();
+                      },
                 enabled: !gameState.isLoading,
                 borderRadius: 14,
                 child: Padding(
@@ -1665,7 +1671,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
       );
       return;
     }
-    ref.read(gameNotifierProvider.notifier).joinRoom(inputCode);
+    await LobbyAudioManager.instance.stopLobbyMusic();
+    if (mounted) {
+      ref.read(gameNotifierProvider.notifier).joinRoom(inputCode);
+    }
   }
 
   void _openAdminTrigger(BuildContext context) {

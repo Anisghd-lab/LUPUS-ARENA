@@ -1,11 +1,27 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.4.0%2B57-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.4.1%2B58-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.4.1 (Build 58)
+
+### 🎵 Résolution Définitive de la Musique du Lobby (`LobbyAudioManager`)
+- **Singleton Dédié & Verrou d'Arrêt Atomique (`_isExplicitlyStopped`) :** Implémentation du service singleton `LobbyAudioManager` avec protection synchrone de l'intention.
+- **Attente Synchrone de Navigation (`await stopLobbyMusic()`) :** L'arrêt du moteur audio natif est systématiquement attendu (`await`) avant toute transition d'écran (`Navigator.pushReplacement`, création de salon, adhésion à une salle).
+- **Protection du Cycle de Vie (`didChangeAppLifecycleState`) :** La reprise audio (`resumeLobbyMusic()`) n'est autorisée que si l'arrêt forcé n'a pas été demandé (`!_isExplicitlyStopped`) et si l'utilisateur est toujours sur l'accueil (`room == null`).
+
+### ⚰️ Verrou d'Immortalité Inverse (`_cemeteryRegistry`) & Anti-Résurrection
+- **Tombstone Local Inviolable :** Ajout du registre local `_cemeteryRegistry` dans `GameNotifier`. Tout joueur éliminé y est inscrit de façon permanente ; aucun snapshot réseau, cache local Firebase désynchronisé ou retour du mode Avion ne peut le ressusciter (`isAlive` est forcé à `false` et synchronisé en base de données via `_fixZombieOnDatabase`).
+- **Exception Unique de la Sorcière :** Seule l'action salvatrice de la Sorcière (`applyWitchRevive`) sur la victime nocturne légitime retire le joueur du cimetière local.
+- **Sécurisation de la Reconnexion (`handlePlayerReconnect` & `joinRoom`) :** Interdiction des valeurs par défaut aveugles (`?? true`). Ré-imposition explicite de l'état d'élimination du serveur et mise à jour exclusive des clés techniques de présence.
+- **Désérialisation Blindée (`PlayerModel.fromMap`) :** Si `isAlive` est absent ou ambigu dans le paquet réseau reçu, le modèle applique rigoureusement `false` au lieu de ressusciter le joueur.
+- **Préservation Post-Élection & Testament du Maire :** Ré-affirmation de l'état de mort de l'ensemble du registre `_cemeteryRegistry` lors de chaque élection ou passation d'écharpe.
 
 ---
 

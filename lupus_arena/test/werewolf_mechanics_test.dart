@@ -997,6 +997,88 @@ void main() {
         playerId: deadPlayer.id,
       ), isTrue, reason: 'La potion de vie de la sorcière ressuscite valablement la victime');
     });
+
+    test('PlayerModel.fromMap : isAlive ne devient JAMAIS true si absent ou ambigu', () {
+      final mapMissingAlive = {'id': 'p1', 'name': 'Player 1', 'role': 'simpleVillager'};
+      final playerMissing = PlayerModel.fromMap(mapMissingAlive);
+      expect(playerMissing.isAlive, isFalse, reason: 'Sans isAlive dans le snapshot, la valeur par défaut ne doit jamais être true');
+
+      final mapAliveTrue = {'id': 'p2', 'name': 'Player 2', 'role': 'simpleVillager', 'isAlive': true};
+      final playerAlive = PlayerModel.fromMap(mapAliveTrue);
+      expect(playerAlive.isAlive, isTrue);
+
+      final mapAliveFalse = {'id': 'p3', 'name': 'Player 3', 'role': 'simpleVillager', 'isAlive': false};
+      final playerDead = PlayerModel.fromMap(mapAliveFalse);
+      expect(playerDead.isAlive, isFalse);
+
+      final mapCorrupted = {'id': 'p4', 'name': 'Player 4', 'role': 'simpleVillager', 'isAlive': 'invalid'};
+      final playerCorrupted = PlayerModel.fromMap(mapCorrupted);
+      expect(playerCorrupted.isAlive, isFalse);
+    });
+
+    test('Verrou d\'Immortalité Inverse (_cemeteryRegistry) : bloque toute tentative de résurrection réseau', () {
+      final Set<String> cemeteryRegistry = {'dead_p1', 'dead_p2'};
+
+      Map<String, PlayerModel> processIncomingSnapshot({
+        required Map<String, PlayerModel> incoming,
+        required Set<String> cemetery,
+        required bool witchHealed,
+        required String? nightVictimId,
+      }) {
+        final updated = <String, PlayerModel>{};
+        for (final entry in incoming.entries) {
+          final pid = entry.key;
+          var player = entry.value;
+
+          if (witchHealed && pid == nightVictimId) {
+            cemetery.remove(pid);
+          }
+
+          if (cemetery.contains(pid)) {
+            if (player.isAlive) {
+              player = player.copyWith(isAlive: false);
+            }
+          } else if (!player.isAlive) {
+            cemetery.add(pid);
+          }
+          updated[pid] = player;
+        }
+        return updated;
+      }
+
+      // 1. Snapshot réseau prétendant que dead_p1 est vivant (ex: reconnexion ou désynchronisation)
+      final incomingZombie = {
+        'dead_p1': const PlayerModel(id: 'dead_p1', name: 'Dead P1', role: GameRole.simpleVillager, isAlive: true),
+        'alive_p3': const PlayerModel(id: 'alive_p3', name: 'Alive P3', role: GameRole.simpleVillager, isAlive: true),
+      };
+
+      final resolved = processIncomingSnapshot(
+        incoming: incomingZombie,
+        cemetery: cemeteryRegistry,
+        witchHealed: false,
+        nightVictimId: null,
+      );
+
+      expect(resolved['dead_p1']!.isAlive, isFalse, reason: 'dead_p1 doit RESTER mort malgré le snapshot');
+      expect(resolved['alive_p3']!.isAlive, isTrue, reason: 'alive_p3 reste vivant');
+
+      // 2. Utilisation légitime de la potion de la sorcière sur dead_p1
+      final resolvedAfterWitch = processIncomingSnapshot(
+        incoming: incomingZombie,
+        cemetery: cemeteryRegistry,
+        witchHealed: true,
+        nightVictimId: 'dead_p1',
+      );
+
+      expect(resolvedAfterWitch['dead_p1']!.isAlive, isTrue, reason: 'La sorcière a levé le verrou sur dead_p1');
+      expect(cemeteryRegistry.contains('dead_p1'), isFalse, reason: 'dead_p1 a été retiré du cimetière');
+    });
+
+    test('LobbyAudioManager : singleton unique et alias LupusAudioManager', () {
+      final audioManager = LobbyAudioManager.instance;
+      expect(audioManager, isNotNull);
+      expect(identical(LobbyAudioManager.instance, LupusAudioManager.instance), isTrue);
+    });
   });
 }
 

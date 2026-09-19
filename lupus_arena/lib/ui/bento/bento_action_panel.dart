@@ -2191,12 +2191,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     );
   }
 
-  /// Module Cupidon (Nuit 1)
-  Widget _buildCupidSection(PlayerModel? selectedTarget) {
-    final lover1 = _cupidLover1Id != null ? widget.room.players[_cupidLover1Id] : null;
-    final lover2 = _cupidLover2Id != null ? widget.room.players[_cupidLover2Id] : null;
-    final canBind = lover1 != null && lover2 != null && lover1.id != lover2.id;
-
   /// Module Cupidon (Nuit 1) : Sélection multi-cibles en 2 clics directs (sans bouton Valider)
   Widget _buildCupidSection(PlayerModel? selectedTarget) {
     final lover1 = _cupidLover1Id != null ? widget.room.players[_cupidLover1Id] : null;

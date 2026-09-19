@@ -440,10 +440,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ]
                 // 9. SORCIÈRE
                 else if (phase == GamePhase.nightWitch) ...[
-                  if (role == GameRole.witch || isDevMode) ...[
+                  if (role == GameRole.witch || me.roleInitial == GameRole.witch || isDevMode) ...[
                     _buildWitchSection(
                       widget.room.playerList.firstWhere(
-                        (p) => p.role == GameRole.witch,
+                        (p) => p.role == GameRole.witch || p.roleInitial == GameRole.witch,
                         orElse: () => me,
                       ),
                       selectedTarget,
@@ -512,26 +512,36 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   // --- MODULES DE RÔLES COMPACTS SANS OVERFLOW ---
   // ==========================================
 
-  /// Module Sorcière : Action unique exclusive et directe (1 seule potion par nuit ou passer)
+  /// Module Sorcière : Utilisation combinée possible des deux potions (Vie & Mort) dans la même nuit
+  /// Vérification continue des stocks et rétrogradation en Simple Villageois si les 2 stocks sont épuisés
   Widget _buildWitchSection(PlayerModel witch, PlayerModel? selectedTarget) {
     final wolfVictimId = widget.room.nightVictimId;
     final wolfVictim = wolfVictimId != null ? widget.room.players[wolfVictimId] : null;
-    final hasHeal = (witch.potionsVie > 0 && !widget.room.witchHealed) || widget.isAdmin;
-    final hasPoison = witch.potionsMort > 0 || widget.isAdmin;
+    final isHealed = widget.room.witchHealed;
+    final hasHeal = (witch.potionsVie > 0 && !isHealed) || widget.isAdmin;
+
+    final poisonVictimId = widget.room.witchPoisonVictimId;
+    final poisonVictim = poisonVictimId != null ? widget.room.players[poisonVictimId] : null;
+    final hasPoison = (witch.potionsMort > 0 && poisonVictimId == null) || widget.isAdmin;
+
+    final hasActed = isHealed || poisonVictim != null;
+    final isDechue = witch.potionsVie == 0 && witch.potionsMort == 0 && !widget.isAdmin;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Bandeau d'état des potions Sorcière (stocks indépendants)
+        // Bandeau d'état des potions Sorcière (stocks indépendants + statut déchu si 0/0)
         Container(
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: const Color(0x1F10B981),
+            color: isDechue ? const Color(0x1FF43F5E) : const Color(0x1F10B981),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: LupusColors.poisonGreen.withValues(alpha: 0.3),
+              color: isDechue
+                  ? LupusColors.bloodRed.withValues(alpha: 0.4)
+                  : LupusColors.poisonGreen.withValues(alpha: 0.3),
             ),
           ),
           child: Row(
@@ -547,6 +557,22 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       : LupusColors.textMuted,
                 ),
               ),
+              if (isDechue)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: LupusColors.bloodRed.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    '🥀 Déchue en Villageoise',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFFECDD3),
+                    ),
+                  ),
+                ),
               Text(
                 '☠️ Potions de Mort : ${witch.potionsMort}',
                 style: TextStyle(
@@ -561,10 +587,41 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           ),
         ),
 
-        // --- 1. CHOIX DIRECT : SAUVER LA VICTIME DES LOUPS (1 CLIC DIRECT) ---
-        if (wolfVictim != null) ...[
+        // --- 1. SECTION GUÉRISON / POTION DE VIE ---
+        if (isHealed) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x2210B981),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: LupusColors.poisonGreen.withValues(alpha: 0.6),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: LupusColors.poisonGreen, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '✅ ${wolfVictim?.name ?? "La victime"} sauvée par votre potion de guérison !',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: LupusColors.poisonGreen,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else if (wolfVictim != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: const EdgeInsets.only(bottom: 6),
             decoration: BoxDecoration(
               color: const Color(0x221E1B4B),
               borderRadius: BorderRadius.circular(10),
@@ -635,7 +692,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ],
             ),
           ),
-          const SizedBox(height: 6),
         ] else ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -664,89 +720,142 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           ),
         ],
 
-        // --- 2 & 3. CHOIX DIRECTS : EMPOISONNER OU PASSER ---
-        Row(
-          children: [
-            // Bouton Empoisonner (1 clic direct sur la cible)
-            Expanded(
-              child: SizedBox(
-                height: 38,
-                child: (hasPoison &&
-                        selectedTarget != null &&
-                        selectedTarget.isAlive &&
-                        selectedTarget.id != widget.currentUserId)
-                    ? ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: LupusColors.bloodRed,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: () => widget.onWitchPoison(selectedTarget.id),
-                        icon: const Icon(Icons.science_rounded, size: 14),
-                        label: Text(
-                          '☠️ Empoisonner ${selectedTarget.name}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
-                        ),
-                      )
-                    : Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0x1F450A0A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: hasPoison
-                                ? LupusColors.bloodRed.withValues(alpha: 0.3)
-                                : Colors.white10,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.science_outlined,
-                              size: 13,
-                              color: hasPoison ? LupusColors.bloodRed : LupusColors.textMuted,
-                            ),
-                            const SizedBox(width: 5),
-                            Flexible(
-                              child: Text(
-                                hasPoison ? 'Touchez pour empoisonner' : 'Fiole épuisée',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: hasPoison ? const Color(0xFFFECDD3) : LupusColors.textMuted,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+        // --- 2. SECTION EMPOISONNEMENT & PASSER / TERMINER ---
+        if (poisonVictim != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x22450A0A),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: LupusColors.bloodRed.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(width: 6),
-            // Bouton Passer (1 clic direct)
-            SizedBox(
-              height: 38,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: LupusColors.textSecondary,
-                  side: BorderSide(color: LupusColors.border.withValues(alpha: 0.6)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Row(
+              children: [
+                const Icon(Icons.science_rounded, color: LupusColors.bloodRed, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '☠️ ${poisonVictim.name} a été empoisonné(e) pour l\'aube !',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFFECDD3),
+                    ),
+                  ),
                 ),
-                onPressed: widget.onWitchPass,
-                icon: const Icon(Icons.bedtime_outlined, size: 14),
-                label: Text(
-                  context.tr('witch_pass'),
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+              ],
+            ),
+          ),
+        ],
+
+        Row(
+          children: [
+            // Bouton ou état Empoisonner (1 clic direct sur la cible si pas encore empoisonné)
+            if (poisonVictim == null) ...[
+              Expanded(
+                child: SizedBox(
+                  height: 38,
+                  child: (hasPoison &&
+                          selectedTarget != null &&
+                          selectedTarget.isAlive &&
+                          selectedTarget.id != widget.currentUserId)
+                      ? ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: LupusColors.bloodRed,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () => widget.onWitchPoison(selectedTarget.id),
+                          icon: const Icon(Icons.science_rounded, size: 14),
+                          label: Text(
+                            '☠️ Empoisonner ${selectedTarget.name}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0x1F450A0A),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: hasPoison
+                                  ? LupusColors.bloodRed.withValues(alpha: 0.3)
+                                  : Colors.white10,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.science_outlined,
+                                size: 13,
+                                color: hasPoison ? LupusColors.bloodRed : LupusColors.textMuted,
+                              ),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  hasPoison ? 'Touchez pour empoisonner' : 'Fiole épuisée',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: hasPoison ? const Color(0xFFFECDD3) : LupusColors.textMuted,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                 ),
+              ),
+              const SizedBox(width: 6),
+            ],
+
+            // Bouton Passer / Terminer le tour
+            Expanded(
+              flex: poisonVictim != null ? 1 : 0,
+              child: SizedBox(
+                height: 38,
+                child: hasActed
+                    ? ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6366F1),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: widget.onWitchPass,
+                        icon: const Icon(Icons.check_circle_outline, size: 14),
+                        label: const Text(
+                          'Terminer mon tour',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                        ),
+                      )
+                    : OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: LupusColors.textSecondary,
+                          side: BorderSide(color: LupusColors.border.withValues(alpha: 0.6)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: widget.onWitchPass,
+                        icon: const Icon(Icons.bedtime_outlined, size: 14),
+                        label: Text(
+                          context.tr('witch_pass'),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                        ),
+                      ),
               ),
             ),
           ],

@@ -2751,7 +2751,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   Future<void> witchSaveVictim() async {
-    if ((state.myRole != GameRole.witch && !state.isAdmin) ||
+    if ((state.myRole != GameRole.witch &&
+            state.currentPlayer?.roleInitial != GameRole.witch &&
+            !state.isAdmin) ||
         _currentRoomRef == null ||
         state.room == null) {
       return;
@@ -2768,7 +2770,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       (p) => p != null && (p.role == GameRole.witch || p.roleInitial == GameRole.witch),
       orElse: () => state.currentPlayer,
     );
-    final witchId = (state.myRole == GameRole.witch)
+    final witchId = (state.myRole == GameRole.witch ||
+            state.currentPlayer?.roleInitial == GameRole.witch)
         ? state.effectiveUserId
         : (witchPlayer?.id ?? state.effectiveUserId);
     // ═══════════════════════════════════════════════════════════════
@@ -2796,12 +2799,20 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           '🥀 La Sorcière a épuisé toutes ses potions et devient Simple Villageoise !',
       ],
     });
-    // Auto-validation directe & fin de tour immédiate
-    await processNightTransitions();
+
+    // Auto-advance UNIQUEMENT si aucune autre action n'est possible cette nuit
+    // (ex: si le poison a déjà été utilisé cette nuit, ou si la Sorcière n'a plus de potion de mort, ou si elle est déchue)
+    final alreadyPoisoned = state.room?.witchPoisonVictimId != null;
+    final canPoison = curMort > 0 && !alreadyPoisoned;
+    if (isDechue || !canPoison) {
+      await processNightTransitions();
+    }
   }
 
   Future<void> witchPoison(String targetId) async {
-    if ((state.myRole != GameRole.witch && !state.isAdmin) ||
+    if ((state.myRole != GameRole.witch &&
+            state.currentPlayer?.roleInitial != GameRole.witch &&
+            !state.isAdmin) ||
         _currentRoomRef == null ||
         state.room == null) {
       return;
@@ -2819,7 +2830,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       (p) => p != null && (p.role == GameRole.witch || p.roleInitial == GameRole.witch),
       orElse: () => state.currentPlayer,
     );
-    final witchId = (state.myRole == GameRole.witch)
+    final witchId = (state.myRole == GameRole.witch ||
+            state.currentPlayer?.roleInitial == GameRole.witch)
         ? state.effectiveUserId
         : (witchPlayer?.id ?? state.effectiveUserId);
 
@@ -2849,8 +2861,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           '🥀 La Sorcière a épuisé toutes ses potions et devient Simple Villageoise !',
       ],
     });
-    // Auto-validation directe & fin de tour immédiate
-    await processNightTransitions();
+
+    // Auto-advance UNIQUEMENT si aucune autre action n'est possible cette nuit
+    // (ex: si guérison déjà faite, ou plus de potion de vie, ou pas de victime des loups, ou déchue)
+    final alreadyHealed = state.room?.witchHealed == true;
+    final wolfVictimId = state.room?.nightVictimId ?? _tallyWerewolfVotes();
+    final canHeal = curVie > 0 && !alreadyHealed && wolfVictimId != null;
+    if (isDechue || !canHeal) {
+      await processNightTransitions();
+    }
   }
 
   Future<void> confirmWitchTurn() async {

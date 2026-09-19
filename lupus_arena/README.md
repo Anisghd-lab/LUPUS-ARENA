@@ -1,11 +1,34 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.3.4%2B51-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.3.5%2B52-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.3.5 (Build 52)
+
+### 🧙‍♀️ Sorcière : Utilisation Combinée des Potions, Cibles Intelligentes & Choix Libre (Oui/Non)
+
+1. **Potion de Vie — Cible Automatique de la Victime des Loups :**
+   - La Sorcière visualise instantanément la victime désignée par la meute de loups dans son panneau Bento, sans nécessiter de sélection manuelle sur la grille.
+   - Un simple clic sur `✨ Sauver [Nom]` applique immédiatement la guérison.
+
+2. **Potion de Mort — Liberté Totale de Choix :**
+   - La Sorcière choisit librement n'importe quel joueur vivant sur la grille et peut déclencher `☠️ Empoisonner [Nom]` en un clic direct.
+
+3. **Utilisation Combinée dans la Même Nuit & Liberté Totale (Oui / Non) :**
+   - La Sorcière peut désormais utiliser **ses deux potions** (Vie & Mort) dans la même nuit si elle le souhaite.
+   - L'utilisation des potions reste **strictement optionnelle** : la Sorcière peut choisir d'utiliser 0, 1 ou 2 potions.
+   - Si la Sorcière utilise une potion mais souhaite conserver l'autre, ou ne rien faire du tout, un clic sur `🌙 Ne rien faire / Passer` ou `✓ Terminer mon tour` valide et passe immédiatement à la phase suivante sans forcer l'usage des potions restantes.
+
+4. **Contrôle Permanent des Stocks & Rétrogradation en Simple Villageois :**
+   - Vérification continue du nombre de potions restantes (`potionsVie` et `potionsMort`).
+   - Dès que les 2 stocks atteignent 0 (`potionsVie == 0 && potionsMort == 0`), la Sorcière devient automatiquement **Simple Villageoise** (`GameRole.simpleVillager`).
+   - Tant qu'il lui reste au moins 1 potion (`potionsVie > 0 || potionsMort > 0`), elle conserve l'intégralité de son statut de **Sorcière** (`GameRole.witch`).
 
 ---
 

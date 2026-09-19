@@ -59,8 +59,8 @@ class GamePhaseCoordinator {
             orElse: () => null,
           );
       if (witch == null) return false;
-      final hasVie = witch.potionsVie > 0 && !witch.hasUsedHealPotion;
-      final hasMort = witch.potionsMort > 0 && !witch.hasUsedPoisonPotion;
+      final hasVie = witch.potionsVie > 0;
+      final hasMort = witch.potionsMort > 0;
       return hasVie || hasMort;
     }
 

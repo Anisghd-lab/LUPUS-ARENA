@@ -1,6 +1,6 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.3.1%2B48-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.3.2%2B49-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
@@ -9,27 +9,24 @@ Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Lou
 
 ---
 
-## 🚀 Notes de Version — Release v2.3.1 (Build 48)
+## 🚀 Notes de Version — Release v2.3.2 (Build 49)
 
 ### 📌 Points Clés Modifiés :
 
-1. **Accès Total & Direct aux Actions Stratégiques de Tous les Rôles en Mode Dev :**
-   - En Mode Dev, le panneau d'actions contextuel (`BentoActionPanel`) donne désormais un accès direct et universel à toutes les actions stratégiques du rôle qui s'éveille à chaque phase nocturne et diurne (Sonde de la Voyante, Potions de la Sorcière, Protection du Salvateur, Choix de Cupidon, Chasse des Loups, Tir du Chasseur, Envoûtement de la Flûte, Huile/Feu du Pyromane, Vol du Voleur), quel que soit le rôle assigné initialement au développeur.
+1. **Intégration Complète de Toutes les Cartes & Rôles dans le Configurateur Dev-Mode :**
+   - Disponibilité intégrale des 31 cartes/rôles du jeu dans le panneau de composition de la salle Sandbox Dev-Mode (6 à 18 joueurs) :
+     - *Meute des Loups :* Loup-Garou, Grand Méchant Loup, Loup Blanc, Loup Noir, Infect Père des Loups, Chiot Loup.
+     - *Villageois à Pouvoirs :* Voyante, Sorcière, Chasseur, Salvateur, Cupidon, Petite Fille, Voleur, Ancien, Bouc Émissaire, Idiot du Village, Deux Sœurs, Trois Frères, Renard, Montreur d'Ours, Juge Bègue, Chevalier à l'Épée Rouillée, Servante Dévouée, Comédien.
+     - *Rôles Spéciaux & Solitaires :* Enfant Sauvage, Pyromane, Corbeau, Ange, Joueur de Flûte, Abominable Sectaire, Voleur d'Âmes.
+     - *Villageois Simple.*
 
-2. **Remplacement Global de Terminologie (God-Mode $\to$ Dev-Mode) :**
-   - Remplacement exhaustif de `godMode` / `isGodMode` par `devMode` / `isDevMode` / `MODE DEV` dans tous les fichiers Dart (modèles, UI, contrôleurs, services).
+2. **Isolation Vocale Hermétique & Zéro Accès Micro pour les Bots :**
+   - Les bots passifs (`player.isBot`) et les identifiants Agora non assignés (`agoraUid <= 0`) sont rigoureusement exclus de tout halo de prise de parole, d'état vocal actif ou de canal Agora. Seul le micro du joueur réel est sollicité lors de ses tours de parole légitimes.
 
-3. **Parité Rigoureuse et Absolue Moteur Réel Multijoueur $\leftrightarrow$ Sandbox Dev-Mode :**
-   - Exécution stricte et synchronisée du même moteur de jeu canonique (`PhaseCoordinator`, `GameNotifier`, `ServerTimeService`).
-   - Mêmes règles d'arbitrage, conditions de victoire (`checkWinConditions`), résolutions des morts matinales (`resolveMorningDeaths`), gestion des amants, et quotas scalants.
+3. **Accès Total & Direct aux Actions Stratégiques en Mode Dev :**
+   - Déblocage contextuel universel de toutes les actions nocturnes et diurnes dans `BentoActionPanel` pour le développeur.
 
-4. **Harmonisation des Minuteurs & Horloge NTP (Fin des 999s) :**
-   - Remplacement de tout timer artificiel par les durées canoniques harmonisées dans `GamePhase.durationSeconds` (15s / 20s / 25s / 30s / 40s / 60s).
-
-5. **Configurateur Sandbox Dev-Mode Avancé (6 à 18 Joueurs) :**
-   - Réglage interactif du nombre de participants ($N \in [6, 18]$) avec génération automatique de rôles équilibrés ou composition manuelle sur-mesure.
-
-6. **Traductions & Intégrité Multilingue :**
+4. **Traductions & Intégrité Multilingue :**
    - 100% de parité sur 463 clés linguistiques (Français, Arabe, Anglais) avec layout LTR préservé pour l'arabe (`verify_translations.py` validé avec 0 erreur).
 
 ---

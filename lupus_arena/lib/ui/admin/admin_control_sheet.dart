@@ -2890,22 +2890,43 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
 
                                   const SizedBox(height: 10),
 
-                                  // Liste des rôles configurables
+                                  // Liste complète de toutes les cartes et rôles configurables
                                   ...[
+                                    // Meute des Loups
                                     GameRole.simpleWerewolf,
                                     GameRole.bigBadWolf,
                                     GameRole.whiteWerewolf,
+                                    GameRole.blackWolf,
                                     GameRole.vileFatherOfWolves,
+                                    GameRole.wolfCub,
+                                    // Villageois à Pouvoirs
                                     GameRole.seer,
                                     GameRole.witch,
                                     GameRole.hunter,
                                     GameRole.defender,
                                     GameRole.cupid,
+                                    GameRole.littleGirl,
+                                    GameRole.thief,
                                     GameRole.elder,
-                                    GameRole.piedPiper,
-                                    GameRole.pyromaniac,
-                                    GameRole.knightRustySword,
+                                    GameRole.scapegoat,
+                                    GameRole.idiot,
+                                    GameRole.twoSisters,
+                                    GameRole.threeBrothers,
                                     GameRole.fox,
+                                    GameRole.bearTamer,
+                                    GameRole.stutteringJudge,
+                                    GameRole.knightRustySword,
+                                    GameRole.servantMaid,
+                                    GameRole.actor,
+                                    // Rôles Spéciaux & Solitaires
+                                    GameRole.wildChild,
+                                    GameRole.pyromaniac,
+                                    GameRole.raven,
+                                    GameRole.angel,
+                                    GameRole.piedPiper,
+                                    GameRole.sectLeader,
+                                    GameRole.thiefOfHearts,
+                                    // Villageois Simple
                                     GameRole.simpleVillager,
                                   ].map((role) {
                                     final currentCount = _lobbyRoleCounts![role] ?? 0;

@@ -104,7 +104,10 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       return true;
     }
     for (final player in widget.players) {
-      if (widget.speakingAgoraUids.contains(player.agoraUid) && player.isAlive) {
+      if (!player.isBot &&
+          player.agoraUid > 0 &&
+          widget.speakingAgoraUids.contains(player.agoraUid) &&
+          player.isAlive) {
         return true;
       }
     }
@@ -521,8 +524,12 @@ class _MysticRadialTableState extends State<MysticRadialTable>
   }) {
     final isSelected = player.id == widget.selectedPlayerId;
     final isMe = player.id == widget.currentUserId;
-    final isVoiceActive = widget.speakingAgoraUids.contains(player.agoraUid);
-    final hasFloor = widget.currentSpeakerId != null && widget.currentSpeakerId == player.id;
+    final isVoiceActive = !player.isBot &&
+        player.agoraUid > 0 &&
+        widget.speakingAgoraUids.contains(player.agoraUid);
+    final hasFloor = widget.currentSpeakerId != null &&
+        widget.currentSpeakerId == player.id &&
+        !player.isBot;
     final isSpeaking = (isVoiceActive || hasFloor) && player.isAlive;
     final isDevMode = widget.isDevModeActive || widget.isDevRoom;
     final isWolfPeer = (player.role.isEvil ||

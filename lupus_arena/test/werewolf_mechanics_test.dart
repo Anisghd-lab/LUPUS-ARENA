@@ -1149,8 +1149,93 @@ void main() {
 
       registry.clearForNewGame();
     });
+
+    test('Purge stratégique de l\'aube : GameRoom.copyWith avec clearNightVictimId et clearBlackWolfTargetId réinitialise à null', () {
+      final room = GameRoom(
+        roomCode: 'TEST',
+        hostId: 'host',
+        phase: GamePhase.nightWerewolves,
+        nightVictimId: 'victim_p1',
+        blackWolfTargetId: 'silenced_p2',
+        players: {
+          'p1': const PlayerModel(id: 'p1', name: 'P1', isAlive: false),
+          'p2': const PlayerModel(id: 'p2', name: 'P2', isAlive: true),
+        },
+      );
+
+      expect(room.nightVictimId, equals('victim_p1'));
+      expect(room.blackWolfTargetId, equals('silenced_p2'));
+
+      // Test sans clear : conserve les valeurs précédentes
+      final roomRetained = room.copyWith(round: 2);
+      expect(roomRetained.nightVictimId, equals('victim_p1'));
+      expect(roomRetained.blackWolfTargetId, equals('silenced_p2'));
+
+      // Test avec purge explicite de l'aube
+      final roomCleared = room.copyWith(
+        clearNightVictimId: true,
+        clearBlackWolfTargetId: true,
+      );
+      expect(roomCleared.nightVictimId, isNull, reason: 'nightVictimId doit être purgé à null');
+      expect(roomCleared.blackWolfTargetId, isNull, reason: 'blackWolfTargetId doit être purgé à null');
+    });
+
+    test('PlayerModel.copyWith : clearTargetVote et clearTargetVoteId purgent targetVoteId', () {
+      const player = PlayerModel(
+        id: 'p1',
+        name: 'Player 1',
+        targetVoteId: 'target_x',
+        isAlive: true,
+      );
+
+      expect(player.targetVoteId, equals('target_x'));
+
+      final cleared1 = player.copyWith(clearTargetVote: true);
+      expect(cleared1.targetVoteId, isNull);
+
+      final cleared2 = player.copyWith(clearTargetVoteId: true);
+      expect(cleared2.targetVoteId, isNull);
+    });
+
+    test('Sélection stratégique des Loups : exclusion absolue des cibles mortes', () {
+      final registry = DeathRegistryService.instance;
+      registry.clearForNewGame();
+      registry.markDead('dead_p1');
+
+      final players = {
+        'dead_p1': const PlayerModel(id: 'dead_p1', name: 'Mort P1', isAlive: false),
+        'alive_p2': const PlayerModel(id: 'alive_p2', name: 'Vivant P2', isAlive: true),
+        'alive_p3': const PlayerModel(id: 'alive_p3', name: 'Vivant P3', isAlive: true),
+      };
+
+      // Si nightVictimId dans la room pointe vers un joueur décédé de la nuit précédente
+      final room = GameRoom(
+        roomCode: 'TEST',
+        hostId: 'host',
+        phase: GamePhase.nightWerewolves,
+        nightVictimId: 'dead_p1',
+        blackWolfTargetId: 'dead_p1',
+        players: players,
+      );
+
+      // Simulation du filtrage actif : un joueur mort ne doit JAMAIS être considéré comme victime valide
+      final rawVictimId = room.nightVictimId;
+      final victimPlayer = rawVictimId != null ? room.players[rawVictimId] : null;
+      final effectiveVictimId = (victimPlayer != null && victimPlayer.isAlive && !registry.isDead(rawVictimId!))
+          ? rawVictimId
+          : null;
+
+      expect(effectiveVictimId, isNull, reason: 'Une victime morte ne peut jamais être réutilisée au tour suivant');
+
+      final rawMuteId = room.blackWolfTargetId;
+      final mutePlayer = rawMuteId != null ? room.players[rawMuteId] : null;
+      final effectiveMuteId = (mutePlayer != null && mutePlayer.isAlive && !registry.isDead(rawMuteId!))
+          ? rawMuteId
+          : null;
+
+      expect(effectiveMuteId, isNull, reason: 'Une cible muselée morte ne peut jamais être conservée au tour suivant');
+
+      registry.clearForNewGame();
+    });
   });
 }
-
-
-

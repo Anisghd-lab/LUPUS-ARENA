@@ -490,6 +490,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
                 updatedPlayers[pid] = p.copyWith(hasUsedPoisonPotion: entry.value == true);
               } else if (field == 'hasUsedHealPotion') {
                 updatedPlayers[pid] = p.copyWith(hasUsedHealPotion: entry.value == true);
+              } else if (field == 'targetVoteId') {
+                final targetVal = entry.value?.toString();
+                updatedPlayers[pid] = p.copyWith(
+                  targetVoteId: targetVal,
+                  clearTargetVote: targetVal == null,
+                  clearTargetVoteId: targetVal == null,
+                );
               }
             }
           }
@@ -532,6 +539,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         blackWolfTargetId: updates.containsKey('blackWolfTargetId')
             ? updates['blackWolfTargetId']?.toString()
             : state.room!.blackWolfTargetId,
+        clearBlackWolfTargetId: updates.containsKey('blackWolfTargetId') && updates['blackWolfTargetId'] == null,
         expandedRolesState: updates.containsKey('expandedRolesState')
             ? (updates['expandedRolesState'] is Map
                 ? ExpandedRolesState.fromMap(updates['expandedRolesState'] as Map)
@@ -561,6 +569,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         nightVictimId: updates.containsKey('nightVictimId')
             ? updates['nightVictimId'] as String?
             : state.room!.nightVictimId,
+        clearNightVictimId: updates.containsKey('nightVictimId') && updates['nightVictimId'] == null,
         witchHealed: updates.containsKey('witchHealed')
             ? updates['witchHealed'] == true
             : state.room!.witchHealed,
@@ -1262,6 +1271,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           'logs': logs,
         };
 
+        // Entrée dans le tour des loups : réinitialisation stricte des choix stratégiques de la meute
+        if (next == GamePhase.nightWerewolves) {
+          updates['nightVictimId'] = null;
+          updates['blackWolfTargetId'] = null;
+          updates['public_state/nightVictimId'] = null;
+          updates['public_state/blackWolfTargetId'] = null;
+        }
+
         // Si Cupidon termine sa phase sans choix, lier d'office 2 survivants aléatoires
         if (current == GamePhase.nightCupid) {
           final hasLovers = room.playerList.any((p) => p.isLover);
@@ -1283,10 +1300,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         // Si les loups terminent leur phase, calculer et fixer leur cible pour la Voyante et la Sorcière
         if (current == GamePhase.nightWerewolves) {
           String? wolfVictimId = _tallyWerewolfVotes(realRoles) ?? room.nightVictimId;
+          if (wolfVictimId != null && (room.players[wolfVictimId]?.isAlive != true || DeathRegistryService.instance.isDead(wolfVictimId))) {
+            wolfVictimId = null;
+          }
 
           if (wolfVictimId == null) {
             final innocentLiving = room.alivePlayers
-                .where((p) => !(realRoles[p.id] ?? p.role).isEvil)
+                .where((p) => !(realRoles[p.id] ?? p.role).isEvil && !DeathRegistryService.instance.isDead(p.id))
                 .toList();
             if (innocentLiving.isNotEmpty) {
               final randomVictim =
@@ -1302,9 +1322,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           }
 
           // Double action obligatoire : s'assurer qu'une cible de silence est définie
-          if (room.blackWolfTargetId == null && room.alivePlayers.length >= 2) {
+          String? currentSilenceId = room.blackWolfTargetId;
+          if (currentSilenceId != null && (room.players[currentSilenceId]?.isAlive != true || DeathRegistryService.instance.isDead(currentSilenceId))) {
+            currentSilenceId = null;
+          }
+
+          if (currentSilenceId == null && room.alivePlayers.length >= 2) {
             final silenceCandidates = room.alivePlayers
-                .where((p) => p.id != wolfVictimId)
+                .where((p) => p.id != wolfVictimId && !DeathRegistryService.instance.isDead(p.id))
                 .toList();
             if (silenceCandidates.isNotEmpty) {
               final autoSilenceTarget =
@@ -1509,6 +1534,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['lastProtectedPlayerId'] = room.currentProtectedPlayerId;
       updates['currentProtectedPlayerId'] = null;
       updates['nightVictimId'] = null;
+      updates['blackWolfTargetId'] = null;
+      updates['public_state/nightVictimId'] = null;
+      updates['public_state/blackWolfTargetId'] = null;
       updates['witchHealed'] = false;
       updates['witchPoisonVictimId'] = null;
 
@@ -1650,6 +1678,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           'witchHealed': false,
           'witchPoisonVictimId': null,
           'nightVictimId': null,
+          'blackWolfTargetId': null,
+          'public_state/nightVictimId': null,
+          'public_state/blackWolfTargetId': null,
         });
       } catch (_) {}
     }
@@ -3085,7 +3116,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       debugPrint('[castVote] ⛔ Action bloquée: $voterId est décédé et ne peut pas voter.');
       return;
     }
-    if (targetId != null && DeathRegistryService.instance.isDead(targetId)) {
+    if (targetId != null && (DeathRegistryService.instance.isDead(targetId) || state.room?.players[targetId]?.isAlive == false)) {
       debugPrint('[castVote] ⛔ Action bloquée: impossible de voter contre $targetId qui est déjà décédé.');
       return;
     }
@@ -3117,11 +3148,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return false;
     }
     final target = state.room?.players[targetPlayerId];
-    if (target == null || !target.isAlive) {
+    if (target == null || !target.isAlive || DeathRegistryService.instance.isDead(targetPlayerId)) {
       return false;
     }
     // Interdiction de cibler la proie déjà dévorée de la nuit (inutile de bâillonner un mort)
-    final currentVictimId = state.room?.nightVictimId ?? _tallyWerewolfVotes();
+    final rawVictimId = state.room?.nightVictimId ?? _tallyWerewolfVotes();
+    final victim = rawVictimId != null ? state.room?.players[rawVictimId] : null;
+    final currentVictimId = (victim != null && victim.isAlive && !DeathRegistryService.instance.isDead(victim.id)) ? rawVictimId : null;
     if (currentVictimId == targetPlayerId) {
       return false;
     }
@@ -3706,11 +3739,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         'phase': firstNight.name,
         'round': nextRound,
         'nightVictimId': null,
+        'blackWolfTargetId': null,
+        'public_state/nightVictimId': null,
+        'public_state/blackWolfTargetId': null,
         'witchHealed': false,
         'witchPoisonVictimId': null,
         'seerInspectedTargetId': null,
         'seerInspectedRole': null,
-        'blackWolfTargetId': null,
         'timerSeconds': 45,
         'expandedRolesState': state.room!.expandedRolesState.copyWith(
           mayorSpeechOpeningDone: false,
@@ -3743,7 +3778,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final role = realRoles?[p.id] ?? p.role;
       if ((role.isEvil || role == GameRole.whiteWerewolf || (p.id == state.currentUserId && state.isAdmin)) &&
           p.targetVoteId != null) {
-        votes[p.targetVoteId!] = (votes[p.targetVoteId!] ?? 0) + 1;
+        final target = state.room!.players[p.targetVoteId!];
+        if (target != null && target.isAlive && !DeathRegistryService.instance.isDead(target.id)) {
+          votes[p.targetVoteId!] = (votes[p.targetVoteId!] ?? 0) + 1;
+        }
       }
     }
     if (votes.isEmpty) return null;
@@ -3992,14 +4030,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             data['pendingHunterId']?.toString() ?? state.room!.pendingHunterId,
         pendingCaptainId:
             data['pendingCaptainId']?.toString() ?? state.room!.pendingCaptainId,
-        nightVictimId:
-            data['nightVictimId']?.toString() ?? state.room!.nightVictimId,
+        nightVictimId: data['nightVictimId']?.toString(),
+        clearNightVictimId: data['nightVictimId'] == null,
         witchHealed: data['witchHealed'] == true,
         witchPoisonVictimId: data['witchPoisonVictimId']?.toString() ??
             state.room!.witchPoisonVictimId,
         pyromaniacIgnited: data['pyromaniacIgnited'] == true,
-        blackWolfTargetId:
-            data['blackWolfTargetId']?.toString() ?? state.room!.blackWolfTargetId,
+        blackWolfTargetId: data['blackWolfTargetId']?.toString(),
+        clearBlackWolfTargetId: data['blackWolfTargetId'] == null,
         winner: data['winner']?.toString() ?? state.room!.winner,
         isTieBreakActive: data['isTieBreakActive'] == true,
         morningVictims: data.containsKey('morningVictims')
@@ -5263,6 +5301,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     updates['lastProtectedPlayerId'] = room.currentProtectedPlayerId;
     updates['currentProtectedPlayerId'] = null;
     updates['nightVictimId'] = null;
+    updates['blackWolfTargetId'] = null;
+    updates['public_state/nightVictimId'] = null;
+    updates['public_state/blackWolfTargetId'] = null;
     updates['witchHealed'] = false;
     updates['witchPoisonVictimId'] = null;
     updates['morningVictims'] = allDeaths.toList();

@@ -24,6 +24,7 @@ import '../../services/app_translations.dart';
 import '../../services/audio_manager.dart';
 import '../../services/locale_provider.dart';
 import '../../services/server_time_service.dart';
+import '../../services/death_registry_service.dart';
 import '../bento/language_dialog.dart';
 import 'game_over_screen.dart';
 import 'lobby_screen.dart';
@@ -453,7 +454,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                       ),
                                       onPlayerSelected: (id) {
                                         final target = room.players[id];
-                                        if (target == null || !target.isAlive) return;
+                                        if (target == null || !target.isAlive || DeathRegistryService.instance.isDead(id)) return;
                                         setState(() {
                                           _selectedPlayerId =
                                               (_selectedPlayerId == id)
@@ -496,7 +497,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                     return;
                                   }
                                   final target = room.players[id];
-                                  if (target == null || !target.isAlive) return;
+                                  if (target == null || !target.isAlive || DeathRegistryService.instance.isDead(id)) return;
                                   setState(() {
                                     _selectedPlayerId =
                                         (_selectedPlayerId == id) ? null : id;

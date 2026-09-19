@@ -227,10 +227,21 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
   void _handleWerewolfSelection(String id) {
     final target = widget.room.players[id];
-    if (target == null || !target.isAlive) return;
+    if (target == null || !target.isAlive || DeathRegistryService.instance.isDead(id)) return;
 
-    final victimId = _wolfVictimId ?? widget.room.nightVictimId;
-    final muteId = _wolfMuteId ?? widget.room.blackWolfTargetId;
+    final rawVictimId = _wolfVictimId ?? widget.room.nightVictimId;
+    final victimPlayer = rawVictimId != null ? widget.room.players[rawVictimId] : null;
+    final victimId = (victimPlayer != null && victimPlayer.isAlive && !DeathRegistryService.instance.isDead(rawVictimId!))
+        ? rawVictimId
+        : null;
+
+    final rawMuteId = _wolfMuteId ?? widget.room.blackWolfTargetId;
+    final mutePlayer = (rawMuteId != null && rawMuteId.isNotEmpty)
+        ? widget.room.players[rawMuteId]
+        : null;
+    final muteId = (mutePlayer != null && mutePlayer.isAlive && !DeathRegistryService.instance.isDead(rawMuteId!))
+        ? rawMuteId
+        : null;
 
     if (victimId == null) {
       // 1ère sélection : Dévorer (la proie des loups)
@@ -934,13 +945,21 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
   /// Module Loups-Garous : Sélection multi-cibles séquentielle (1er: Dévorer, 2e: Museler) + Auto-Validation
   Widget _buildWerewolvesSection(PlayerModel me, PlayerModel? selectedTarget) {
-    final effectiveVictimId = _wolfVictimId ?? widget.room.nightVictimId ?? me.targetVoteId;
+    final rawVictimId = _wolfVictimId ?? widget.room.nightVictimId ?? me.targetVoteId;
+    final victimPlayer = rawVictimId != null ? widget.room.players[rawVictimId] : null;
+    final effectiveVictimId = (victimPlayer != null && victimPlayer.isAlive && !DeathRegistryService.instance.isDead(rawVictimId!))
+        ? rawVictimId
+        : null;
     final victim = effectiveVictimId != null ? widget.room.players[effectiveVictimId] : null;
 
-    final effectiveMuteId = _wolfMuteId ?? widget.room.blackWolfTargetId;
-    final muted = (effectiveMuteId != null && effectiveMuteId.isNotEmpty)
-        ? widget.room.players[effectiveMuteId]
+    final rawMuteId = _wolfMuteId ?? widget.room.blackWolfTargetId;
+    final mutePlayer = (rawMuteId != null && rawMuteId.isNotEmpty)
+        ? widget.room.players[rawMuteId]
         : null;
+    final effectiveMuteId = (mutePlayer != null && mutePlayer.isAlive && !DeathRegistryService.instance.isDead(rawMuteId!))
+        ? rawMuteId
+        : null;
+    final muted = effectiveMuteId != null ? widget.room.players[effectiveMuteId] : null;
 
     final isDoubleActionComplete = effectiveVictimId != null &&
         effectiveMuteId != null &&
@@ -1011,14 +1030,14 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 onTap: () {
                   if (effectiveVictimId != null) {
                     // Si une proie est déjà sélectionnée, un clic sur le slot l'annule pour choisir une autre victime
-                    if (selectedTarget != null && selectedTarget.id != effectiveVictimId && selectedTarget.isAlive) {
+                    if (selectedTarget != null && selectedTarget.id != effectiveVictimId && selectedTarget.isAlive && !DeathRegistryService.instance.isDead(selectedTarget.id)) {
                       setState(() => _wolfVictimId = selectedTarget.id);
                       widget.onVote(selectedTarget.id);
                     } else {
                       setState(() => _wolfVictimId = null);
                       widget.onVote(null);
                     }
-                  } else if (selectedTarget != null && selectedTarget.isAlive) {
+                  } else if (selectedTarget != null && selectedTarget.isAlive && !DeathRegistryService.instance.isDead(selectedTarget.id)) {
                     setState(() => _wolfVictimId = selectedTarget.id);
                     widget.onVote(selectedTarget.id);
                   }
@@ -1068,7 +1087,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               child: GestureDetector(
                 onTap: () {
                   if (effectiveMuteId != null) {
-                    if (selectedTarget != null && selectedTarget.id != effectiveMuteId && selectedTarget.isAlive) {
+                    if (selectedTarget != null && selectedTarget.id != effectiveMuteId && selectedTarget.isAlive && !DeathRegistryService.instance.isDead(selectedTarget.id)) {
                       setState(() => _wolfMuteId = selectedTarget.id);
                       widget.onBlackWolfSilence?.call(selectedTarget.id);
                       if (effectiveVictimId != null) {
@@ -1077,7 +1096,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     } else {
                       setState(() => _wolfMuteId = null);
                     }
-                  } else if (selectedTarget != null && selectedTarget.isAlive) {
+                  } else if (selectedTarget != null && selectedTarget.isAlive && !DeathRegistryService.instance.isDead(selectedTarget.id)) {
                     setState(() => _wolfMuteId = selectedTarget.id);
                     widget.onBlackWolfSilence?.call(selectedTarget.id);
                     if (effectiveVictimId != null) {

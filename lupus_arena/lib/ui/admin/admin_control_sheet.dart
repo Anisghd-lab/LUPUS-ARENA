@@ -2386,9 +2386,9 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
             const SizedBox(height: 12),
             Expanded(
               child: ListView.builder(
-                itemCount: GameRole.values.length,
+                itemCount: GameRole.playableRoles.length,
                 itemBuilder: (context, index) {
-                  final role = GameRole.values[index];
+                  final role = GameRole.playableRoles[index];
                   final isCurrent = player.role == role;
 
                   return ListTile(

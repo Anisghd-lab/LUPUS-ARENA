@@ -892,6 +892,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   Future<void> updateRolePool(String roleId, int delta) async {
+    // Le Maire est un titre électif par vote, strictement interdit dans le pool de cartes
+    if (roleId == GameRole.mayor.id || roleId == 'mayor') return;
     if (!state.isHost || _currentRoomRef == null || state.room == null) return;
 
     final currentPool = Map<String, int>.from(state.room!.rolePool);
@@ -4147,6 +4149,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   Future<void> adminForceRole(String playerId, GameRole newRole) async {
+    // Le Maire est un statut électif (géré via captainId), pas une carte de rôle distribuable
+    if (newRole == GameRole.mayor) return;
     if (_currentRoomRef == null || state.room == null) return;
     final target = state.room!.players[playerId];
     if (target == null) return;

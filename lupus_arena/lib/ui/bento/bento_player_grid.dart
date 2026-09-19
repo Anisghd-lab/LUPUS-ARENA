@@ -81,6 +81,8 @@ class BentoPlayerGrid extends StatelessWidget {
         mainAxisSpacing: 8,
       ),
       itemBuilder: (context, index) {
+        final player = players[index];
+        final isMe = player.id == currentUserId;
         final isSpeaking = !player.isBot &&
             player.agoraUid > 0 &&
             (speakingAgoraUids.contains(player.agoraUid) ||

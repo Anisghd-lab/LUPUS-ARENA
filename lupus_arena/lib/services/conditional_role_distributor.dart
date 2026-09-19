@@ -45,6 +45,7 @@ class ConditionalRoleDistributor {
     final List<GameRole> roles = [];
     rolePool.forEach((roleKey, count) {
       final role = GameRole.fromId(roleKey);
+      if (role == GameRole.mayor) return; // Le Maire est un titre électif par scrutin
       for (int i = 0; i < count; i++) {
         roles.add(role);
       }

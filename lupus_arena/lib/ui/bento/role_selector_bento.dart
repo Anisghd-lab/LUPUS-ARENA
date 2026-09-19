@@ -247,7 +247,7 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildFilterChip(0, '${context.tr('filter_all_roles')} (${GameRole.values.length})'),
+                _buildFilterChip(0, '${context.tr('filter_all_roles')} (${GameRole.playableRoles.length})'),
                 const SizedBox(width: 6),
                 _buildFilterChip(1, context.tr('filter_wolves')),
                 const SizedBox(width: 6),
@@ -517,17 +517,17 @@ class _RoleSelectorBentoState extends ConsumerState<RoleSelectorBento> {
   List<GameRole> _getFilteredRoles(int filter) {
     switch (filter) {
       case 1: // Loups
-        return GameRole.values.where((r) => r.isEvil).toList();
+        return GameRole.values.where((r) => r.isEvil && r != GameRole.mayor).toList();
       case 2: // Village
         return GameRole.values
-            .where((r) => !r.isEvil && r.defaultTeam == Team.village)
+            .where((r) => !r.isEvil && r.defaultTeam == Team.village && r != GameRole.mayor)
             .toList();
       case 3: // Solitaires / Neutres
         return GameRole.values
-            .where((r) => !r.isEvil && r.defaultTeam != Team.village)
+            .where((r) => !r.isEvil && r.defaultTeam != Team.village && r != GameRole.mayor)
             .toList();
       default:
-        return GameRole.values;
+        return GameRole.playableRoles;
     }
   }
 }

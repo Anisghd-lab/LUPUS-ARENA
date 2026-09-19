@@ -107,6 +107,13 @@ enum GameRole {
   static GameRole get rustySwordKnight => GameRole.knightRustySword;
   static GameRole get devotedServant => GameRole.servantMaid;
 
+  /// Rôles distribuables/sélectionnables au deck (exclut le Maire qui est élu par vote)
+  static List<GameRole> get playableRoles =>
+      GameRole.values.where((r) => r != GameRole.mayor).toList();
+
+  /// Indique si ce rôle est un rôle distribué au deck
+  bool get isPlayableRole => this != GameRole.mayor;
+
   static GameRole fromId(String id) => GameRoleExtension.fromId(id);
   static GameRole fromString(String? role) => GameRoleExtension.fromString(role);
 }

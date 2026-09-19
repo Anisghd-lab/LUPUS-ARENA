@@ -207,7 +207,7 @@ extension GameRoleExtension on GameRole {
       case GameRole.sectLeader: return 'Abominable Sectaire';
       case GameRole.thiefOfHearts: return 'Voleur d\'Âmes';
 
-      case GameRole.mayor: return 'Capitaine';
+      case GameRole.mayor: return 'Maire';
     }
   }
 

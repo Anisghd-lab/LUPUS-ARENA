@@ -35,7 +35,7 @@ class LobbyScreen extends ConsumerStatefulWidget {
   ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
 }
 
-class _LobbyScreenState extends ConsumerState<LobbyScreen> {
+class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingObserver {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
   bool _isNavigatingToArena = false;
@@ -45,6 +45,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final state = ref.read(gameNotifierProvider);
     _nameController.text = state.currentUserName;
 
@@ -106,7 +107,23 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      LupusAudioManager.instance.pauseLobbyMusic();
+    } else if (state == AppLifecycleState.resumed) {
+      if (ref.read(gameNotifierProvider).room == null) {
+        LupusAudioManager.instance.playLobbyMusic();
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    LupusAudioManager.instance.stopLobbyMusic();
     _nameController.dispose();
     _codeController.dispose();
     super.dispose();
@@ -129,6 +146,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     if (room != null && room.phase != GamePhase.lobby) {
       if (!_isNavigatingToArena) {
         _isNavigatingToArena = true;
+        LupusAudioManager.instance.stopLobbyMusic();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             Navigator.of(context).pushReplacement(

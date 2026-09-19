@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
+import '../../services/fog_of_war_service.dart';
 import '../theme/lupus_theme.dart';
 import 'ghost_death_badge.dart';
 import 'revealed_death_card_overlay.dart';
@@ -541,6 +542,12 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     final seerDiscoveredRole = widget.seerInspectedRoles[player.id];
     final isDead = !player.isAlive;
     final votes = widget.voteCounts?[player.id] ?? 0;
+    final me = widget.players.cast<PlayerModel?>().firstWhere(
+          (p) => p?.id == widget.currentUserId,
+          orElse: () => null,
+        );
+    final myIsLover = me?.isLover ?? false;
+    final myIsCharmed = me?.isCharmed ?? false;
     final isNewCaptainFlashing =
         (player.id == _animatingNewCaptainId) && _captainFlashController.isAnimating;
 
@@ -808,8 +815,13 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                                 ),
                         ),
 
-                      // Badge Amoureux (Cœur - masqué hors local, devmode ou mort)
-                      if (player.isLover && (isMe || isDevMode || isDead))
+                      // Badge Amoureux (Cœur - strictement filtré par FogOfWarService)
+                      if (FogOfWarService.canSeeLoverBadge(
+                        targetIsLover: player.isLover,
+                        observerRole: widget.myRole,
+                        observerIsLover: myIsLover,
+                        isDevMode: isDevMode,
+                      ))
                         Positioned(
                           top: -4,
                           left: -4,
@@ -844,12 +856,13 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                           ),
                         ),
 
-                      // Badge Envoûté (Joueur de Flûte)
-                      if (player.isCharmed &&
-                          (isMe ||
-                              widget.myRole == GameRole.piedPiper ||
-                              isDevMode ||
-                              isDead))
+                      // Badge Envoûté (Joueur de Flûte - strictement filtré par FogOfWarService)
+                      if (FogOfWarService.canSeeCharmedBadge(
+                        targetIsCharmed: player.isCharmed,
+                        observerRole: widget.myRole,
+                        observerIsCharmed: myIsCharmed,
+                        isDevMode: isDevMode,
+                      ))
                         Positioned(
                           bottom: -4,
                           left: 10,

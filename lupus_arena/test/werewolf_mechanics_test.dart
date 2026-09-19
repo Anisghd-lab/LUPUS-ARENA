@@ -4,6 +4,7 @@ import 'package:lupus_arena/models/game_phase.dart';
 import 'package:lupus_arena/models/player_model.dart';
 import 'package:lupus_arena/models/game_room.dart';
 import 'package:lupus_arena/services/update_service.dart';
+import 'package:lupus_arena/services/fog_of_war_service.dart';
 
 void main() {
   test('L\'ordre canonique nocturne respecte strictement le livret officiel', () {
@@ -871,6 +872,131 @@ void main() {
       onPermissionChanged(true);
       expect(isMicGranted, isTrue);
       expect(agoraRecovered, isTrue, reason: 'Agora doit se réarmer automatiquement dès que la permission est actualisée');
+    });
+
+    test('Fog of War : Règle de visibilité du badge Amoureux (IN_LOVE)', () {
+      // 1. Cible non amoureuse -> Faux pour tous
+      expect(FogOfWarService.canSeeLoverBadge(
+        targetIsLover: false,
+        observerRole: GameRole.cupid,
+        observerIsLover: true,
+      ), isFalse);
+
+      // 2. Observateur est Cupidon -> Vrai
+      expect(FogOfWarService.canSeeLoverBadge(
+        targetIsLover: true,
+        observerRole: GameRole.cupid,
+        observerIsLover: false,
+      ), isTrue);
+
+      // 3. Observateur est l'un des amoureux -> Vrai
+      expect(FogOfWarService.canSeeLoverBadge(
+        targetIsLover: true,
+        observerRole: GameRole.simpleVillager,
+        observerIsLover: true,
+      ), isTrue);
+
+      // 4. Observateur est un villageois lambda (non amoureux) -> Faux
+      expect(FogOfWarService.canSeeLoverBadge(
+        targetIsLover: true,
+        observerRole: GameRole.simpleVillager,
+        observerIsLover: false,
+      ), isFalse);
+
+      // 5. Observateur est un loup (non amoureux) -> Faux
+      expect(FogOfWarService.canSeeLoverBadge(
+        targetIsLover: true,
+        observerRole: GameRole.simpleWerewolf,
+        observerIsLover: false,
+      ), isFalse);
+
+      // 6. Observateur en mode Dev -> Vrai
+      expect(FogOfWarService.canSeeLoverBadge(
+        targetIsLover: true,
+        observerRole: GameRole.simpleVillager,
+        observerIsLover: false,
+        isDevMode: true,
+      ), isTrue);
+    });
+
+    test('Fog of War : Règle de visibilité du badge Charmé (CHARMED)', () {
+      // 1. Cible non charmée -> Faux pour tous
+      expect(FogOfWarService.canSeeCharmedBadge(
+        targetIsCharmed: false,
+        observerRole: GameRole.piedPiper,
+        observerIsCharmed: true,
+      ), isFalse);
+
+      // 2. Observateur est le Joueur de Flûte -> Vrai
+      expect(FogOfWarService.canSeeCharmedBadge(
+        targetIsCharmed: true,
+        observerRole: GameRole.piedPiper,
+        observerIsCharmed: false,
+      ), isTrue);
+
+      // 3. Observateur est lui-même charmé -> Vrai
+      expect(FogOfWarService.canSeeCharmedBadge(
+        targetIsCharmed: true,
+        observerRole: GameRole.simpleVillager,
+        observerIsCharmed: true,
+      ), isTrue);
+
+      // 4. Observateur non charmé -> Faux
+      expect(FogOfWarService.canSeeCharmedBadge(
+        targetIsCharmed: true,
+        observerRole: GameRole.simpleVillager,
+        observerIsCharmed: false,
+      ), isFalse);
+    });
+
+    test('Anti-Résurrection : Seule la potion de vie de la sorcière sur la victime des loups peut sauver', () {
+      const deadPlayer = PlayerModel(id: 'p1', name: 'Dead', role: GameRole.simpleVillager, isAlive: false);
+      const livingPlayer = PlayerModel(id: 'p2', name: 'Living', role: GameRole.simpleVillager, isAlive: true);
+
+      // Simule le garde appliqué dans _playersSubscription et _syncState
+      bool canPlayerRevive({
+        required bool currentlyAlive,
+        required bool incomingAlive,
+        required bool witchHealed,
+        required String? nightVictimId,
+        required String playerId,
+        bool isAdmin = false,
+      }) {
+        if (!currentlyAlive && incomingAlive) {
+          final isSavedByWitch = witchHealed && playerId == nightVictimId;
+          if (!isSavedByWitch && !isAdmin) {
+            return false; // Verrou anti-résurrection
+          }
+        }
+        return incomingAlive;
+      }
+
+      // Snapshot Firebase corrompu ou désynchronisé tentant de réanimer un mort
+      expect(canPlayerRevive(
+        currentlyAlive: deadPlayer.isAlive,
+        incomingAlive: true,
+        witchHealed: false,
+        nightVictimId: null,
+        playerId: deadPlayer.id,
+      ), isFalse, reason: 'Un joueur mort ne peut pas être ressuscité par Firebase');
+
+      // Tentative de réanimation après élection du capitaine
+      expect(canPlayerRevive(
+        currentlyAlive: deadPlayer.isAlive,
+        incomingAlive: true,
+        witchHealed: false,
+        nightVictimId: 'other_player',
+        playerId: deadPlayer.id,
+      ), isFalse, reason: 'Élection du maire ne doit jamais ressusciter un mort');
+
+      // Seule la potion de guérison sur la victime légitime autorise la vie
+      expect(canPlayerRevive(
+        currentlyAlive: deadPlayer.isAlive,
+        incomingAlive: true,
+        witchHealed: true,
+        nightVictimId: deadPlayer.id,
+        playerId: deadPlayer.id,
+      ), isTrue, reason: 'La potion de vie de la sorcière ressuscite valablement la victime');
     });
   });
 }

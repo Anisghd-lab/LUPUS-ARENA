@@ -116,7 +116,7 @@ class LupusAvatars {
     ),
     LupusAvatarItem(
       id: 10,
-      name: 'Capitaine / Maire',
+      name: 'Maire',
       emoji: '👑',
       icon: Icons.military_tech_rounded,
       gradientColors: [Color(0xFFB45309), Color(0xFF78350F), Color(0xFF321303)],

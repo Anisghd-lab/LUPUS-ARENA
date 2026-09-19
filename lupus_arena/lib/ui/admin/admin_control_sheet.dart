@@ -1539,7 +1539,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
       },
       {
         'phase': GamePhase.captainElection,
-        'label': 'Élection Capitaine',
+        'label': 'Élection Maire',
         'icon': '⭐',
         'color': LupusColors.arcaneGold,
       },
@@ -2020,7 +2020,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     ),
                     const SizedBox(width: 6),
 
-                    // Nommer Capitaine
+                    // Nommer Maire
                     Expanded(
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
@@ -2033,10 +2033,10 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                         ),
                         onPressed: () {
                           notifier.adminForceCaptain(player.id);
-                          _showToast('${player.name} est Capitaine');
+                          _showToast('${player.name} est Maire');
                         },
                         child: const Text(
-                          '⭐ Capitaine',
+                          '⭐ Maire',
                           style: TextStyle(
                               fontSize: 11, fontWeight: FontWeight.w800),
                         ),

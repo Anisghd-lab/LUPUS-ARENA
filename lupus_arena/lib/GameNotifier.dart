@@ -380,7 +380,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
               if (field == 'isAlive') {
                 final val = entry.value;
                 final isDead = (val == false || val == 'false' || val == 0 || val == '0');
-                updatedPlayers[pid] = p.copyWith(isAlive: !isDead);
+                final bool isWitchHeal = (state.room?.witchHealed == true && pid == state.room?.nightVictimId) ||
+                    (updates['witchHealed'] == true && pid == updates['nightVictimId']);
+                if (!isDead && !p.isAlive && !isWitchHeal && !state.isAdmin) {
+                  updatedPlayers[pid] = p.copyWith(isAlive: false);
+                } else {
+                  updatedPlayers[pid] = p.copyWith(isAlive: !isDead);
+                }
               } else if (field == 'role') {
                 updatedPlayers[pid] = p.copyWith(role: GameRole.fromId(entry.value.toString()));
               } else if (field == 'isCaptain') {
@@ -622,27 +628,20 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           isOnline: true,
         );
 
-        final playerUpdates = <String, dynamic>{
-          'id': state.currentUserId,
-          'agoraUid': state.agoraUid,
-          'socketId': currentSocketId,
-          'name': state.currentUserName,
-          'avatarIndex': state.currentUserAvatar,
-          'isOnline': true,
-          'lastSeen': ServerValue.timestamp,
-          'lastReconnectedAt': ServerValue.timestamp,
+        final leafPlayerUpdates = <String, dynamic>{
+          'players/${state.currentUserId}/id': state.currentUserId,
+          'players/${state.currentUserId}/agoraUid': state.agoraUid,
+          'players/${state.currentUserId}/socketId': currentSocketId,
+          'players/${state.currentUserId}/name': state.currentUserName,
+          'players/${state.currentUserId}/avatarIndex': state.currentUserAvatar,
+          'players/${state.currentUserId}/isOnline': true,
+          'players/${state.currentUserId}/lastSeen': ServerValue.timestamp,
+          'players/${state.currentUserId}/lastReconnectedAt': ServerValue.timestamp,
+          'logs': updatedLogs,
         };
 
-        final updatedLogs = [
-          ...room.logs,
-          '🔄 ${state.currentUserName} s\'est reconnecté(e) au salon.',
-        ];
-
-        // ── Écriture atomique unique (joueur + logs) : rooms/$cleanCode ──
-        await _updateRoomState(cleanCode, {
-          'players/${state.currentUserId}': playerUpdates,
-          'logs': updatedLogs,
-        });
+        // ── Écriture atomique unique par clés feuilles (préserve isAlive, rôles et états) ──
+        await _updateRoomState(cleanCode, leafPlayerUpdates);
 
         try {
           final playerRef = _database.ref('rooms/$cleanCode/players/${state.currentUserId}');
@@ -1576,7 +1575,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['phase'] = GamePhase.mayorElection.name;
       updates['timerSeconds'] = 15;
       logs.add(
-        '🗳️ Jour 1 : Le village se rassemble pour élire son premier Capitaine / Maire !',
+        '🗳️ Jour 1 : Le village se rassemble pour élire son premier Maire !',
       );
       return;
     }
@@ -1875,7 +1874,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         topCandidates.contains(captain.targetVoteId)) {
       final deciderTarget = captain.targetVoteId!;
       logs.add(
-        '🎖️ Le Capitaine ${captain.name} tranche l\'égalité et condamne ${room.players[deciderTarget]?.name} !',
+        '🎖️ Le Maire ${captain.name} tranche l\'égalité et condamne ${room.players[deciderTarget]?.name} !',
       );
       await _executeCondemnedPlayer(deciderTarget, room, updates, logs);
       return;
@@ -3041,7 +3040,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         isMayorSuccessionPending: false,
       ).toMap(),
     };
-    // Retirer explicitement l'écharpe et le titre du capitaine défunt
+    // Retirer explicitement l'écharpe et le titre du maire défunt
     if (room.captainId != null && room.captainId != successorId) {
       updates['players/${room.captainId}/isCaptain'] = false;
     }
@@ -3050,9 +3049,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['players/${room.pendingCaptainId}/isCaptain'] = false;
     }
 
+    // Confirmation explicite de l'état de mort pour tous les défunts
+    for (final p in room.playerList) {
+      if (!p.isAlive) {
+        updates['players/${p.id}/isAlive'] = false;
+      }
+    }
+
     final logs = List<String>.from(room.logs);
     logs.add(
-      '🎖️ Le défunt Maire / Capitaine transmet son écharpe à ${successor.name}, nouveau chef du village !',
+      '🎖️ Le défunt Maire transmet son écharpe à ${successor.name}, nouveau chef du village !',
     );
 
     if (room.morningVictims.isNotEmpty) {
@@ -3175,6 +3181,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         isMayorElected: true,
       ).toMap(),
     };
+    // Confirmation explicite de l'état de mort pour tous les défunts
+    for (final p in room.playerList) {
+      if (!p.isAlive) {
+        updates['players/${p.id}/isAlive'] = false;
+      }
+    }
+
     final logs = List<String>.from(room.logs);
     logs.add(electionResult.logMessage);
 
@@ -3659,6 +3672,23 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             );
           }
         }
+      // GARDE STRICT ANTI-RÉSURRECTION :
+      // Un joueur éliminé (isAlive == false) ne peut JAMAIS revenir à la vie,
+      // sauf si la Sorcière a utilisé sa potion de vie (witchHealed == true) sur la victime de nuit.
+      if (state.room != null && state.room!.players.isNotEmpty) {
+        final localPlayers = state.room!.players;
+        final bool witchHealed = state.room!.witchHealed;
+        final String? nightVictimId = state.room!.nightVictimId;
+
+        parsedPlayers.forEach((pid, p) {
+          final localP = localPlayers[pid];
+          if (localP != null && !localP.isAlive) {
+            final bool isSavedByWitchPotion = witchHealed && pid == nightVictimId;
+            if (!isSavedByWitchPotion && p.isAlive && !state.isAdmin) {
+              parsedPlayers[pid] = p.copyWith(isAlive: false);
+            }
+          }
+        });
       }
 
       final updatedRoom = state.room!.copyWith(players: parsedPlayers);
@@ -4216,7 +4246,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['players/${p.id}/isCaptain'] = (p.id == playerId);
     }
     final log =
-        '[ADMIN] ${target.name} a été proclamé(e) Capitaine par le Maître du Jeu.';
+        '[ADMIN] ${target.name} a été proclamé(e) Maire par le Maître du Jeu.';
     updates['logs'] = List<String>.from(state.room!.logs)..insert(0, log);
 
     await _syncState(updates);

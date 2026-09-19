@@ -1,11 +1,36 @@
 # 🐺 LUPUS ARENA — Jeu du Loup-Garou Vocal & Tactique en Temps Réel
 
-[![Version](https://img.shields.io/badge/version-2.3.9%2B56-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
+[![Version](https://img.shields.io/badge/version-2.4.0%2B57-gold.svg)](https://github.com/Anisghd-lab/LUPUS-ARENA)
 [![Flutter](https://img.shields.io/badge/Flutter-3.13%2B-blue.svg)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Realtime%20Database-orange.svg)](https://firebase.google.com)
 [![Agora](https://img.shields.io/badge/Agora-RTC%20Voice-purple.svg)](https://www.agora.io)
 
 Lupus Arena est une adaptation mobile haute performance du célèbre jeu des Loups-Garous, combinant audio spatialisé temps réel (Agora RTC Engine), synchronisation d'état atomique chiffrée (Firebase Realtime Database) et interface sombre obsidian/or gothique.
+
+---
+
+## 🚀 Notes de Version — Release v2.4.0 (Build 57)
+
+### 🛡️ Verrouillage Anti-Résurrection Absolu (Fix Post-Élection du Maire & Synchronisation Firebase)
+- **Impossibilité de Résurrection :** Un joueur éliminé (`isAlive == false`) ne peut plus jamais revenir à la vie au cours de la partie, sous aucun prétexte, sauf par la potion de guérison miraculeuse de la Sorcière (`witchHealed`) sur la victime nocturne légitime.
+- **Protection du Listener `players/` :** Le flux Firebase `_playersSubscription` ne peut plus écraser l'état de mort local par un snapshot partiel ou désynchronisé.
+- **Ré-affirmation Explicite :** Lors de l'élection du Maire et de sa passation de pouvoir (testament), l'état `isAlive: false` de tous les défunts est re-confirmé dans les transactions atomiques.
+- **Reconnexion Sécurisée (`joinRoom`) :** Les mises à jour de reconnexion s'exécutent désormais sur les clés feuilles individuelles, empêchant l'écrasement ou l'omission accidentelle du champ `isAlive` dans Firebase.
+
+### 🎖️ Unification Totale : Titre Canonique de "Maire"
+- **Dénomination Unique :** Harmonisation complète de tous les textes, boutons, journaux d'arène, badges et vues du jeu sous l'appellation officielle de **Maire** (remplaçant les dénominations hétérogènes "Capitaine", "Capitaine / Maire").
+- **Élection & Testament :** « Élection du Maire », « Testament du Maire », « Succession du Maire », badge « ⭐ Maire (Voix double) ».
+
+### 💘 Séquence Canonique de Cupidon & Suppression de Sous-Phase Redondante
+- **Liaison Directe :** Cupidon unit les deux amants immédiatement lors de son action nocturne sans sous-phase intermédiaire : les statuts `isLover = true` et `loverId` sont instantanément synchronisés avec notifications directes.
+
+### 🌫️ Brouillard de Guerre Strict (Fog of War & Badges Cachés)
+- **Badge Amoureux :** Visible **uniquement** par Cupidon et par les deux amoureux eux-mêmes. Totalement masqué pour le reste du village et les autres spectateurs.
+- **Badge Charmé :** Visible **uniquement** par le Joueur de Flûte et par l'ensemble des joueurs sous hypnose (qui se reconnaissent mutuellement).
+- **Badge Infecté :** Visible exclusivement par la cible infectée et l'ensemble de la meute de loups.
+
+### 🎵 Étanchéité Audio Absolue du Lobby
+- **Cycle de Vie Strict :** La bande sonore `son-lupus.mp3` est rattachée au cycle de vie du Lobby via `WidgetsBindingObserver` : mise en pause automatique en arrière-plan et extinction immédiate lors de toute entrée en salon ou en arène.
 
 ---
 

@@ -101,10 +101,10 @@ enum GamePhase {
         return 'Dernier Souffle du Chasseur !';
       case GamePhase.captainSuccession:
       case GamePhase.mayorSuccession:
-        return 'Succession du Capitaine';
+        return 'Succession du Maire';
       case GamePhase.captainElection:
       case GamePhase.mayorElection:
-        return 'Élection du Capitaine du Village';
+        return 'Élection du Maire du Village';
       case GamePhase.mayorSpeechOpening:
         return 'Discours d\'Ouverture du Maire';
       case GamePhase.dayDebate:

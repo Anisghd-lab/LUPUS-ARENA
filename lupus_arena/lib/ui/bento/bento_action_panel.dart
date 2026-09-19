@@ -1652,7 +1652,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Testament du Capitaine',
+                          'Testament du Maire',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
@@ -1922,7 +1922,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Le Capitaine agonisant choisit son successeur...',
+                      'Le Maire agonisant choisit son successeur...',
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,

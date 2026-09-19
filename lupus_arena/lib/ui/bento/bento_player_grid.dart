@@ -101,6 +101,13 @@ class BentoPlayerGrid extends StatelessWidget {
         final isWolfPeer = isMeWolfTeam && isOtherWolf;
         final seerRole = seerInspectedRoles[player.id];
 
+        final me = players.cast<PlayerModel?>().firstWhere(
+              (p) => p?.id == currentUserId,
+              orElse: () => null,
+            );
+        final myIsLover = me?.isLover ?? false;
+        final myIsCharmed = me?.isCharmed ?? false;
+
         return BentoPlayerTile(
           player: player,
           isMe: isMe,
@@ -112,6 +119,8 @@ class BentoPlayerGrid extends StatelessWidget {
           seerDiscoveredRole: seerRole,
           isDevMode: isDevMode,
           myRole: myRole,
+          myIsLover: myIsLover,
+          myIsCharmed: myIsCharmed,
           onTap: onPlayerSelected != null
               ? () => onPlayerSelected!(player.id)
               : null,

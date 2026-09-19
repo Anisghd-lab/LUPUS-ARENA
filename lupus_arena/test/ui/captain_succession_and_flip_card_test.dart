@@ -6,7 +6,7 @@ import 'package:lupus_arena/ui/bento/bento_action_panel.dart';
 import 'package:lupus_arena/ui/overlays/revealed_death_card_overlay.dart';
 
 void main() {
-  group('UI - Succession du Capitaine', () {
+  group('UI - Succession du Maire', () {
     testWidgets('Affiche la bannière spectateur immersive pour le village', (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -23,11 +23,11 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('Le Capitaine agonisant choisit son successeur...'), findsOneWidget);
+      expect(find.textContaining('Le Maire agonisant choisit son successeur...'), findsOneWidget);
       expect(find.text('10'), findsOneWidget);
     });
 
-    testWidgets('Affiche le testament interactif pour le capitaine mourant', (WidgetTester tester) async {
+    testWidgets('Affiche le testament interactif pour le maire mourant', (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -46,7 +46,7 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('Testament du Capitaine'), findsOneWidget);
+      expect(find.textContaining('Testament du Maire'), findsOneWidget);
       expect(find.text('Bob'), findsOneWidget);
       expect(find.text('Claire'), findsOneWidget);
     });

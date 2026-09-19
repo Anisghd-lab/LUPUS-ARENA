@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
+import '../../services/fog_of_war_service.dart';
 import '../theme/lupus_avatars.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_card.dart';
@@ -19,6 +20,8 @@ class BentoPlayerTile extends StatelessWidget {
   final GameRole? seerDiscoveredRole;
   final bool isDevMode;
   final GameRole myRole;
+  final bool myIsLover;
+  final bool myIsCharmed;
   final VoidCallback? onTap;
 
   const BentoPlayerTile({
@@ -33,6 +36,8 @@ class BentoPlayerTile extends StatelessWidget {
     this.seerDiscoveredRole,
     this.isDevMode = false,
     this.myRole = GameRole.simpleVillager,
+    this.myIsLover = false,
+    this.myIsCharmed = false,
     this.onTap,
   });
 
@@ -296,9 +301,24 @@ class BentoPlayerTile extends StatelessWidget {
                   const Text('🔮', style: TextStyle(fontSize: 10)),
                   const SizedBox(width: 2),
                 ],
-                if (player.isLover && (isMe || isDevMode || isDead)) ...[
+                if (FogOfWarService.canSeeLoverBadge(
+                  targetIsLover: player.isLover,
+                  observerRole: myRole,
+                  observerIsLover: myIsLover,
+                  isDevMode: isDevMode,
+                )) ...[
                   const Icon(Icons.favorite_rounded,
                       size: 11, color: LupusColors.bloodRed),
+                  const SizedBox(width: 2),
+                ],
+                if (FogOfWarService.canSeeCharmedBadge(
+                  targetIsCharmed: player.isCharmed,
+                  observerRole: myRole,
+                  observerIsCharmed: myIsCharmed,
+                  isDevMode: isDevMode,
+                )) ...[
+                  const Icon(Icons.music_note_rounded,
+                      size: 11, color: Color(0xFF06D6A0)),
                   const SizedBox(width: 2),
                 ],
                 if (player.isDoused && (isMe || myRole == GameRole.pyromaniac || isDevMode || isDead)) ...[

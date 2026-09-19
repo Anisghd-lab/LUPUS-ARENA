@@ -89,7 +89,7 @@ class MayorCoordinator {
         mayorName: winner.name,
         votesReceived: maxVotes,
         logMessage:
-            '🎖️ ${winner.name} est élu Capitaine / Maire du Village avec $maxVotes voix ! Sa voix comptera désormais double.',
+            '🎖️ ${winner.name} est élu Maire du Village avec $maxVotes voix ! Sa voix comptera désormais double.',
       );
     }
 
@@ -103,7 +103,7 @@ class MayorCoordinator {
       mayorName: fallbackWinner.name,
       votesReceived: 0,
       logMessage:
-          '🎖️ Faute de suffrages, ${fallbackWinner.name} est désigné Capitaine / Maire d\'office par le village.',
+          '🎖️ Faute de suffrages, ${fallbackWinner.name} est désigné Maire d\'office par le village.',
     );
   }
 

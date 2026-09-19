@@ -186,7 +186,12 @@ class GameRoom {
     return counts;
   }
 
-  /// Retourne l'identifiant du suspect ciblé par le vote du Maire (Capitaine), s'il existe et a voté
+  /// Unification du titre de Maire
+  String? get mayorId => captainId ?? expandedRolesState.mayorPlayerId;
+  String? get pendingMayorId => pendingCaptainId;
+
+  /// Retourne l'identifiant du suspect ciblé par le vote du Maire, s'il existe et a voté
+  String? get mayorTargetVoteId => captainTargetVoteId;
   String? get captainTargetVoteId {
     for (final player in alivePlayers) {
       if (player.isCaptain && player.targetVoteId != null && player.targetVoteId!.isNotEmpty) {

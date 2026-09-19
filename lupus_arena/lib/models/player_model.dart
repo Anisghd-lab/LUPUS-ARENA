@@ -77,6 +77,9 @@ class PlayerModel {
   GameRole get roleInitial => initialRole ?? role;
   GameRole get trueOriginalRole => initialRole ?? role;
 
+  /// Unification du titre de Maire
+  bool get isMayor => isCaptain;
+
   PlayerModel copyWith({
     String? id,
     String? name,

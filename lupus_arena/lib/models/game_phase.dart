@@ -10,7 +10,9 @@ enum GamePhase {
   nightDefender, // Salvateur / Protecteur
   nightWerewolves, // Loups-Garous & Petite Fille
   nightBlackWolf, // Loup Noir (Réduit un joueur au silence)
+  nightWhiteWerewolf, // Loup-Garou Blanc (Nuits paires)
   nightSeer, // Voyante
+  nightFox, // Renard (Flaire un groupe de 3 joueurs)
   nightWitch, // Sorcière
   nightPiper, // Joueur de Flûte (Envoûte les villageois)
   nightPyromaniac, // Pyromane (Asperger ou Brûler)
@@ -45,6 +47,8 @@ enum GamePhase {
     if (phase == 'MAYOR_SPEECH_CLOSING' || phase == 'mayorSpeechClosing') return GamePhase.mayorSpeechClosing;
     if (phase == 'NUIT_SORCIERE' || phase == 'nightWitch') return GamePhase.nightWitch;
     if (phase == 'NUIT_VOYANTE' || phase == 'nightSeer') return GamePhase.nightSeer;
+    if (phase == 'NUIT_RENARD' || phase == 'nightFox') return GamePhase.nightFox;
+    if (phase == 'NUIT_LOUP_BLANC' || phase == 'nightWhiteWerewolf') return GamePhase.nightWhiteWerewolf;
     if (phase == 'NUIT_LOUPS' || phase == 'nightWerewolves') return GamePhase.nightWerewolves;
     if (phase == 'NUIT_JOUEUR_DE_FLUTE' || phase == 'nightPiper') return GamePhase.nightPiper;
     if (phase == 'NUIT_VOLEUR' || phase == 'nightThief') return GamePhase.nightThief;
@@ -83,12 +87,16 @@ enum GamePhase {
         return 'Nuit - Tour de Cupidon';
       case GamePhase.nightDefender:
         return 'Nuit - Le Salvateur protège un villageois';
-      case GamePhase.nightSeer:
-        return 'Nuit - La Voyante sonde une âme';
       case GamePhase.nightWerewolves:
         return 'Nuit - Les Loups-Garous chassent';
       case GamePhase.nightBlackWolf:
         return 'Nuit - Le Loup Noir réduit un joueur au silence';
+      case GamePhase.nightWhiteWerewolf:
+        return 'Nuit - Le Loup-Garou Blanc chasse en solitaire';
+      case GamePhase.nightSeer:
+        return 'Nuit - La Voyante sonde une âme';
+      case GamePhase.nightFox:
+        return 'Nuit - Le Renard flaire les pistes';
       case GamePhase.nightWitch:
         return 'Nuit - La Sorcière utilise ses potions';
       case GamePhase.nightPiper:
@@ -136,12 +144,16 @@ enum GamePhase {
         return 'Deux destins sont liés à jamais : si l\'un trépasse, l\'autre meurt de chagrin.';
       case GamePhase.nightDefender:
         return 'Le salvateur immunise un habitant cette nuit (interdiction de répéter deux nuits de suite).';
-      case GamePhase.nightSeer:
-        return 'La voyante perce à jour la carte d\'un habitant de son choix.';
       case GamePhase.nightWerewolves:
         return 'Les loups votent et débattent en secret. La petite fille écoute passivement.';
       case GamePhase.nightBlackWolf:
         return 'Le Loup Noir choisit un joueur vivant pour lui couper la parole (micro désactivé) toute la journée suivante.';
+      case GamePhase.nightWhiteWerewolf:
+        return 'Le Loup Blanc peut dévorer un autre loup en secret pour rester le seul survivant.';
+      case GamePhase.nightSeer:
+        return 'La voyante perce à jour la carte d\'un habitant de son choix.';
+      case GamePhase.nightFox:
+        return 'Le renard flaire un groupe de 3 joueurs adjacents pour y débusquer un loup.';
       case GamePhase.nightWitch:
         return 'La sorcière découvre la victime des loups et choisit d\'utiliser guérison ou poison.';
       case GamePhase.nightPiper:
@@ -183,13 +195,15 @@ enum GamePhase {
         this == GamePhase.nightDefender ||
         this == GamePhase.nightWerewolves ||
         this == GamePhase.nightBlackWolf ||
+        this == GamePhase.nightWhiteWerewolf ||
         this == GamePhase.nightSeer ||
+        this == GamePhase.nightFox ||
         this == GamePhase.nightWitch ||
         this == GamePhase.nightPiper ||
         this == GamePhase.nightPyromaniac;
   }
 
-  /// Indice d'ordonnancement strict et irréversible pour la phase nocturne (1 à 10)
+  /// Indice d'ordonnancement strict et irréversible pour la phase nocturne (1 à 12)
   int get nightOrderIndex {
     switch (this) {
       case GamePhase.nightThief:
@@ -202,16 +216,20 @@ enum GamePhase {
         return 4;
       case GamePhase.nightBlackWolf:
         return 5;
-      case GamePhase.nightSeer:
+      case GamePhase.nightWhiteWerewolf:
         return 6;
-      case GamePhase.nightWitch:
+      case GamePhase.nightSeer:
         return 7;
-      case GamePhase.nightPiper:
+      case GamePhase.nightFox:
         return 8;
-      case GamePhase.nightPyromaniac:
+      case GamePhase.nightWitch:
         return 9;
-      case GamePhase.morningAnnouncement:
+      case GamePhase.nightPiper:
         return 10;
+      case GamePhase.nightPyromaniac:
+        return 11;
+      case GamePhase.morningAnnouncement:
+        return 12;
       default:
         return 0;
     }
@@ -244,7 +262,11 @@ enum GamePhase {
         return 40;
       case GamePhase.nightBlackWolf:
         return 20;
+      case GamePhase.nightWhiteWerewolf:
+        return 20;
       case GamePhase.nightSeer:
+        return 20;
+      case GamePhase.nightFox:
         return 20;
       case GamePhase.nightWitch:
         return 25;
@@ -291,12 +313,16 @@ enum GamePhase {
         return Icons.favorite_rounded;
       case GamePhase.nightDefender:
         return Icons.security_rounded;
-      case GamePhase.nightSeer:
-        return Icons.visibility_rounded;
       case GamePhase.nightWerewolves:
         return Icons.nights_stay_rounded;
       case GamePhase.nightBlackWolf:
         return Icons.volume_off_rounded;
+      case GamePhase.nightWhiteWerewolf:
+        return Icons.brightness_7_rounded;
+      case GamePhase.nightSeer:
+        return Icons.visibility_rounded;
+      case GamePhase.nightFox:
+        return Icons.pest_control_rounded;
       case GamePhase.nightWitch:
         return Icons.science_rounded;
       case GamePhase.nightPiper:

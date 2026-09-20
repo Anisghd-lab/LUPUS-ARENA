@@ -579,6 +579,18 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                           onPyromaniacPass: () => ref
                               .read(gameNotifierProvider.notifier)
                               .pyromaniacPass(),
+                          onFoxSniff: (targetId) => ref
+                              .read(gameNotifierProvider.notifier)
+                              .foxSniff(targetId),
+                          onFoxPass: () => ref
+                              .read(gameNotifierProvider.notifier)
+                              .foxPass(),
+                          onWhiteWolfDevour: (targetId) => ref
+                              .read(gameNotifierProvider.notifier)
+                              .whiteWolfDevour(targetId),
+                          onWhiteWolfPass: () => ref
+                              .read(gameNotifierProvider.notifier)
+                              .whiteWolfPass(),
                           onBlackWolfSilence: (targetId) => ref
                               .read(gameNotifierProvider.notifier)
                               .werewolfSilence(targetId),

@@ -14,8 +14,10 @@ void main() {
     expect(GamePhase.nightCupid.index, lessThan(GamePhase.nightDefender.index));
     expect(GamePhase.nightDefender.index, lessThan(GamePhase.nightWerewolves.index));
     expect(GamePhase.nightWerewolves.index, lessThan(GamePhase.nightBlackWolf.index));
-    expect(GamePhase.nightBlackWolf.index, lessThan(GamePhase.nightSeer.index));
-    expect(GamePhase.nightSeer.index, lessThan(GamePhase.nightWitch.index));
+    expect(GamePhase.nightBlackWolf.index, lessThan(GamePhase.nightWhiteWerewolf.index));
+    expect(GamePhase.nightWhiteWerewolf.index, lessThan(GamePhase.nightSeer.index));
+    expect(GamePhase.nightSeer.index, lessThan(GamePhase.nightFox.index));
+    expect(GamePhase.nightFox.index, lessThan(GamePhase.nightWitch.index));
     expect(GamePhase.nightWitch.index, lessThan(GamePhase.nightPyromaniac.index));
     expect(GamePhase.nightPyromaniac.index, lessThan(GamePhase.morningAnnouncement.index));
   });

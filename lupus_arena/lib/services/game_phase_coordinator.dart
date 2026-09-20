@@ -33,12 +33,14 @@ class GamePhaseCoordinator {
 
   /// Séquence canonique stricte des nuits :
   /// 1: Voleur (Nuit 1) -> 2: Cupidon (Nuit 1) -> 3: Salvateur -> 4: Loups-Garous ->
-  /// 5: Loup Noir -> 6: Voyante -> 7: Sorcière -> 8: Joueur de Flûte -> 9: Pyromane -> 10: Aube
+  /// 5: Loup Noir -> 6: Loup Blanc (Paires) -> 7: Voyante -> 8: Renard -> 9: Sorcière ->
+  /// 10: Joueur de Flûte -> 11: Pyromane -> 12: Aube
   GamePhase getNextNightPhase({
     required GamePhase current,
     required int round,
     required Map<String, PlayerModel> players,
     Map<String, GameRole>? realRoles,
+    ExpandedRolesState? expandedRolesState,
   }) {
     GameRole getRole(PlayerModel p) => realRoles?[p.id] ?? p.role;
 
@@ -77,6 +79,16 @@ class GamePhaseCoordinator {
       return seer != null && seer.visionsRestantes > 0;
     }
 
+    // RÈGLE CANONIQUE : Renard actif si flair encore puissant
+    bool hasActiveFox() {
+      if (expandedRolesState != null &&
+          (!expandedRolesState.foxPowerActive ||
+              expandedRolesState.ancientPowerLost)) {
+        return false;
+      }
+      return hasAlive(GameRole.fox);
+    }
+
     GamePhase findNext(int afterIndex) {
       if (afterIndex < 1 && round == 1 && (hasAlive(GameRole.thief) || hasAlive(GameRole.thiefOfHearts))) {
         return GamePhase.nightThief;
@@ -90,16 +102,25 @@ class GamePhaseCoordinator {
       if (afterIndex < 4 && hasAliveWerewolves()) {
         return GamePhase.nightWerewolves;
       }
-      if (afterIndex < 6 && hasActiveSeer()) {
+      if (afterIndex < 5 && hasAlive(GameRole.blackWolf)) {
+        return GamePhase.nightBlackWolf;
+      }
+      if (afterIndex < 6 && round > 1 && round % 2 == 0 && hasAlive(GameRole.whiteWerewolf)) {
+        return GamePhase.nightWhiteWerewolf;
+      }
+      if (afterIndex < 7 && hasActiveSeer()) {
         return GamePhase.nightSeer;
       }
-      if (afterIndex < 7 && hasActiveWitch()) {
+      if (afterIndex < 8 && hasActiveFox()) {
+        return GamePhase.nightFox;
+      }
+      if (afterIndex < 9 && hasActiveWitch()) {
         return GamePhase.nightWitch;
       }
-      if (afterIndex < 8 && hasAlive(GameRole.piedPiper)) {
+      if (afterIndex < 10 && hasAlive(GameRole.piedPiper)) {
         return GamePhase.nightPiper;
       }
-      if (afterIndex < 9 && hasAlive(GameRole.pyromaniac)) {
+      if (afterIndex < 11 && hasAlive(GameRole.pyromaniac)) {
         return GamePhase.nightPyromaniac;
       }
       return GamePhase.morningAnnouncement;

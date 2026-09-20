@@ -24,6 +24,8 @@ class ExpandedRolesState {
   final bool scapegoatNeedsToBan;
   final bool hasUsedInfection;
 
+  final String? whiteWolfTargetId;
+
   // --- ÉTAT DU MAIRE (CAPITAINE) DU VILLAGE ---
   final String? mayorPlayerId;
   final bool isMayorElected;
@@ -53,6 +55,7 @@ class ExpandedRolesState {
     this.bearGrowledThisMorning = false,
     this.scapegoatNeedsToBan = false,
     this.hasUsedInfection = false,
+    this.whiteWolfTargetId,
     this.mayorPlayerId,
     this.isMayorElected = false,
     this.pendingMayorSuccessorId,
@@ -85,6 +88,7 @@ class ExpandedRolesState {
     bool? bearGrowledThisMorning,
     bool? scapegoatNeedsToBan,
     bool? hasUsedInfection,
+    String? whiteWolfTargetId,
     String? mayorPlayerId,
     bool? isMayorElected,
     String? pendingMayorSuccessorId,
@@ -118,6 +122,7 @@ class ExpandedRolesState {
           bearGrowledThisMorning ?? this.bearGrowledThisMorning,
       scapegoatNeedsToBan: scapegoatNeedsToBan ?? this.scapegoatNeedsToBan,
       hasUsedInfection: hasUsedInfection ?? this.hasUsedInfection,
+      whiteWolfTargetId: whiteWolfTargetId ?? this.whiteWolfTargetId,
       mayorPlayerId: mayorPlayerId ?? this.mayorPlayerId,
       isMayorElected: isMayorElected ?? this.isMayorElected,
       pendingMayorSuccessorId:
@@ -155,6 +160,7 @@ class ExpandedRolesState {
       'bearGrowledThisMorning': bearGrowledThisMorning,
       'scapegoatNeedsToBan': scapegoatNeedsToBan,
       'hasUsedInfection': hasUsedInfection,
+      'whiteWolfTargetId': whiteWolfTargetId,
       'mayorPlayerId': mayorPlayerId,
       'isMayorElected': isMayorElected,
       'pendingMayorSuccessorId': pendingMayorSuccessorId,
@@ -234,6 +240,7 @@ class ExpandedRolesState {
           map['bearGrowledThisMorning'] as bool? ?? false,
       scapegoatNeedsToBan: map['scapegoatNeedsToBan'] as bool? ?? false,
       hasUsedInfection: map['hasUsedInfection'] as bool? ?? false,
+      whiteWolfTargetId: map['whiteWolfTargetId']?.toString(),
       mayorPlayerId: map['mayorPlayerId']?.toString(),
       isMayorElected: map['isMayorElected'] as bool? ?? false,
       pendingMayorSuccessorId: map['pendingMayorSuccessorId']?.toString(),

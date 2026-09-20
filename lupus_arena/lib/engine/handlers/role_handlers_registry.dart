@@ -2,22 +2,34 @@ import '../../models/game_role.dart';
 import '../../models/game_state.dart';
 import 'abominable_sectarian_handler.dart';
 import 'actor_handler.dart';
+import 'angel_handler.dart';
 import 'bear_tamer_handler.dart';
 import 'big_bad_wolf_handler.dart';
+import 'black_wolf_handler.dart';
 import 'crow_handler.dart';
+import 'cupid_handler.dart';
+import 'defender_handler.dart';
 import 'devoted_servant_handler.dart';
 import 'elder_handler.dart';
 import 'fox_handler.dart';
+import 'hunter_handler.dart';
+import 'idiot_handler.dart';
 import 'infect_father_of_wolves_handler.dart';
+import 'little_girl_handler.dart';
+import 'pied_piper_handler.dart';
+import 'pyromaniac_handler.dart';
 import 'role_action_handler.dart';
 import 'rusty_sword_knight_handler.dart';
 import 'scapegoat_handler.dart';
+import 'seer_handler.dart';
 import 'soul_stealer_handler.dart';
 import 'stuttering_judge_handler.dart';
 import 'thief_handler.dart';
 import 'three_brothers_handler.dart';
 import 'two_sisters_handler.dart';
+import 'white_werewolf_handler.dart';
 import 'wild_child_handler.dart';
+import 'witch_handler.dart';
 import 'wolf_cub_handler.dart';
 
 class RoleHandlersRegistry {
@@ -40,6 +52,18 @@ class RoleHandlersRegistry {
     GameRole.sectLeader: AbominableSectarianHandler(),
     GameRole.thiefOfHearts: SoulStealerHandler(),
     GameRole.thief: ThiefHandler(),
+    GameRole.littleGirl: LittleGirlHandler(),
+    GameRole.whiteWerewolf: WhiteWerewolfHandler(),
+    GameRole.blackWolf: BlackWolfHandler(),
+    GameRole.angel: AngelHandler(),
+    GameRole.idiot: IdiotHandler(),
+    GameRole.piedPiper: PiedPiperHandler(),
+    GameRole.pyromaniac: PyromaniacHandler(),
+    GameRole.seer: SeerHandler(),
+    GameRole.witch: WitchHandler(),
+    GameRole.defender: DefenderHandler(),
+    GameRole.cupid: CupidHandler(),
+    GameRole.hunter: HunterHandler(),
   };
 
   static RoleActionHandler? getHandlerFor(GameRole role) => _handlers[role];

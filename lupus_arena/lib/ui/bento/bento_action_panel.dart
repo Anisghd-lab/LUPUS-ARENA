@@ -38,6 +38,10 @@ class BentoActionPanel extends StatefulWidget {
   final ValueChanged<String>? onPyromaniacDouse;
   final VoidCallback? onPyromaniacIgnite;
   final VoidCallback? onPyromaniacPass;
+  final ValueChanged<String>? onFoxSniff;
+  final VoidCallback? onFoxPass;
+  final ValueChanged<String>? onWhiteWolfDevour;
+  final VoidCallback? onWhiteWolfPass;
   final bool isAdmin;
   final VoidCallback? onPassDebate;
   final ValueListenable<int>? countdownListenable;
@@ -79,6 +83,10 @@ class BentoActionPanel extends StatefulWidget {
     this.onPyromaniacDouse,
     this.onPyromaniacIgnite,
     this.onPyromaniacPass,
+    this.onFoxSniff,
+    this.onFoxPass,
+    this.onWhiteWolfDevour,
+    this.onWhiteWolfPass,
     this.onPassDebate,
     this.countdownListenable,
     this.onSelectTarget,
@@ -189,6 +197,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
   // Sélection du successeur par le Capitaine défunt (Testament)
   String? _selectedCaptainSuccessorId;
+
+  // État d'espionnage de la Petite Fille
+  bool _littleGirlEyesClosed = false;
 
   GameRoom get effectiveRoom => widget.room;
 
@@ -560,6 +571,26 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       if (phase == GamePhase.nightWerewolves || phase == GamePhase.nightBlackWolf) {
         if (role.isEvil || isDevMode) {
           return _buildWerewolvesSection(me, selectedTarget);
+        } else if (role == GameRole.littleGirl) {
+          return _buildLittleGirlSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 8.B LOUP-GAROU BLANC (NUIT DU LOUP BLANC)
+      if (phase == GamePhase.nightWhiteWerewolf) {
+        if (role == GameRole.whiteWerewolf || isDevMode) {
+          return _buildWhiteWerewolfSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 8.C RENARD (NUIT DU RENARD)
+      if (phase == GamePhase.nightFox) {
+        if (role == GameRole.fox || isDevMode) {
+          return _buildFoxSection(selectedTarget);
         } else {
           return _buildNightSleepingSection();
         }
@@ -3253,9 +3284,284 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ],
           ],
         ),
+  /// Module Petite Fille : Télémétrie de la chasse des loups et espionnage secret
+  Widget _buildLittleGirlSection(PlayerModel? selectedTarget) {
+    final rawVictimId = _wolfVictimId ?? widget.room.nightVictimId;
+    final victimPlayer = (rawVictimId != null && rawVictimId.isNotEmpty)
+        ? widget.room.players[rawVictimId]
+        : null;
+    final hasVictim = victimPlayer != null &&
+        victimPlayer.isAlive &&
+        !DeathRegistryService.instance.isDead(rawVictimId!);
+
+    final String statusText;
+    final Color bannerBorderColor;
+    final Color bannerBgColor;
+
+    if (_littleGirlEyesClosed) {
+      statusText = context.tr('little_girl_eyes_closed');
+      bannerBorderColor = const Color(0xFF64748B);
+      bannerBgColor = const Color(0x2264748B);
+    } else if (hasVictim) {
+      statusText = context.tr('little_girl_prey_detected', {'name': victimPlayer!.name});
+      bannerBorderColor = const Color(0xFFFF2A55);
+      bannerBgColor = const Color(0x22FF2A55);
+    } else {
+      statusText = context.tr('little_girl_wolves_deliberating');
+      bannerBorderColor = const Color(0xFFFFC6FF);
+      bannerBgColor = const Color(0x22FFC6FF);
+    }
+
+    return Column(
+      key: ValueKey('action_little_girl_${_littleGirlEyesClosed}_${rawVictimId ?? "none"}'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 6),
+          decoration: BoxDecoration(
+            color: bannerBgColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: bannerBorderColor.withValues(alpha: 0.6)),
+          ),
+          child: Row(
+            children: [
+              Text(_littleGirlEyesClosed ? '🙈' : (hasVictim ? '👀' : '👂'), style: const TextStyle(fontSize: 14)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  statusText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: _littleGirlEyesClosed
+                        ? const Color(0xFF94A3B8)
+                        : (hasVictim ? const Color(0xFFFFE4E6) : const Color(0xFFF5D0FE)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _littleGirlEyesClosed
+                        ? const Color(0xFF8B5CF6)
+                        : const Color(0xFFA855F7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _littleGirlEyesClosed = !_littleGirlEyesClosed;
+                    });
+                  },
+                  icon: Icon(
+                    _littleGirlEyesClosed ? Icons.visibility_rounded : Icons.hearing_rounded,
+                    size: 15,
+                  ),
+                  label: Text(
+                    _littleGirlEyesClosed
+                        ? context.tr('little_girl_open_eyes')
+                        : context.tr('little_girl_keep_spying'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            SizedBox(
+              height: 40,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: LupusColors.textMuted,
+                  side: BorderSide(color: LupusColors.border.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  setState(() {
+                    _littleGirlEyesClosed = true;
+                  });
+                },
+                icon: const Icon(Icons.visibility_off_rounded, size: 14),
+                label: Text(
+                  context.tr('little_girl_close_eyes'),
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Module Le Renard : Flairer un groupe de 3 joueurs adjacents ou passer son tour
+  Widget _buildFoxSection(PlayerModel? selectedTarget) {
+    final foxActive = widget.room.expandedRolesState.foxPowerActive &&
+        !widget.room.expandedRolesState.ancientPowerLost;
+
+    if (!foxActive) {
+      return Container(
+        key: const ValueKey('action_fox_exhausted'),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0x2264748B),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF64748B).withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          children: [
+            const Text('🦊', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.tr('fox_lost_power'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final seatingOrder = widget.room.seatingOrder.isNotEmpty
+        ? widget.room.seatingOrder
+        : widget.room.players.keys.toList();
+    final aliveIds = seatingOrder
+        .where((id) =>
+            widget.room.players[id]?.isAlive == true &&
+            !DeathRegistryService.instance.isDead(id))
+        .toList();
+
+    String trioInfo = '';
+    if (selectedTarget != null && selectedTarget.isAlive) {
+      final targetIdx = aliveIds.indexOf(selectedTarget.id);
+      if (targetIdx != -1) {
+        final n = aliveIds.length;
+        final leftName = widget.room.players[aliveIds[(targetIdx - 1 + n) % n]]?.name ?? '';
+        final rightName = widget.room.players[aliveIds[(targetIdx + 1) % n]]?.name ?? '';
+        trioInfo = ' ($leftName, ${selectedTarget.name}, $rightName)';
+      }
+    }
+
+    return Row(
+      key: ValueKey('action_fox_${selectedTarget?.id ?? "none"}'),
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 40,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFB8500),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: (selectedTarget != null && selectedTarget.isAlive)
+                  ? () => widget.onFoxSniff?.call(selectedTarget.id)
+                  : null,
+              icon: const Icon(Icons.pest_control_rounded, size: 15),
+              label: Text(
+                selectedTarget != null
+                    ? context.tr('fox_sniff_target', {'name': '${selectedTarget.name}$trioInfo'})
+                    : context.tr('fox_select_target'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        SizedBox(
+          height: 40,
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: LupusColors.textMuted,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: widget.onFoxPass,
+            child: Text(
+              context.tr('fox_pass'),
+              style: const TextStyle(fontSize: 11),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Module Loup-Garou Blanc : Élimination solitaire d'un loup ou passer son tour
+  Widget _buildWhiteWerewolfSection(PlayerModel? selectedTarget) {
+    final isTargetWolf = selectedTarget != null &&
+        selectedTarget.isAlive &&
+        selectedTarget.id != widget.currentUserId &&
+        (selectedTarget.role.isEvil || selectedTarget.id == widget.room.infectedPlayerId);
+
+    return Row(
+      key: ValueKey('action_white_wolf_${selectedTarget?.id ?? "none"}'),
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 40,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE0AAFF),
+                foregroundColor: const Color(0xFF240046),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isTargetWolf
+                  ? () => widget.onWhiteWolfDevour?.call(selectedTarget!.id)
+                  : null,
+              icon: const Icon(Icons.brightness_7_rounded, size: 15),
+              label: Text(
+                isTargetWolf
+                    ? context.tr('white_wolf_devour_target', {'name': selectedTarget!.name})
+                    : context.tr('white_wolf_select_target'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        SizedBox(
+          height: 40,
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: LupusColors.textMuted,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: widget.onWhiteWolfPass,
+            child: Text(
+              context.tr('white_wolf_pass'),
+              style: const TextStyle(fontSize: 11),
+            ),
+          ),
+        ),
       ],
     );
   }
 }
+
 
 

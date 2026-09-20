@@ -1426,18 +1426,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   /// Séquence canonique stricte des nuits :
   /// 1: Voleur (Nuit 1) -> 2: Cupidon (Nuit 1) -> 3: Salvateur -> 4: Loups-Garous ->
-  /// 5: Loup Noir -> 6: Voyante -> 7: Sorcière -> 8: Joueur de Flûte -> 9: Pyromane -> 10: Aube
+  /// 5: Loup Noir -> 6: Loup Blanc (Paires) -> 7: Voyante -> 8: Renard -> 9: Sorcière ->
+  /// 10: Joueur de Flûte -> 11: Pyromane -> 12: Aube
   GamePhase _getNextNightPhase({
     required GamePhase current,
     required int round,
     required Map<String, PlayerModel> players,
     Map<String, GameRole>? realRoles,
+    ExpandedRolesState? expandedRolesState,
   }) {
     return _phaseCoordinator.getNextNightPhase(
       current: current,
       round: round,
       players: players,
       realRoles: realRoles,
+      expandedRolesState: expandedRolesState ?? state.room?.expandedRolesState,
     );
   }
 
@@ -1523,6 +1526,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           );
         }
         updates['pyromaniacIgnited'] = false;
+      }
+
+      // 2c. Victime du Loup-Garou Blanc
+      final whiteWolfTargetId = room.expandedRolesState.whiteWolfTargetId;
+      if (whiteWolfTargetId != null &&
+          whiteWolfTargetId.isNotEmpty &&
+          !effectiveDeaths.contains(whiteWolfTargetId)) {
+        effectiveDeaths.add(whiteWolfTargetId);
+        final victimName = room.players[whiteWolfTargetId]?.name ?? whiteWolfTargetId;
+        logs.add('🐺⚪ Le Loup-Garou Blanc a frappé dans l\'obscurité : $victimName a été déchiqueté !');
+        updates['expandedRolesState'] = room.expandedRolesState.copyWith(whiteWolfTargetId: '').toMap();
       }
 
       // 3. Morts et Chagrin des Amoureux
@@ -2977,6 +2991,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final room = state.room!;
     if (state.myRole != GameRole.fox && !state.isAdmin) return false;
     if (room.expandedRolesState.ancientPowerLost) return false;
+    if (!room.expandedRolesState.foxPowerActive) return false;
 
     final realRoles = await _resolveRealRoles(room);
     final seatingOrder = room.seatingOrder.isNotEmpty
@@ -2991,9 +3006,29 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       infectedPlayerId: room.expandedRolesState.infectedPlayerId ?? room.infectedPlayerId,
     );
 
-    final updates = <String, dynamic>{};
-    final logs = List<String>.from(room.logs);
+    final inMemoryState = GameState(
+      currentTurn: room.round,
+      currentPhase: room.phase,
+      playerRoles: realRoles,
+      players: room.players,
+      expandedRolesState: room.expandedRolesState,
+      alivePlayerIdsInOrder: aliveIds,
+    );
+    RoleHandlersRegistry.dispatchAction(
+      inMemoryState,
+      role: GameRole.fox,
+      actorId: state.myId,
+      payload: {'targetId': targetPlayerId},
+    );
 
+    final updates = <String, dynamic>{};
+    final updatedExpanded = room.expandedRolesState.copyWith(
+      foxPowerActive: hasWolf,
+      lastFoxCheckResult: hasWolf,
+    );
+    updates['expandedRolesState'] = updatedExpanded.toMap();
+
+    final logs = List<String>.from(room.logs);
     if (hasWolf) {
       logs.add('🦊 Le Renard a flairé une odeur suspecte ! Au moins un loup se cache dans le groupe observé.');
     } else {
@@ -3003,6 +3038,48 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     await _syncState(updates);
     await processNightTransitions();
     return hasWolf;
+  }
+
+  Future<void> foxPass() async {
+    if (state.room == null || _currentRoomRef == null) return;
+    final room = state.room!;
+    if (state.myRole != GameRole.fox && !state.isAdmin) return;
+
+    final logs = List<String>.from(room.logs);
+    logs.add('🦊 Le Renard a choisi de préserver son flair et ne flaire personne cette nuit.');
+    await _syncState({'logs': logs});
+    await processNightTransitions();
+  }
+
+  Future<void> whiteWolfDevour(String targetPlayerId) async {
+    if (state.room == null || _currentRoomRef == null) return;
+    final room = state.room!;
+    if (state.myRole != GameRole.whiteWerewolf && !state.isAdmin) return;
+
+    final targetName = room.players[targetPlayerId]?.name ?? targetPlayerId;
+    final logs = List<String>.from(room.logs);
+    logs.add('🐺⚪ Le Loup-Garou Blanc a frappé un membre de sa meute dans l\'obscurité...');
+
+    final updatedExpanded = room.expandedRolesState.copyWith(
+      whiteWolfTargetId: targetPlayerId,
+    );
+    final updates = <String, dynamic>{
+      'expandedRolesState': updatedExpanded.toMap(),
+      'logs': logs,
+    };
+    await _syncState(updates);
+    await processNightTransitions();
+  }
+
+  Future<void> whiteWolfPass() async {
+    if (state.room == null || _currentRoomRef == null) return;
+    final room = state.room!;
+    if (state.myRole != GameRole.whiteWerewolf && !state.isAdmin) return;
+
+    final logs = List<String>.from(room.logs);
+    logs.add('🐺⚪ Le Loup-Garou Blanc a choisi de ne dévorer aucun loup cette nuit.');
+    await _syncState({'logs': logs});
+    await processNightTransitions();
   }
 
   Future<void> crowDesignate(String targetPlayerId) async {
@@ -3876,6 +3953,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
                 (state.myRole == GameRole.pyromaniac || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightPiper &&
                 (state.myRole == GameRole.piedPiper || state.isAdmin || state.isDevMode)) ||
+            (phase == GamePhase.nightFox &&
+                (state.myRole == GameRole.fox || state.isAdmin || state.isDevMode)) ||
+            (phase == GamePhase.nightWhiteWerewolf &&
+                (state.myRole == GameRole.whiteWerewolf || state.isAdmin || state.isDevMode)) ||
             (phase == GamePhase.nightBlackWolf &&
                 (state.myRole == GameRole.blackWolf || state.isAdmin || state.isDevMode)));
 
@@ -3972,6 +4053,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           'expandedRolesState': state.room!.expandedRolesState.copyWith(
             mayorSpeechOpeningDone: false,
             mayorSpeechClosingDone: false,
+            whiteWolfTargetId: '',
           ).toMap(),
           'logs': [
             ...?state.room?.logs,

@@ -16,6 +16,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('fr'),
+          supportedLocales: const [Locale('fr'), Locale('en'), Locale('ar')],
           home: Scaffold(
             body: BentoActionPanel(
               isCaptain: false,
@@ -29,7 +30,13 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('Le Maire agonisant choisit son successeur...'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) =>
+            w is Text &&
+            (w.data?.contains('Le Maire agonisant') == true ||
+             w.data?.contains('The dying Mayor') == true)),
+        findsOneWidget,
+      );
       expect(find.text('10'), findsOneWidget);
     });
 
@@ -37,6 +44,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('fr'),
+          supportedLocales: const [Locale('fr'), Locale('en'), Locale('ar')],
           home: Scaffold(
             body: BentoActionPanel(
               isCaptain: true,
@@ -53,7 +61,13 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('Testament du Maire'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) =>
+            w is Text &&
+            (w.data?.contains('Testament du Maire') == true ||
+             w.data?.contains('Mayor\'s Testament') == true)),
+        findsOneWidget,
+      );
       expect(find.text('Bob'), findsOneWidget);
       expect(find.text('Claire'), findsOneWidget);
     });

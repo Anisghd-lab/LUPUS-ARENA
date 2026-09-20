@@ -32,7 +32,7 @@ class IdiotHandler extends RoleActionHandler {
     );
 
     return state.copyWith(
-      pendingExecutedPlayerId: null, // Gracié !
+      clearPendingExecutedPlayerId: true, // Gracié !
       expandedRolesState: updated,
     );
   }

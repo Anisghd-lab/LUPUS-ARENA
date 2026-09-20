@@ -93,12 +93,18 @@ class GameState {
     ExpandedRolesState? expandedRolesState,
     List<String>? alivePlayerIdsInOrder,
     String? pendingExecutedPlayerId,
+    bool clearPendingExecutedPlayerId = false,
     String? lastEliminatedPlayerId,
+    bool clearLastEliminatedPlayerId = false,
     List<String>? nightSecondaryDeaths,
     String? nightPrimaryVictimId,
+    bool clearNightPrimaryVictimId = false,
     String? currentProtectedPlayerId,
+    bool clearCurrentProtectedPlayerId = false,
     String? lastProtectedPlayerId,
+    bool clearLastProtectedPlayerId = false,
     String? blackWolfTargetId,
+    bool clearBlackWolfTargetId = false,
   }) {
     return GameState(
       currentTurn: currentTurn ?? this.currentTurn,
@@ -110,20 +116,26 @@ class GameState {
       expandedRolesState: expandedRolesState ?? this.expandedRolesState,
       alivePlayerIdsInOrder:
           alivePlayerIdsInOrder ?? this.alivePlayerIdsInOrder,
-      pendingExecutedPlayerId:
-          pendingExecutedPlayerId ?? this.pendingExecutedPlayerId,
-      lastEliminatedPlayerId:
-          lastEliminatedPlayerId ?? this.lastEliminatedPlayerId,
+      pendingExecutedPlayerId: clearPendingExecutedPlayerId
+          ? null
+          : (pendingExecutedPlayerId ?? this.pendingExecutedPlayerId),
+      lastEliminatedPlayerId: clearLastEliminatedPlayerId
+          ? null
+          : (lastEliminatedPlayerId ?? this.lastEliminatedPlayerId),
       nightSecondaryDeaths:
           nightSecondaryDeaths ?? this.nightSecondaryDeaths,
-      nightPrimaryVictimId:
-          nightPrimaryVictimId ?? this.nightPrimaryVictimId,
-      currentProtectedPlayerId:
-          currentProtectedPlayerId ?? this.currentProtectedPlayerId,
-      lastProtectedPlayerId:
-          lastProtectedPlayerId ?? this.lastProtectedPlayerId,
-      blackWolfTargetId:
-          blackWolfTargetId ?? this.blackWolfTargetId,
+      nightPrimaryVictimId: clearNightPrimaryVictimId
+          ? null
+          : (nightPrimaryVictimId ?? this.nightPrimaryVictimId),
+      currentProtectedPlayerId: clearCurrentProtectedPlayerId
+          ? null
+          : (currentProtectedPlayerId ?? this.currentProtectedPlayerId),
+      lastProtectedPlayerId: clearLastProtectedPlayerId
+          ? null
+          : (lastProtectedPlayerId ?? this.lastProtectedPlayerId),
+      blackWolfTargetId: clearBlackWolfTargetId
+          ? null
+          : (blackWolfTargetId ?? this.blackWolfTargetId),
     );
   }
 }

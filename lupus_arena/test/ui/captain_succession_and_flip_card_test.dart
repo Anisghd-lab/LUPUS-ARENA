@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lupus_arena/models/game_phase.dart';
 import 'package:lupus_arena/models/mort_instantanee_event.dart';
@@ -17,6 +18,11 @@ void main() {
         MaterialApp(
           locale: const Locale('fr'),
           supportedLocales: const [Locale('fr'), Locale('en'), Locale('ar')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           home: Scaffold(
             body: BentoActionPanel(
               isCaptain: false,
@@ -45,6 +51,11 @@ void main() {
         MaterialApp(
           locale: const Locale('fr'),
           supportedLocales: const [Locale('fr'), Locale('en'), Locale('ar')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           home: Scaffold(
             body: BentoActionPanel(
               isCaptain: true,

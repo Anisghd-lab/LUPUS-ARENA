@@ -188,10 +188,15 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   StreamSubscription<DatabaseEvent>? _replayStatusSubscription;
   StreamSubscription<DatabaseEvent>? _gameResetSubscription;
   StreamSubscription<DatabaseEvent>? _cemeterySubscription;
+  /// Surveille le statut en ligne de l'hôte pour déclencher le transfert automatique.
+  StreamSubscription<DatabaseEvent>? _hostPresenceSubscription;
+  /// Écoute les changements de hostId pour que le nouvel hôte active immédiatement ses timers.
+  StreamSubscription<DatabaseEvent>? _hostIdSubscription;
   DatabaseReference? _currentRoomRef;
   String? _lastAppliedVoiceChannel;
   GamePhase? _lastAppliedVoicePhase;
   bool _isTransitioningPhase = false;
+  bool _isResettingReplay = false;
   Timer? _phaseExpirationTimer;
   int _lastProcessedPhaseStartedAt = 0;
 
@@ -421,6 +426,13 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final bool isTimerUpdating = updates.containsKey('timerSeconds');
     final bool isSpeakerChanging = updates.containsKey('currentSpeakerId');
 
+    // ── RÉINITIALISATION AUTOMATIQUE SYSTÉMIQUE DES VOTES ET ACTIONS STRATÉGIQUES ──
+    // À chaque transition de phase ou de cycle nocturne, tous les votes de joueurs,
+    // tables de votes et sélections tactiques sont réinitialisés de façon atomique.
+    if (isPhaseChanging) {
+      _resetAllVotes(updates);
+    }
+
     if (isPhaseChanging || isTimerUpdating || isSpeakerChanging) {
       int durationSec = 30;
       if (updates.containsKey('timerSeconds')) {
@@ -508,6 +520,14 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
       // Appliquer les mises à jour directes sur les joueurs (isAlive, role, isCaptain, etc.)
       final updatedPlayers = Map<String, PlayerModel>.from(state.room!.players);
+      if (isPhaseChanging) {
+        for (final pid in updatedPlayers.keys) {
+          updatedPlayers[pid] = updatedPlayers[pid]!.copyWith(
+            clearTargetVote: true,
+            clearTargetVoteId: true,
+          );
+        }
+      }
       for (final entry in updates.entries) {
         if (entry.key.startsWith('players/')) {
           final parts = entry.key.split('/');
@@ -648,7 +668,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         lastDeathFlip: parsedLastFlip,
         logs: parsedLogs,
       );
-      state = state.copyWith(room: provisionalRoom);
+      state = state.copyWith(
+        clearInspectedRole: isPhaseChanging,
+        room: provisionalRoom,
+      );
       _applyVoiceRulesForPhase(provisionalRoom);
       _syncPhaseExpirationSchedule(provisionalRoom);
     }
@@ -2085,9 +2108,26 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     final livingCount = room.alivePlayers.length;
     final mayorId = room.captainId ?? room.expandedRolesState.mayorPlayerId;
+
+    // ── LECTURE AUTORITAIRE DIRECTE DE LA TABLE DES VOTES SUR FIREBASE ──
+    // Élimine toute race condition où un vote concurrent validé sur le réseau n'a pas
+    // encore été traité par le flux asynchrone local.
+    final liveVotes = <String, String>{};
+    try {
+      final snap = await _currentRoomRef?.child('votes').get();
+      if (snap != null && snap.exists && snap.value is Map) {
+        (snap.value as Map).forEach((k, v) {
+          if (v != null) liveVotes[k.toString()] = v.toString();
+        });
+      }
+    } catch (e) {
+      debugPrint('[VoteResolution] Avertissement: échec lecture directe votes: $e');
+    }
+
     final voteTally = <String, int>{};
     for (final voter in room.alivePlayers) {
-      final target = voter.targetVoteId;
+      // Priorité au snapshot direct Firebase, sinon fallback sur l'état local
+      final target = liveVotes[voter.id] ?? voter.targetVoteId;
       if (target != null) {
         final weight = _phaseCoordinator.getVoteWeight(
           voterId: voter.id,
@@ -3565,15 +3605,32 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'votes/$voterId': targetId,
     };
 
-    if (state.room?.phase == GamePhase.nightWerewolves) {
-      voteUpdates['nightVictimId'] = targetId;
-      voteUpdates['public_state/nightVictimId'] = targetId;
-      state = state.copyWith(
-        room: state.room?.copyWith(
-          nightVictimId: targetId,
-          clearNightVictimId: targetId == null,
-        ),
-      );
+    if (state.room?.phase == GamePhase.nightWerewolves && state.room != null) {
+      final currentWolfVotes = <String, int>{};
+      for (final p in state.room!.alivePlayers) {
+        if (p.role.isEvil || p.role == GameRole.whiteWerewolf || p.id == voterId) {
+          final chosenTarget = (p.id == voterId) ? targetId : p.targetVoteId;
+          if (chosenTarget != null) {
+            currentWolfVotes[chosenTarget] = (currentWolfVotes[chosenTarget] ?? 0) + 1;
+          }
+        }
+      }
+      if (currentWolfVotes.isNotEmpty) {
+        final majorityTarget = currentWolfVotes.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+        voteUpdates['nightVictimId'] = majorityTarget;
+        voteUpdates['public_state/nightVictimId'] = majorityTarget;
+        state = state.copyWith(
+          room: state.room?.copyWith(
+            nightVictimId: majorityTarget,
+          ),
+        );
+      } else {
+        voteUpdates['nightVictimId'] = null;
+        voteUpdates['public_state/nightVictimId'] = null;
+        state = state.copyWith(
+          room: state.room?.copyWith(clearNightVictimId: true),
+        );
+      }
     }
     await _currentRoomRef!.update(voteUpdates);
   }
@@ -4120,10 +4177,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (!state.isHost || state.room == null) return;
     final room = state.room!;
 
+    // ── LECTURE AUTORITAIRE DIRECTE DES VOTES D'ÉLECTION SUR FIREBASE ──
+    final liveElectionVotes = <String, String>{};
+    try {
+      final snap = await _currentRoomRef?.child('votes').get();
+      if (snap != null && snap.exists && snap.value is Map) {
+        (snap.value as Map).forEach((k, v) {
+          if (v != null) liveElectionVotes[k.toString()] = v.toString();
+        });
+      }
+    } catch (_) {}
+
     final electionVotes = <String, String>{};
     for (final p in room.alivePlayers) {
-      if (p.targetVoteId != null) {
-        electionVotes[p.id] = p.targetVoteId!;
+      final target = liveElectionVotes[p.id] ?? p.targetVoteId;
+      if (target != null) {
+        electionVotes[p.id] = target;
       }
     }
 
@@ -4350,6 +4419,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       updates['votes/${p.id}'] = null;
     }
     updates['votes'] = null;
+    // Réinitialisation des sélections et cibles stratégiques éphémères
+    updates['seerInspectedTargetId'] = null;
+    updates['seerInspectedRole'] = null;
+    updates['public_state/seerInspectedTargetId'] = null;
+    updates['public_state/seerInspectedRole'] = null;
   }
 
   /// Met à jour la présence et le statut audio sans impacter l'état global du jeu
@@ -4489,6 +4563,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     _gameResetSubscription = null;
     _cemeterySubscription?.cancel();
     _cemeterySubscription = null;
+    _hostPresenceSubscription?.cancel();
+    _hostPresenceSubscription = null;
+    _hostIdSubscription?.cancel();
+    _hostIdSubscription = null;
   }
 
   /// ═══════════════════════════════════════════════════════════════════════════
@@ -4641,9 +4719,24 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             : state.room!.lastDeathFlip,
       );
 
-      state = state.copyWith(room: updatedRoom);
-      _applyVoiceRulesForPhase(updatedRoom);
-      _syncPhaseExpirationSchedule(updatedRoom);
+      final bool phaseChanged = parsedPhase != state.room!.phase;
+      Map<String, PlayerModel> currentPlayers = state.room!.players;
+      if (phaseChanged) {
+        currentPlayers = currentPlayers.map(
+          (k, v) => MapEntry(
+            k,
+            v.copyWith(clearTargetVote: true, clearTargetVoteId: true),
+          ),
+        );
+      }
+
+      final finalRoom = updatedRoom.copyWith(players: currentPlayers);
+      state = state.copyWith(
+        clearInspectedRole: phaseChanged,
+        room: finalRoom,
+      );
+      _applyVoiceRulesForPhase(finalRoom);
+      _syncPhaseExpirationSchedule(finalRoom);
     });
 
     // Écoute dédiée sur currentPhase pour compatibilité temps réel immédiate
@@ -4668,8 +4761,20 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             );
             return;
           }
-          final updatedRoom = state.room!.copyWith(phase: parsed);
-          state = state.copyWith(room: updatedRoom);
+          final clearedPlayers = state.room!.players.map(
+            (k, v) => MapEntry(
+              k,
+              v.copyWith(clearTargetVote: true, clearTargetVoteId: true),
+            ),
+          );
+          final updatedRoom = state.room!.copyWith(
+            phase: parsed,
+            players: clearedPlayers,
+          );
+          state = state.copyWith(
+            room: updatedRoom,
+            clearInspectedRole: true,
+          );
           _applyVoiceRulesForPhase(updatedRoom);
         }
       }
@@ -4912,6 +5017,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             replayReadyUserIds: readyUserIds,
           );
           state = state.copyWith(room: updatedRoom);
+
+          // Seul l'hôte vérifie et déclenche la réinitialisation de partie
+          if (state.isHost) {
+            _checkReplayQuorum(updatedRoom, roomCode);
+          }
         }
       }
     });
@@ -4926,6 +5036,107 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         state = state.copyWith(isVictoryVoiceExpired: false);
       }
     });
+
+    // 11. ── SURVEILLANCE DE L'HÔTE (Host-Presence Watchdog) ──
+    // Si l'hôte se déconnecte de façon inattendue (crash, perte réseau),
+    // le premier joueur en ligne par ordre alphabétique de UID prend le relais.
+    // L'idempotence est garantie : seul ce joueur-là exécute l'écriture.
+    _hostPresenceSubscription = _database
+        .ref('rooms/$roomCode/players')
+        .onValue
+        .listen((event) {
+      if (state.room == null || _currentRoomRef == null) return;
+      final currentRoom = state.room!;
+
+      // Ne déclencher que si l'hôte actuel n'est plus en ligne
+      final hostId = currentRoom.hostId;
+      final hostPlayer = currentRoom.players[hostId];
+      if (hostPlayer == null || hostPlayer.isOnline) return;
+
+      // L'hôte est offline → identifier le successeur
+      _triggerHostTransfer(roomCode, hostId, currentRoom);
+    });
+
+    // 12. ── SYNCHRONISATION DE L'HÔTE ACTIF (hostId sync) ──
+    // Assure que tous les clients et le nouveau hôte synchronisent leur rôle.
+    _hostIdSubscription = _database
+        .ref('rooms/$roomCode/hostId')
+        .onValue
+        .listen((event) {
+      final newHostId = event.snapshot.value?.toString();
+      if (newHostId != null && state.room != null && state.room!.hostId != newHostId) {
+        debugPrint('[HostSync] 👑 Mise à jour de l\'hôte détectée : $newHostId');
+        final updatedRoom = state.room!.copyWith(hostId: newHostId);
+        state = state.copyWith(room: updatedRoom);
+        if (newHostId == state.currentUserId) {
+          debugPrint('[HostSync] 🎉 Vous êtes désigné comme nouvel Hôte ! Reprise immédiate des timers.');
+          _syncPhaseExpirationSchedule(updatedRoom);
+          _checkEarlyResolutionQuorum(updatedRoom);
+        }
+      }
+    });
+  }
+
+  /// Transfère l'hôte au premier joueur online non-hôte (tri UID pour idempotence).
+  /// Cette méthode est appelée par chaque client, mais seul le candidat désigné
+  /// écrit effectivement sur Firebase — les autres détectent l'écart via le snapshot.
+  Future<void> _triggerHostTransfer(
+    String roomCode,
+    String currentHostId,
+    GameRoom currentRoom,
+  ) async {
+    // Candidats : joueurs online, vivants ou non, sauf l'hôte déconnecté
+    final candidates = currentRoom.players.values
+        .where((p) => p.id != currentHostId && p.isOnline)
+        .toList()
+      ..sort((a, b) => a.id.compareTo(b.id)); // Tri déterministe
+
+    if (candidates.isEmpty) return;
+
+    final nextHost = candidates.first;
+
+    // Idempotence : seul le joueur désigné s'auto-sélectionne
+    if (nextHost.id != state.currentUserId) return;
+
+    // Vérifier que l'hôte n'a pas déjà été transféré (évite la double écriture)
+    try {
+      final snap = await _database.ref('rooms/$roomCode/hostId').get();
+      if (snap.value?.toString() != currentHostId) return; // Déjà transféré
+    } catch (_) {
+      return;
+    }
+
+    try {
+      final updatedLogs = [
+        ...currentRoom.logs,
+        '👑 ${nextHost.name} a pris le relais en tant que nouvel hôte (connexion hôte perdue).',
+      ];
+      await _database.ref('rooms/$roomCode').update({
+        'hostId': nextHost.id,
+        'players/${nextHost.id}/isHost': true,
+        'players/$currentHostId/isHost': false,
+        'logs': updatedLogs,
+      });
+
+      // Synchronisation locale immédiate pour le nouvel hôte
+      final updatedRoom = currentRoom.copyWith(
+        hostId: nextHost.id,
+        players: {
+          ...currentRoom.players,
+          nextHost.id: nextHost.copyWith(isHost: true),
+          if (currentRoom.players.containsKey(currentHostId))
+            currentHostId: currentRoom.players[currentHostId]!.copyWith(isHost: false),
+        },
+        logs: updatedLogs,
+      );
+      state = state.copyWith(room: updatedRoom);
+      _syncPhaseExpirationSchedule(updatedRoom);
+      _checkEarlyResolutionQuorum(updatedRoom);
+
+      debugPrint('[HostTransfer] 👑 Hôte transféré de $currentHostId vers ${nextHost.id}');
+    } catch (e) {
+      debugPrint('[HostTransfer] Erreur transfert hôte: $e');
+    }
   }
 
   Future<void> _syncWolfRoster(String roomCode) async {
@@ -5990,6 +6201,29 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     return deck.sublist(0, count);
   }
 
+  /// Vérification sécurisée et idempotente du quorum de Replay (exécutée par l'Hôte uniquement)
+  Future<void> _checkReplayQuorum(GameRoom room, String roomCode) async {
+    if (!state.isHost) return;
+    if (_isResettingReplay) return;
+    // Ne réinitialiser que si le jeu est actuellement en GameOver (évite tout double reset intempestif)
+    if (room.phase != GamePhase.gameOver) return;
+
+    final totalCount = room.playerList.length;
+    final readyCount = room.replayReadyUserIds.length;
+
+    if (totalCount > 0 && readyCount >= totalCount) {
+      _isResettingReplay = true;
+      try {
+        debugPrint('[Replay Quorum] 🎯 Tous les joueurs ($readyCount/$totalCount) sont prêts. L\'Hôte relance la partie.');
+        await resetGameAndRedistributeRoles(roomCode);
+      } catch (e) {
+        debugPrint('[Replay Quorum] Erreur relance partie: $e');
+      } finally {
+        _isResettingReplay = false;
+      }
+    }
+  }
+
   /// Gestion du vote client : Au premier clic, émettre player_ready_replay avec userId et roomId
   Future<void> playerReadyReplay({String? userId, String? roomId}) async {
     final effectiveUserId = userId ?? state.currentUserId;
@@ -5999,24 +6233,31 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     try {
       final roomRef = _database.ref('rooms/$effectiveRoomId');
 
-      // 1. Ajouter userId à la liste des joueurs prêts pour le replay
-      final snapshot = await roomRef.child('replayReadyUserIds').get();
+      // 1. Écriture sans conflit sur sa propre clé feuille (atomicité garantie par utilisateur)
+      await roomRef.update({
+        'replay_votes/$effectiveUserId': true,
+        'players/$effectiveUserId/isReadyReplay': true,
+        'players/$effectiveUserId/wantsRematch': true,
+      });
+
+      // 2. Synchroniser la liste globale consolidée depuis la table des votes
+      final snapshot = await roomRef.child('replay_votes').get();
       List<String> readyList = [];
-      if (snapshot.value is List) {
-        readyList = (snapshot.value as List).map((e) => e.toString()).toList();
-      }
-      if (!readyList.contains(effectiveUserId)) {
+      if (snapshot.value is Map) {
+        final votesMap = snapshot.value as Map;
+        readyList = votesMap.entries
+            .where((e) => e.value == true)
+            .map((e) => e.key.toString())
+            .toList();
+      } else if (!readyList.contains(effectiveUserId)) {
         readyList.add(effectiveUserId);
       }
 
       final totalCount = state.room?.playerList.length ?? 0;
       final readyCount = readyList.length;
 
-      // 2. Mettre à jour Firebase de manière atomique (isReadyReplay et wantsRematch)
       await roomRef.update({
         'replayReadyUserIds': readyList,
-        'players/$effectiveUserId/isReadyReplay': true,
-        'players/$effectiveUserId/wantsRematch': true,
         'replay_status_updated': {
           'event': 'replay_status_updated',
           'userId': effectiveUserId,
@@ -6038,18 +6279,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             wantsRematch: true,
           );
         }
-        state = state.copyWith(
-          room: state.room!.copyWith(
-            replayReadyUserIds: readyList,
-            players: updatedPlayers,
-          ),
+        final updatedRoom = state.room!.copyWith(
+          replayReadyUserIds: readyList,
+          players: updatedPlayers,
         );
-      }
+        state = state.copyWith(room: updatedRoom);
 
-      // 3. Vérification du quorum : dès que tous les joueurs (ou le quorum) sont prêts,
-      // le serveur réinitialise la partie et redistribue conditionnellement les rôles
-      if (totalCount > 0 && readyCount >= totalCount) {
-        await resetGameAndRedistributeRoles(effectiveRoomId);
+        // Seul l'hôte déclenche la réinitialisation
+        if (state.isHost) {
+          _checkReplayQuorum(updatedRoom, effectiveRoomId);
+        }
       }
     } catch (e) {
       debugPrint('[Replay Error] playerReadyReplay: $e');
@@ -6065,21 +6304,29 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     try {
       final roomRef = _database.ref('rooms/$effectiveRoomId');
 
-      final snapshot = await roomRef.child('replayReadyUserIds').get();
+      // 1. Suppression de sa clé feuille individuelle
+      await roomRef.update({
+        'replay_votes/$effectiveUserId': null,
+        'players/$effectiveUserId/isReadyReplay': false,
+        'players/$effectiveUserId/wantsRematch': false,
+      });
+
+      // 2. Synchroniser la liste consolidée
+      final snapshot = await roomRef.child('replay_votes').get();
       List<String> readyList = [];
-      if (snapshot.value is List) {
-        readyList = (snapshot.value as List).map((e) => e.toString()).toList();
+      if (snapshot.value is Map) {
+        final votesMap = snapshot.value as Map;
+        readyList = votesMap.entries
+            .where((e) => e.value == true)
+            .map((e) => e.key.toString())
+            .toList();
       }
-      readyList.remove(effectiveUserId);
 
       final totalCount = state.room?.playerList.length ?? 0;
       final readyCount = readyList.length;
 
-      // ── Mise à jour atomique unique : rooms/$effectiveRoomId ──
       await roomRef.update({
         'replayReadyUserIds': readyList,
-        'players/$effectiveUserId/isReadyReplay': false,
-        'players/$effectiveUserId/wantsRematch': false,
         'replay_status_updated': {
           'event': 'replay_status_updated',
           'userId': effectiveUserId,
@@ -6168,10 +6415,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     });
 
     try {
-      // 1. Mettre à jour les rôles secrets et la meute chiffrée
-      await _database.ref('rooms//secret_roles').set(secretRolesMap);
+      // 1. Mettre à jour les rôles secrets et la meute chiffrée sur le chemin canonique de la salle
+      await _database.ref('rooms/$roomCode/secret_roles').set(secretRolesMap);
       await _database
-          .ref('rooms//wolf_pack')
+          .ref('rooms/$roomCode/wolf_pack')
           .set({'data': distribution.encryptedWolfRoster});
 
       final initialLogs = [
@@ -6187,6 +6434,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         'players': updatedPlayersMap,
         'seatingOrder': distribution.seatingOrder,
         'replayReadyUserIds': <String>[],
+        'replay_votes': null,
         'logs': initialLogs,
         'timerSeconds': 60,
         'captainId': null,
@@ -6279,15 +6527,43 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         } else {
           // --- SORTIE EN JEU (IN-GAME) ---
           // Passer isOnline = false et horodater lastSeen pour reprise ultérieure.
-          // ── Écriture atomique unique (statut + logs) : rooms/$roomCode ──
-          await canonicalRef.update({
+          // Si l'hôte quitte, transférer immédiatement l'hôte au prochain joueur en ligne.
+          final inGameUpdates = <String, dynamic>{
             'players/$userId/isOnline': false,
             'players/$userId/lastSeen': ServerValue.timestamp,
-            'logs': [
+          };
+
+          if (currentRoom.hostId == userId) {
+            final otherOnlinePlayers = currentRoom.players.values
+                .where((p) => p.id != userId && p.isOnline)
+                .toList()
+              ..sort((a, b) => a.id.compareTo(b.id));
+
+            if (otherOnlinePlayers.isNotEmpty) {
+              final nextHost = otherOnlinePlayers.first;
+              inGameUpdates['hostId'] = nextHost.id;
+              inGameUpdates['players/${nextHost.id}/isHost'] = true;
+              inGameUpdates['players/$userId/isHost'] = false;
+              inGameUpdates['logs'] = [
+                ...currentRoom.logs,
+                '📡 L\'hôte ${state.currentUserName} a quitté l\'arène en cours de partie.',
+                '👑 ${nextHost.name} est désigné(e) comme nouvel hôte pour poursuivre le combat.',
+              ];
+            } else {
+              inGameUpdates['logs'] = [
+                ...currentRoom.logs,
+                '📡 ${state.currentUserName} s\'est déconnecté(e) (partie en cours).',
+              ];
+            }
+          } else {
+            inGameUpdates['logs'] = [
               ...currentRoom.logs,
               '📡 ${state.currentUserName} s\'est déconnecté(e) (partie en cours).',
-            ],
-          });
+            ];
+          }
+
+          // ── Écriture atomique unique (statut + passation + logs) : rooms/$roomCode ──
+          await canonicalRef.update(inGameUpdates);
         }
       }
     } catch (e) {

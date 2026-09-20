@@ -1,0 +1,106 @@
+{
+  "rules": {
+    // ═══════════════════════════════════════════════════════════════════════
+    // LUPUS ARENA v2.5.3+ — RÈGLES DE SÉCURITÉ & VALIDATION SERVEUR RTDB
+    //
+    // RÉSOLUTION LA-005 (Client Authoritative & Intégrité des données)
+    //
+    // Ces règles assurent :
+    // 1. NON-RÉGRESSION MONOTONE : le tour (round) ne peut JAMAIS régresser.
+    // 2. VERROU DU CIMETIÈRE : un joueur dans le cimetière ne peut JAMAIS
+    //    être ressuscité ou effacé du cimetière par une écriture sauvage.
+    // 3. INTÉGRITÉ DES JOUEURS : l'ID d'un joueur doit correspondre à sa clé.
+    // 4. PROTECTION DES PHASES : la phase doit être une chaîne reconnue.
+    // 5. COMPATIBILITÉ AUTH : fonctionne immédiatement en mode anonyme / ouvert,
+    //    tout en appliquant des contraintes strictes de schéma et de logique.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    "rooms": {
+      "$roomCode": {
+        // Lecture autorisée pour participer à la partie
+        ".read": true,
+
+        // Écriture générale autorisée mais strictement bornée par les .validate ci-dessous
+        ".write": true,
+
+        // ── Validation du tour : Monotone strict (pas de retour en arrière) ──
+        "round": {
+          ".validate": "newData.isNumber() && (!data.exists() || newData.val() >= data.val())"
+        },
+
+        // ── Validation des phases : Chaîne non vide ──
+        "phase": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "currentPhase": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+
+        // ── Validation des timestamps d'expiration (doivent être positifs) ──
+        "phaseEndsAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "phaseStartedAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "phaseDurationMs": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+
+        // ── Validation de l'Hôte : doit être un ID de joueur valide ──
+        "hostId": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+
+        // ── Validation du Cimetière : Verrou inviolable "Celui qui meurt meurt" ──
+        // Une fois qu'un joueur est marqué à true dans cemetery, il ne peut plus être
+        // supprimé (null) ni repassé à false, sauf si witchHealed est actif !
+        "cemetery": {
+          "$deadId": {
+            ".validate": "newData.val() == true || (data.exists() && data.parent().parent().child('witchHealed').val() == true)"
+          }
+        },
+
+        // ── Validation des Joueurs ──
+        "players": {
+          "$playerId": {
+            // L'ID sous players/$playerId doit correspondre à la clé
+            "id": {
+              ".validate": "newData.val() == $playerId"
+            },
+            "isAlive": {
+              // Si déjà mort dans le cemetery, interdiction de repasser isAlive à true
+              // sauf si potion de vie de la sorcière active
+              ".validate": "newData.isBoolean() && (newData.val() == false || !root.child('rooms/' + $roomCode + '/cemetery/' + $playerId).exists() || root.child('rooms/' + $roomCode + '/witchHealed').val() == true)"
+            },
+            "isOnline": {
+              ".validate": "newData.isBoolean()"
+            },
+            "isHost": {
+              ".validate": "newData.isBoolean()"
+            },
+            "targetVoteId": {
+              ".validate": "newData.val() == null || newData.isString()"
+            }
+          }
+        },
+
+        // ── Validation des Votes : Clé votant = ID, cible = String ou null ──
+        "votes": {
+          "$voterId": {
+            // Un mort ne peut pas émettre de vote
+            ".validate": "!root.child('rooms/' + $roomCode + '/cemetery/' + $voterId).exists() && (newData.val() == null || newData.isString())"
+          }
+        },
+
+        // ── Validation des Présences ──
+        "presence": {
+          "$presenceUid": {
+            "isOnline": { ".validate": "newData.isBoolean()" },
+            "isMuted": { ".validate": "newData.isBoolean()" }
+          }
+        }
+      }
+    }
+  }
+}

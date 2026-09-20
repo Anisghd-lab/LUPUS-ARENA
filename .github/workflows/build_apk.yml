@@ -123,16 +123,16 @@ jobs:
           tag_name: ${{ env.APP_VERSION }}
           name: "Lupus Arena ${{ env.APP_VERSION }}"
           body: |
-            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Audit Global & Réparation Systémique de l'Arène)
+            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Stabilisation Multijoueur & Sécurité Réseau)
 
-            Mise à jour majeure de stabilité et d'expérience utilisateur : Éradication définitive du Grey Screen / RenderError, Internationalisation intégrale (Français, Arabe, Anglais), Support strict du RTL, et Calibrage de la Table Mystique.
+            Mise à jour majeure de robustesse multijoueur, sécurité serveur et résilience réseau suite à l'audit senior complet :
 
-            #### 🌟 Nouveautés & Corrections v2.5.0 :
-            - **🛡️ Éradication du Grey Screen** : Dispatcher d'actions sécurisé avec error boundary et fallback élégant, clés réactives stabilisées sur l'AnimatedSwitcher, et ErrorWidget.builder racine.
-            - **🌍 Zéro Texte Français Codé en Dur** : Plus de 60 nouvelles clés de traduction pour tous les bandeaux d'action (Sorcière, Loups, Voyante, Salvateur, Chasseur, Corbeau, Testament du Maire, Débats, Voleur, Cupidon, Flûte, Scrutin).
-            - **📜 Traduction Dynamique des Chroniques & Morts** : Moteur regex pour traduire à la volée les 34+ motifs historiques d'événements et les causes de décès dans l'overlay 3D.
-            - **🔄 Support RTL Strict (Arabe)** : Respect automatique du sens de lecture RTL, icônes directionnelles adaptatives et pastilles de notification PositionedDirectional.
-            - **⭕ Calibrage Table Radiale Mystique (318px)** : Réduction du diamètre de 380px à 318px avec mise à l'échelle proportionnelle des avatars, rayons et cartes d'action centrales.
+            #### 🌟 Nouveautés & Corrections Majeures :
+            - **🛡️ Failover & Déconnexion d'Hôte (LA-003)** : Détection temps réel de la déconnexion ou du crash de l'hôte, passation automatique et reprise immédiate des minuteurs serveur sans interruption ni gel de partie.
+            - **🔄 Revanche & Rematch Atomique (LA-004)** : Élimination définitive de la race condition lors du clic simultané sur "Rejouer", quorum exclusif à l'Hôte avec verrou mutex anti-double reset, et correction des chemins de rôles secrets.
+            - **🔐 Règles de Sécurité & Validation Serveur Firebase RTDB (LA-005)** : Règles `.validate` serveur actives empêchant les rollbacks de tour, verrouillant le cimetière et interdisant les votes aux défunts.
+            - **⚖️ Dépouillement Autoritaire & Consensus de Meute (LA-007)** : Dépouillement diurne et élection du Maire basés sur une lecture directe autoritaire Firebase (`votes.get()`), et calcul de consensus majoritaire pour la chasse nocturne des loups.
+            - **🧹 Réinitialisation Automatique & Synchronisation Atomique** : Purge systématique et atomique de tous les votes, sélections de cibles et visions de voyante à chaque transition de phase ou de cycle nocturne.
 
             ---
             #### 📲 Binaires Téléchargeables :

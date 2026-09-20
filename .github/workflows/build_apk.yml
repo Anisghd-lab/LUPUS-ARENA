@@ -123,25 +123,24 @@ jobs:
           tag_name: ${{ env.APP_VERSION }}
           name: "Lupus Arena ${{ env.APP_VERSION }}"
           body: |
-            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Top Bar Arena · Taille Boutons +30% · Aperçu Web Propre)
+            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Repositionnement Boutons X · Thème Dark Fantasy / Runes · Logo Loup Officiel)
 
             #### 🌟 Nouveautés & Améliorations
 
-            **Top Bar — Styles 100% identiques à l'Arena (Room)**
-            - **Globe Langue** : Cercle 32×32, fond `0xC012182E`, bordure `arcaneGold 0.4`, icône `language_rounded 16pt` — pixel-perfect avec le HUD Arena.
-            - **Capsule Profil** : Fond `0xCC12182E`, bordure `arcaneGold 0.6 w=0.8`, radius 10, pseudo en arcaneGold serif 10.5pt — identique au code-room de la Room.
-            - **Badge DEV** : Harmonisé Arena (`0xFF422006`, radius 10, arcaneGold).
-            - **Pilule MAJ** : Thème sombre runique (`0xCC0D1F1A`, liseré émeraude `#34D399 0.7`, radius 10).
-            - **Hit Testing** : `HitTestBehavior.opaque` sur tous les `GestureDetector` → 100% des clics garantis.
+            **📍 Déplacement des Boutons d'Action (Emplacement X)**
+            - Boutons descendus vers le bas (`bottom: 110 dp`), pile au-dessus du grand cercle runique violet au sol.
+            - Le corps complet du loup-garou et son socle rocheux sont désormais 100% dégagés et visibles.
+            - Prise en compte dynamique du clavier (`viewInsets.bottom`) pour la saisie du code sans masquage.
 
-            **Boutons d'Action — +30% & décalage vers le haut**
-            - Dimensions : **144×42 dp** (radius 10) avec espacement 10 dp.
-            - Typographie : 11.5–12 pt avec `FittedBox` anti-overflow.
-            - Position : `topSpacing` relevé, boutons remontés de ~35 dp.
-            - Bouton REJOINDRE : sans icône porte (texte seul centré).
+            **🎨 Refonte Thème Dark Fantasy & Runes**
+            - **CRÉER UN SALON** : Dégradé profond obsidienne violacée & mauve lunaire (`#5A1E8A` → `#2E0D4E` → `#16062A`), liseré ciselé doré/bronze antique (`#E5C158`) et icône croissant de lune dorée (`Icons.nights_stay_rounded`).
+            - **CODE DU SALON** : Style pierre taillée / ardoise runique sobre (`#1E2330` → `#121622` → `#0A0D15`) avec contour fer forgé runique.
+            - **REJOINDRE** : Dégradé vert spectral sombre (`#14532D` → `#072E1B` → `#03190E`), bordure émeraude spectrale (`#34D399`) et icône patte/griffes de loup (`Icons.pets_rounded`).
 
-            **Aperçu Web localhost :8080**
-            - Code HTML/CSS nettoyé, commentaires concis, JS compact.
+            **👤 Capsule Profil Joueur**
+            - Intégration du véritable logo officiel du jeu (tête de loup runique `lupus_seal.png`) en 28×28 dp.
+            - Suppression complète de l'icône crayon d'édition.
+            - Nom du joueur conservé en typographie dorée arcane serif.
 
             ---
             #### 📲 Binaires Téléchargeables

@@ -869,7 +869,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     onPressed: () => widget.onWitchSave(wolfVictim.id),
                     icon: const Icon(Icons.healing_rounded, size: 13),
                     label: Text(
-                      context.tr('save_victim_btn'),
+                      context.tr('witch_save_btn'),
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10.5),
                     ),
                   ),
@@ -939,7 +939,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                           onPressed: () => widget.onWitchPoison(selectedTarget.id),
                           icon: const Icon(Icons.science_rounded, size: 13),
                           label: Text(
-                            context.tr('poison_target', {'name': selectedTarget.name}),
+                            context.tr('witch_poison_target', {'name': selectedTarget.name}),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10.5),

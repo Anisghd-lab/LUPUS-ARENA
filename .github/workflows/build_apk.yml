@@ -123,18 +123,16 @@ jobs:
           tag_name: ${{ env.APP_VERSION }}
           name: "Lupus Arena ${{ env.APP_VERSION }}"
           body: |
-            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Refonte Moteur & Architecture)
+            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Audit Global & Réparation Systémique de l'Arène)
 
-            Mise à jour majeure : Synchronisation serveur (`phaseEndsAt`), Intégration des 17 rôles manquants & Quotas scalants, Clean Architecture modulaire, Sharding d'écoute Firebase RTDB, Isolation graphique Skia/Impeller, Table Radiale Adaptative (4 à 30 joueurs) et Purge complète du dépôt.
+            Mise à jour majeure de stabilité et d'expérience utilisateur : Éradication définitive du Grey Screen / RenderError, Internationalisation intégrale (Français, Arabe, Anglais), Support strict du RTL, et Calibrage de la Table Mystique.
 
-            #### 🌟 Nouveautés & Optimisations v2.0.0 :
-            - **⏱️ Horloge Canonique Temps Serveur** : Minuteurs synchronisés via timestamp serveur absolu, éliminant tout décalage entre joueurs.
-            - **🎭 Moteur de Rôles Étendus & Quotas Scalants** : 30 cartes arbitrées avec masquage solitaire du Loup Blanc et quotas de potions / visions indexés sur l'effectif.
-            - **⚡ Firebase RTDB Shardé & Écritures Atomiques** : Unification sous `rooms/$roomCode` avec 5 écouteurs partitionnés et réduction de 60% de la bande passante.
-            - **🏛️ Clean Architecture Dart** : Décomposition du monolithe `GameNotifier` en coordinateurs spécialisés (`GamePhase`, `Vote`, `RoleAction`, `RoomPresence`).
-            - **🎨 Performance Graphique Skia/Impeller** : Isolation `RepaintBoundary` et extinction automatique de l'onde de choc vocale hors prise de parole.
-            - **📱 Table Radiale Adaptative Multi-Anneaux** : Double anneau concentrique avec interfoliage angulaire pour 16 à 30 joueurs et cibles tactiles minimales de 48x48 dp.
-            - **🎬 Cinématique des Défunts Dédupliquée** : Révélation 3D séquentielle minutée sans bouclage lors des événements temps réel.
+            #### 🌟 Nouveautés & Corrections v2.5.0 :
+            - **🛡️ Éradication du Grey Screen** : Dispatcher d'actions sécurisé avec error boundary et fallback élégant, clés réactives stabilisées sur l'AnimatedSwitcher, et ErrorWidget.builder racine.
+            - **🌍 Zéro Texte Français Codé en Dur** : Plus de 60 nouvelles clés de traduction pour tous les bandeaux d'action (Sorcière, Loups, Voyante, Salvateur, Chasseur, Corbeau, Testament du Maire, Débats, Voleur, Cupidon, Flûte, Scrutin).
+            - **📜 Traduction Dynamique des Chroniques & Morts** : Moteur regex pour traduire à la volée les 34+ motifs historiques d'événements et les causes de décès dans l'overlay 3D.
+            - **🔄 Support RTL Strict (Arabe)** : Respect automatique du sens de lecture RTL, icônes directionnelles adaptatives et pastilles de notification PositionedDirectional.
+            - **⭕ Calibrage Table Radiale Mystique (318px)** : Réduction du diamètre de 380px à 318px avec mise à l'échelle proportionnelle des avatars, rayons et cartes d'action centrales.
 
             ---
             #### 📲 Binaires Téléchargeables :

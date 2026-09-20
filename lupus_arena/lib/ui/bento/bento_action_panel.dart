@@ -2014,7 +2014,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       final votedTarget = widget.room.players[currentVoteTargetId];
       final votedName = votedTarget?.name ?? 'suspect';
 
-      return Container(
+      return SizedBox(
         key: ValueKey('action_voting_voted_$currentVoteTargetId'),
         height: 40,
         child: Row(
@@ -2116,7 +2116,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-        onPressed: canVote ? () => widget.onVote(selectedTarget!.id) : null,
+        onPressed: canVote ? () => widget.onVote(selectedTarget.id) : null,
         icon: const Icon(Icons.how_to_vote_rounded, size: 15),
         label: Text(
           voteText,

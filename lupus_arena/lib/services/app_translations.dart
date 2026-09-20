@@ -38,6 +38,8 @@ class AppTranslations {
       // --- LOBBY & SALONS ---
       'create_room': 'Créer un salon',
       'join_room': 'Rejoindre un salon',
+      'join': 'Rejoindre',
+      'dev_mode_unlocked': 'Accès DEV-MODE déverrouillé !',
       'enter_room_code': 'Code du salon',
       'code_hint': 'Ex: ABCD',
       'player_name': 'Pseudo du joueur',
@@ -644,6 +646,24 @@ class AppTranslations {
       'log_defense_phase_granted': '🛡️ Phase de défense accordée aux suspects : {names} (30s chacun).',
       'log_night_falls_salvateur': 'La première nuit tombe... Salvateur, réveillez-vous !',
       'log_night_awakening': 'Éveil nocturne : {role}.',
+
+      // --- ADMIN & CONTRÔLE DÉVELOPPEUR ---
+      'admin_choose_wolf_victim': 'Choisir la victime de la meute',
+      'admin_force_wolf_victim': 'FORCER LA VICTIME DES LOUPS',
+      'admin_choose_seer_target': 'Choisir le joueur à sonder',
+      'admin_probe_role_instantly': 'SONDER INSTANTANÉMENT LE RÔLE',
+      'admin_heal_prey': 'SOIGNER PROIE',
+      'admin_choose_poison_target': 'Choisir la cible à empoisonner',
+      'admin_poison_player': 'EMPOISONNER LE JOUEUR',
+      'admin_choose_protect_target': 'Choisir le joueur à protéger',
+      'admin_activate_shield': 'ACTIVER LE BOUCLIER PROTECTEUR',
+      'admin_lover_1': 'Amoureux 1',
+      'admin_lover_2': 'Amoureux 2',
+      'admin_link_lovers': 'LIER PAR L\'AMOUR',
+      'admin_choose_hunter_target': 'Choisir la cible du tir',
+      'admin_trigger_retaliation': 'DÉCLENCHER LE TIR DE RIPOSTE',
+      'admin_change_role_tooltip': 'Changer rôle',
+      'seat_number': 'Siège #{index}',
     },
 
     'ar': {
@@ -672,6 +692,8 @@ class AppTranslations {
       // --- LOBBY & SALONS ---
       'create_room': 'إنشاء غرفة',
       'join_room': 'الانضمام إلى غرفة',
+      'join': 'انضمام',
+      'dev_mode_unlocked': 'تم فتح وضع المطور DEV-MODE!',
       'enter_room_code': 'رمز الغرفة',
       'code_hint': 'مثال: ABCD',
       'player_name': 'اسم اللاعب',
@@ -1278,6 +1300,24 @@ class AppTranslations {
       'log_defense_phase_granted': '🛡️ مرحلة الدفاع ممنوحة للمتهمين: {names} (30 ثانية لكل منهم).',
       'log_night_falls_salvateur': 'حلول الليلة الأولى... استيقظ أيها الحارس!',
       'log_night_awakening': 'استيقاظ ليلي : {role}.',
+
+      // --- ADMIN & CONTRÔLE DÉVELOPPEUR ---
+      'admin_choose_wolf_victim': 'اختر ضحية الذئاب',
+      'admin_force_wolf_victim': 'فرض ضحية الذئاب',
+      'admin_choose_seer_target': 'اختر اللاعب للاستكشاف',
+      'admin_probe_role_instantly': 'كشف الدور فوراً',
+      'admin_heal_prey': 'علاج الضحية',
+      'admin_choose_poison_target': 'اختر الهدف للتسميم',
+      'admin_poison_player': 'تسميم اللاعب',
+      'admin_choose_protect_target': 'اختر اللاعب للحماية',
+      'admin_activate_shield': 'تفعيل درع الحماية',
+      'admin_lover_1': 'العاشق 1',
+      'admin_lover_2': 'العاشق 2',
+      'admin_link_lovers': 'الربط بالحب',
+      'admin_choose_hunter_target': 'اختر هدف الرصاصة',
+      'admin_trigger_retaliation': 'إطلاق رصاصة الانتقام',
+      'admin_change_role_tooltip': 'تغيير الدور',
+      'seat_number': 'المقعد #{index}',
     },
 
     'en': {
@@ -1306,6 +1346,8 @@ class AppTranslations {
       // --- LOBBY & SALONS ---
       'create_room': 'Create Room',
       'join_room': 'Join Room',
+      'join': 'Join',
+      'dev_mode_unlocked': 'DEV-MODE access unlocked!',
       'enter_room_code': 'Room Code',
       'code_hint': 'Ex: ABCD',
       'player_name': 'Player Name',
@@ -1912,6 +1954,24 @@ class AppTranslations {
       'log_defense_phase_granted': '🛡️ Defense phase granted to suspects: {names} (30s each).',
       'log_night_falls_salvateur': 'The first night falls... Defender, wake up!',
       'log_night_awakening': 'Night awakening: {role}.',
+
+      // --- ADMIN & CONTRÔLE DÉVELOPPEUR ---
+      'admin_choose_wolf_victim': 'Choose pack victim',
+      'admin_force_wolf_victim': 'FORCE PACK VICTIM',
+      'admin_choose_seer_target': 'Choose player to probe',
+      'admin_probe_role_instantly': 'PROBE ROLE INSTANTLY',
+      'admin_heal_prey': 'HEAL PREY',
+      'admin_choose_poison_target': 'Choose target to poison',
+      'admin_poison_player': 'POISON PLAYER',
+      'admin_choose_protect_target': 'Choose player to protect',
+      'admin_activate_shield': 'ACTIVATE PROTECTIVE SHIELD',
+      'admin_lover_1': 'Lover 1',
+      'admin_lover_2': 'Lover 2',
+      'admin_link_lovers': 'LINK IN LOVE',
+      'admin_choose_hunter_target': 'Choose shot target',
+      'admin_trigger_retaliation': 'TRIGGER RETALIATION SHOT',
+      'admin_change_role_tooltip': 'Change role',
+      'seat_number': 'Seat #{index}',
     },
   };
 

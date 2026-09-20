@@ -123,24 +123,24 @@ jobs:
           tag_name: ${{ env.APP_VERSION }}
           name: "Lupus Arena ${{ env.APP_VERSION }}"
           body: |
-            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Repositionnement Boutons X · Thème Dark Fantasy / Runes · Logo Loup Officiel)
+            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Traduction Intégrale FR/AR/EN · UI Non-Inversée en Arabe · Boutons Épurés Sans Emoji)
 
             #### 🌟 Nouveautés & Améliorations
 
-            **📍 Déplacement des Boutons d'Action (Emplacement X)**
-            - Boutons descendus vers le bas (`bottom: 110 dp`), pile au-dessus du grand cercle runique violet au sol.
-            - Le corps complet du loup-garou et son socle rocheux sont désormais 100% dégagés et visibles.
-            - Prise en compte dynamique du clavier (`viewInsets.bottom`) pour la saisie du code sans masquage.
+            **🌐 Traduction Intégrale en 3 Langues (FR / AR / EN)**
+            - Chaque chaîne et terme du jeu traduit à 100% dans le dictionnaire centralisé (621 clés par langue).
+            - Traduction dynamique des rôles, descriptions, phases, chroniques et panneaux d'administration.
+            - Bouton "REJOINDRE" traduit de manière réactive : FR `REJOINDRE` / AR `انضمام` / EN `JOIN`.
 
-            **🎨 Refonte Thème Dark Fantasy & Runes**
-            - **CRÉER UN SALON** : Dégradé profond obsidienne violacée & mauve lunaire (`#5A1E8A` → `#2E0D4E` → `#16062A`), liseré ciselé doré/bronze antique (`#E5C158`) et icône croissant de lune dorée (`Icons.nights_stay_rounded`).
-            - **CODE DU SALON** : Style pierre taillée / ardoise runique sobre (`#1E2330` → `#121622` → `#0A0D15`) avec contour fer forgé runique.
-            - **REJOINDRE** : Dégradé vert spectral sombre (`#14532D` → `#072E1B` → `#03190E`), bordure émeraude spectrale (`#34D399`) et icône patte/griffes de loup (`Icons.pets_rounded`).
+            **📐 UI Non-Inversée en Langue Arabe (LTR Strict)**
+            - Directionnalité de l'interface (`TextDirection.ltr`) verrouillée à la racine de l'application : l'UI ne se retourne plus en mode miroir lors de la sélection de la langue arabe.
+            - Repères visuels, boutons, tables radiales et capsules restent stables et parfaitement ergonomiques.
 
-            **👤 Capsule Profil Joueur**
-            - Intégration du véritable logo officiel du jeu (tête de loup runique `lupus_seal.png`) en 28×28 dp.
-            - Suppression complète de l'icône crayon d'édition.
-            - Nom du joueur conservé en typographie dorée arcane serif.
+            **📍 Déplacement des Boutons d'Action & Style Épuré**
+            - Boutons descendus en bas (`bottom: 110 dp`), pile à l'emplacement « X » au-dessus du grand cercle runique au sol.
+            - Corps et socle rocheux du loup-garou 100% dégagés et visibles.
+            - Retrait des emojis et icônes sur les boutons pour un rendu noble, sobre et lisible.
+            - Capsule pseudo épurée avec logo loup officiel en 28×28 dp (crayon retiré).
 
             ---
             #### 📲 Binaires Téléchargeables

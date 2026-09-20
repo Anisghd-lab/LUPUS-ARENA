@@ -186,7 +186,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
   /// Écran d'accueil principal (Menu) : Arrière-plan net + Composants natifs Flutter à 100%
   Widget _buildMainMenu(BuildContext context, LupusGameState gameState) {
     final media = MediaQuery.of(context);
-    final screenSize = media.size;
     return SizedBox.expand(
       child: Stack(
         fit: StackFit.expand,
@@ -232,6 +231,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                 onDoubleTap: () => _openAdminTrigger(context),
                 onLongPress: () => _openAdminTrigger(context),
                 child: const SizedBox(width: 170, height: 140),
+              ),
+            ),
+          ),
+
           // 3. Boutons d'action positionnés en bas — à l'emplacement exact du "X"
           // Dégage totalement le corps du loup-garou et son socle rocheux,
           // positionné juste au-dessus du grand cercle runique violet au sol.
@@ -429,21 +432,25 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Véritable logo officiel du jeu (icône de tête de loup) précisément en 28x28 dp
-                ClipOval(
-                  child: Image.asset(
-                    LupusAssets.wolfSealAsset,
-                    width: 28,
-                    height: 28,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => Image.network(
-                      LupusAssets.wolfSealUrl,
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _showAvatarSelector(context),
+                  child: ClipOval(
+                    child: Image.asset(
+                      LupusAssets.wolfSealAsset,
                       width: 28,
                       height: 28,
                       fit: BoxFit.contain,
-                      errorBuilder: (c, e, s) => const Icon(
-                        Icons.pets_rounded,
-                        color: LupusColors.arcaneGold,
-                        size: 18,
+                      errorBuilder: (context, error, stackTrace) => Image.network(
+                        LupusAssets.wolfSealUrl,
+                        width: 28,
+                        height: 28,
+                        fit: BoxFit.contain,
+                        errorBuilder: (c, e, s) => const Icon(
+                          Icons.pets_rounded,
+                          color: LupusColors.arcaneGold,
+                          size: 18,
+                        ),
                       ),
                     ),
                   ),
@@ -1379,13 +1386,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
       _codeController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
-              Text('👑', style: TextStyle(fontSize: 18)),
-              SizedBox(width: 8),
+              const Text('👑', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
               Text(
-                'ACCÈS DEV-MODE DÉVERROUILLÉ !',
-                style: TextStyle(
+                context.tr('dev_mode_unlocked').toUpperCase(),
+                style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   color: Colors.black,
                 ),
@@ -1404,7 +1411,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     if (inputCode.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Veuillez saisir le code du salon à rejoindre.'),
+          content: Text(context.tr('enter_valid_code')),
           backgroundColor: LupusColors.bloodRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1513,33 +1520,21 @@ class LobbyActionButtons extends StatelessWidget {
                             )
                           : FittedBox(
                               fit: BoxFit.scaleDown,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // Icône thématique loup-garou / nuit lunaire
-                                  const Icon(
-                                    Icons.nights_stay_rounded,
-                                    color: Color(0xFFFFD54F),
-                                    size: 14,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    context.tr('create_room').toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.7,
-                                      shadows: [
-                                        Shadow(
-                                          color: Colors.black,
-                                          blurRadius: 4,
-                                          offset: Offset(0, 1),
-                                        ),
-                                      ],
+                              child: Text(
+                                context.tr('create_room').toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black,
+                                      blurRadius: 4,
+                                      offset: Offset(0, 1),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                     ),
@@ -1660,33 +1655,21 @@ class LobbyActionButtons extends StatelessWidget {
                     child: Center(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            // Icône thématique loup-garou (griffes / trace de loup)
-                            Icon(
-                              Icons.pets_rounded,
-                              color: Color(0xFF6EE7B7),
-                              size: 13,
-                            ),
-                            SizedBox(width: 5),
-                            Text(
-                              'REJOINDRE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.8,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black,
-                                    blurRadius: 4,
-                                    offset: Offset(0, 1),
-                                  ),
-                                ],
+                        child: Text(
+                          context.tr('join').toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),

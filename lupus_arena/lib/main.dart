@@ -71,7 +71,6 @@ class LupusArenaApp extends StatelessWidget {
     return AnimatedBuilder(
       animation: localeProvider,
       builder: (context, _) {
-        final isAr = localeProvider.locale.languageCode == 'ar';
         return MaterialApp(
           title: 'Lupus Arena',
           debugShowCheckedModeBanner: false,
@@ -88,8 +87,10 @@ class LupusArenaApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           builder: (context, child) {
+            // L'UI reste rigoureusement en LTR (non inversée), même en langue arabe,
+            // afin de préserver l'ergonomie, les repères visuels et la disposition des contrôles.
             return Directionality(
-              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
+              textDirection: TextDirection.ltr,
               child: child ?? const SizedBox.shrink(),
             );
           },

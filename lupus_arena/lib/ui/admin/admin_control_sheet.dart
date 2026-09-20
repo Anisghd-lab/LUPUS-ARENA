@@ -377,7 +377,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 value: _selectedWolfVictimId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
                 dropdownColor: const Color(0xFF1E1405),
                 decoration: InputDecoration(
-                  labelText: 'Choisir la victime de la meute',
+                  labelText: context.tr('admin_choose_wolf_victim'),
                   labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
                   filled: true,
                   fillColor: const Color(0x66000000),
@@ -386,7 +386,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 ),
                 items: alivePlayers.map((p) => DropdownMenuItem(
                   value: p.id,
-                  child: Text('${p.name} (${p.role.displayNameFr})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  child: Text('${p.name} (${p.role.getDisplayName(context)})', style: const TextStyle(color: Colors.white, fontSize: 12)),
                 )).toList(),
                 onChanged: (val) => setState(() => _selectedWolfVictimId = val),
               ),
@@ -407,7 +407,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     }
                   },
                   icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: const Text('FORCER LA VICTIME DES LOUPS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(context.tr('admin_force_wolf_victim'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -454,7 +454,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 value: _selectedSeerTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
                 dropdownColor: const Color(0xFF1E1405),
                 decoration: InputDecoration(
-                  labelText: 'Choisir le joueur à sonder',
+                  labelText: context.tr('admin_choose_seer_target'),
                   labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
                   filled: true,
                   fillColor: const Color(0x66000000),
@@ -463,7 +463,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 ),
                 items: alivePlayers.map((p) => DropdownMenuItem(
                   value: p.id,
-                  child: Text('${p.name} (Siège #${p.seatIndex >= 0 ? p.seatIndex : 0})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  child: Text('${p.name} (${context.tr('seat_number', {'index': p.seatIndex >= 0 ? p.seatIndex : 0})})', style: const TextStyle(color: Colors.white, fontSize: 12)),
                 )).toList(),
                 onChanged: (val) => setState(() => _selectedSeerTargetId = val),
               ),
@@ -481,11 +481,11 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     if (target != null) {
                       final role = await notifier.devSeerInspect(target);
                       setState(() => _inspectedSeerResult = role);
-                      _showToast('🔮 ${room.players[target]?.name} est [${role?.displayNameFr ?? "Inconnu"}] !');
+                      _showToast('🔮 ${room.players[target]?.name} est [${role?.getDisplayName(context) ?? "Inconnu"}] !');
                     }
                   },
                   icon: const Icon(Icons.visibility_rounded, size: 16),
-                  label: const Text('SONDER INSTANTANÉMENT LE RÔLE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(context.tr('admin_probe_role_instantly'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -530,7 +530,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                         _showToast('✨ Potion de soin appliquée sur la victime des loups !');
                       },
                       icon: const Icon(Icons.healing_rounded, size: 16),
-                      label: const Text('SOIGNER PROIE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      label: Text(context.tr('admin_heal_prey'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -540,7 +540,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 value: _selectedPoisonTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
                 dropdownColor: const Color(0xFF1E1405),
                 decoration: InputDecoration(
-                  labelText: 'Choisir la cible à empoisonner',
+                  labelText: context.tr('admin_choose_poison_target'),
                   labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
                   filled: true,
                   fillColor: const Color(0x66000000),
@@ -549,7 +549,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 ),
                 items: alivePlayers.map((p) => DropdownMenuItem(
                   value: p.id,
-                  child: Text('${p.name} (${p.role.displayNameFr})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  child: Text('${p.name} (${p.role.getDisplayName(context)})', style: const TextStyle(color: Colors.white, fontSize: 12)),
                 )).toList(),
                 onChanged: (val) => setState(() => _selectedPoisonTargetId = val),
               ),
@@ -570,7 +570,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     }
                   },
                   icon: const Icon(Icons.science_rounded, size: 16),
-                  label: const Text('EMPOISONNER LE JOUEUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(context.tr('admin_poison_player'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -604,7 +604,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 value: _selectedGuardTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
                 dropdownColor: const Color(0xFF1E1405),
                 decoration: InputDecoration(
-                  labelText: 'Choisir le joueur à protéger',
+                  labelText: context.tr('admin_choose_protect_target'),
                   labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
                   filled: true,
                   fillColor: const Color(0x66000000),
@@ -613,7 +613,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 ),
                 items: alivePlayers.map((p) => DropdownMenuItem(
                   value: p.id,
-                  child: Text('${p.name} (${p.role.displayNameFr})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  child: Text('${p.name} (${p.role.getDisplayName(context)})', style: const TextStyle(color: Colors.white, fontSize: 12)),
                 )).toList(),
                 onChanged: (val) => setState(() => _selectedGuardTargetId = val),
               ),
@@ -634,7 +634,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     }
                   },
                   icon: const Icon(Icons.shield_rounded, size: 16),
-                  label: const Text('ACTIVER LE BOUCLIER PROTECTEUR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(context.tr('admin_activate_shield'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -671,7 +671,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                       value: _selectedCupid1Id ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
                       dropdownColor: const Color(0xFF1E1405),
                       decoration: InputDecoration(
-                        labelText: 'Amoureux 1',
+                        labelText: context.tr('admin_lover_1'),
                         labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 11),
                         filled: true,
                         fillColor: const Color(0x66000000),
@@ -691,7 +691,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                       value: _selectedCupid2Id ?? (alivePlayers.length > 1 ? alivePlayers[1].id : null),
                       dropdownColor: const Color(0xFF1E1405),
                       decoration: InputDecoration(
-                        labelText: 'Amoureux 2',
+                        labelText: context.tr('admin_lover_2'),
                         labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 11),
                         filled: true,
                         fillColor: const Color(0x66000000),
@@ -725,7 +725,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     }
                   },
                   icon: const Icon(Icons.favorite_rounded, size: 16),
-                  label: const Text('LIER PAR L\'AMOUR (MORT COMMUNE)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(context.tr('admin_link_lovers'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -759,7 +759,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 value: _selectedHunterTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null),
                 dropdownColor: const Color(0xFF1E1405),
                 decoration: InputDecoration(
-                  labelText: 'Choisir la cible du tir',
+                  labelText: context.tr('admin_choose_hunter_target'),
                   labelStyle: const TextStyle(color: LupusColors.textSecondary, fontSize: 12),
                   filled: true,
                   fillColor: const Color(0x66000000),
@@ -768,7 +768,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 ),
                 items: alivePlayers.map((p) => DropdownMenuItem(
                   value: p.id,
-                  child: Text('${p.name} (${p.role.displayNameFr})', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  child: Text('${p.name} (${p.role.getDisplayName(context)})', style: const TextStyle(color: Colors.white, fontSize: 12)),
                 )).toList(),
                 onChanged: (val) => setState(() => _selectedHunterTargetId = val),
               ),
@@ -789,7 +789,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     }
                   },
                   icon: const Icon(Icons.crisis_alert_rounded, size: 16),
-                  label: const Text('DÉCLENCHER LE TIR DE RIPOSTE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(context.tr('admin_trigger_retaliation'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -856,7 +856,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${player.role.displayNameFr} • ${player.isAlive ? "VIVANT" : "MORT"}',
+                        '${player.role.getDisplayName(context)} • ${player.isAlive ? context.tr('alive') : context.tr('eliminated')}',
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
@@ -886,7 +886,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit_note_rounded, color: LupusColors.arcaneGold, size: 22),
-                  tooltip: 'Changer rôle',
+                  tooltip: context.tr('admin_change_role_tooltip'),
                   onPressed: () => _showRoleSelector(player),
                 ),
               ],

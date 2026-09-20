@@ -17,8 +17,6 @@ import 'package:lupus_arena/engine/handlers/pyromaniac_handler.dart';
 import 'package:lupus_arena/engine/handlers/cupid_handler.dart';
 import 'package:lupus_arena/engine/handlers/defender_handler.dart';
 import 'package:lupus_arena/engine/handlers/hunter_handler.dart';
-import 'package:lupus_arena/engine/handlers/seer_handler.dart';
-import 'package:lupus_arena/engine/handlers/witch_handler.dart';
 
 void main() {
   setUp(() {

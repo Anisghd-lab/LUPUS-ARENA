@@ -33,6 +33,7 @@ class AppTranslations {
       'french': 'Français',
       'arabic': 'العربية',
       'english': 'English',
+      'me': 'Moi',
 
       // --- LOBBY & SALONS ---
       'create_room': 'Créer un salon',
@@ -648,6 +649,7 @@ class AppTranslations {
       'french': 'Français',
       'arabic': 'العربية',
       'english': 'English',
+      'me': 'أنا',
 
       // --- LOBBY & SALONS ---
       'create_room': 'إنشاء غرفة',
@@ -1263,6 +1265,7 @@ class AppTranslations {
       'french': 'Français',
       'arabic': 'العربية',
       'english': 'English',
+      'me': 'Me',
 
       // --- LOBBY & SALONS ---
       'create_room': 'Create Room',

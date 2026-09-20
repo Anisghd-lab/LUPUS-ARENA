@@ -69,22 +69,22 @@ class BentoPlayerTile extends StatelessWidget {
 
     String roleLabel;
     if (isMe) {
-      roleLabel = context.tr('my_role_label', {'role': player.role.displayName});
+      roleLabel = context.tr('my_role_label', {'role': player.role.getDisplayName(context)});
     } else if (isDead) {
-      roleLabel = player.roleInitial.displayName;
+      roleLabel = player.roleInitial.getDisplayName(context);
     } else if (seerDiscoveredRole != null) {
-      roleLabel = '🔮 ${seerDiscoveredRole!.displayName}';
+      roleLabel = '🔮 ${seerDiscoveredRole!.getDisplayName(context)}';
     } else if (isWolfPeer) {
       final wolfName = (player.role == GameRole.whiteWerewolf)
-          ? 'Loup Blanc'
+          ? context.tr('role_white_werewolf')
           : (player.role.isEvil && player.role != GameRole.simpleVillager)
-              ? player.role.displayName
-              : 'Loup-Garou';
+              ? player.role.getDisplayName(context)
+              : context.tr('role_simple_werewolf');
       roleLabel = '🐺 $wolfName';
     } else if (isDevMode) {
       roleLabel = player.estDechu
-          ? '${player.role.displayName} (Ex-${player.roleInitial.displayName})'
-          : player.role.displayName;
+          ? '${player.role.getDisplayName(context)} (Ex-${player.roleInitial.getDisplayName(context)})'
+          : player.role.getDisplayName(context);
     } else {
       roleLabel = context.tr('alive');
     }

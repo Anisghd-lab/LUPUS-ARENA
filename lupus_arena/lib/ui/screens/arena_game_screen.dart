@@ -143,6 +143,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     // 1. Source PRIORITAIRE : deathAnnouncementQueue (file ordonnée des défunts)
     if (room.deathAnnouncementQueue.isNotEmpty) {
       for (final entry in room.deathAnnouncementQueue) {
+        if (entry is! Map) continue;
         final pid = (entry['joueurId'] ?? entry['playerId'] ?? '').toString();
         if (pid.isEmpty) continue;
         final cause = (entry['cause'] ?? '').toString();
@@ -187,8 +188,8 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
       }
     }
     // 3. Source TERTIAIRE : lastDeathFlip (pour les éliminations unitaires isolées)
-    else if (room.lastDeathFlip != null) {
-      final flip = room.lastDeathFlip!;
+    else if (room.lastDeathFlip != null && room.lastDeathFlip is Map) {
+      final flip = room.lastDeathFlip as Map;
       final pid = (flip['joueurId'] ?? flip['playerId'] ?? '').toString();
       if (pid.isNotEmpty) {
         final cause = (flip['cause'] ?? '').toString();
@@ -733,7 +734,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                       ],
                       Text(
                         isWolfVoice
-                            ? '#${room.roomCode} • CANAL MEUTE'
+                            ? '#${room.roomCode} • ${context.tr("pack_channel").toUpperCase()}'
                             : '#${room.roomCode}',
                         style: TextStyle(
                           fontFamily: 'monospace',

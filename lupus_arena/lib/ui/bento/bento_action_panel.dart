@@ -323,78 +323,77 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final room = effectiveRoom;
-    final currentUserId = widget.currentUserId;
-    final isMeDead = DeathRegistryService.instance.isDead(currentUserId);
-    final me = room.players[currentUserId] ??
-        PlayerModel(
-          id: currentUserId,
-          name: 'Moi',
-          isAlive: isMeDead ? false : (widget.isAlive ?? true),
-          isCaptain: widget.isCaptain ?? false,
-        );
+    try {
+      final room = effectiveRoom;
+      final currentUserId = widget.currentUserId;
+      final isMeDead = DeathRegistryService.instance.isDead(currentUserId);
+      final me = room.players[currentUserId] ??
+          PlayerModel(
+            id: currentUserId,
+            name: context.tr('me'),
+            isAlive: isMeDead ? false : (widget.isAlive ?? true),
+            isCaptain: widget.isCaptain ?? false,
+          );
 
-    final isAlive = isMeDead ? false : (widget.isAlive ?? me.isAlive);
-    final role = me.role;
-    final phase = widget.phase ?? room.phase;
-    final isDevMode = widget.room.isDevRoom || widget.isAdmin;
-    final isDyingCaptain = (widget.isCaptain == true && widget.isAlive == false) ||
-        (room.pendingCaptainId == currentUserId) ||
-        (me.isCaptain && !isAlive) ||
-        (room.captainId == currentUserId && !isAlive);
-    final selectedTarget = widget.selectedTargetId != null
-        ? room.players[widget.selectedTargetId]
-        : null;
+      final isAlive = isMeDead ? false : (widget.isAlive ?? me.isAlive);
+      final role = me.role;
+      final phase = widget.phase ?? room.phase;
+      final isDevMode = widget.room.isDevRoom || widget.isAdmin;
+      final isDyingCaptain = (widget.isCaptain == true && widget.isAlive == false) ||
+          (room.pendingCaptainId == currentUserId) ||
+          (me.isCaptain && !isAlive) ||
+          (room.captainId == currentUserId && !isAlive);
+      final selectedTarget = widget.selectedTargetId != null
+          ? room.players[widget.selectedTargetId]
+          : null;
 
-    return BentoCard(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      borderColor: LupusColors.borderGlow,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // En-tête compact avec badge de décompte et badge de la cible sélectionnée
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    context.tr('strategic_actions'),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: LupusColors.sunAmber,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: (phase.isNight ? LupusColors.arcaneViolet : LupusColors.sunAmber).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: (phase.isNight ? LupusColors.arcaneViolet : LupusColors.sunAmber).withValues(alpha: 0.5),
+      return BentoCard(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        borderColor: LupusColors.borderGlow,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // En-tête compact avec badge de décompte et badge de la cible sélectionnée
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.tr('strategic_actions'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: LupusColors.sunAmber,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                    child: Text(
-                      context.tr(phase.isNight ? 'phase_tag_night' : 'phase_tag_day'),
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w900,
-                        color: phase.isNight ? const Color(0xFFD4B2FF) : LupusColors.sunAmber,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (selectedTarget != null)
+                    const SizedBox(width: 6),
                     Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: (phase.isNight ? LupusColors.arcaneViolet : LupusColors.sunAmber).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: (phase.isNight ? LupusColors.arcaneViolet : LupusColors.sunAmber).withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Text(
+                        context.tr(phase.isNight ? 'phase_tag_night' : 'phase_tag_day'),
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                          color: phase.isNight ? const Color(0xFFD4B2FF) : LupusColors.sunAmber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (selectedTarget != null)
+                  Flexible(
+                    child: Container(
                       margin: const EdgeInsetsDirectional.only(end: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
@@ -417,55 +416,73 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            selectedTarget.name,
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: LupusColors.arcaneGold,
+                          Flexible(
+                            child: Text(
+                              selectedTarget.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: LupusColors.arcaneGold,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
 
-          // Zone d'action standardisée et stabilisée (hauteur minimale calibrée sur la Sorcière)
-          Container(
-            constraints: const BoxConstraints(minHeight: 120),
-            alignment: Alignment.center,
-            width: double.infinity,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
-                return currentChild ?? const SizedBox.shrink();
-              },
-              transitionBuilder: (child, animation) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-              child: SizedBox(
-                key: ValueKey('action_panel_${phase.name}_${role.name}_${isAlive}_${isDyingCaptain}_${selectedTarget?.id ?? "none"}'),
-                width: double.infinity,
-                child: _buildRoleActionDispatcher(
-                  context: context,
-                  phase: phase,
-                  role: role,
-                  me: me,
-                  selectedTarget: selectedTarget,
-                  isAlive: isAlive,
-                  isDevMode: isDevMode,
-                  isDyingCaptain: isDyingCaptain,
+            // Zone d'action standardisée et stabilisée (hauteur minimale calibrée sur la Sorcière)
+            Container(
+              constraints: const BoxConstraints(minHeight: 120),
+              alignment: Alignment.center,
+              width: double.infinity,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+                  return currentChild ?? const SizedBox.shrink();
+                },
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                child: SizedBox(
+                  key: ValueKey('action_panel_${phase.name}_${role.name}_${isAlive}_${isDyingCaptain}_${selectedTarget?.id ?? "none"}'),
+                  width: double.infinity,
+                  child: _buildRoleActionDispatcher(
+                    context: context,
+                    phase: phase,
+                    role: role,
+                    me: me,
+                    selectedTarget: selectedTarget,
+                    isAlive: isAlive,
+                    isDevMode: isDevMode,
+                    isDyingCaptain: isDyingCaptain,
+                  ),
                 ),
               ),
             ),
+          ],
+        ),
+      );
+    } catch (e, stack) {
+      debugPrint('[BentoActionPanel] Erreur fatale dans build(): $e\n$stack');
+      return BentoCard(
+        key: const ValueKey('action_panel_safe_fallback'),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        borderColor: LupusColors.borderGlow,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 120),
+          alignment: Alignment.center,
+          child: _buildVotesClosedBanner(
+            message: context.tr('phase_in_progress'),
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    }
   }
 
   /// Dispatcher d'action stratégique selon la phase et le rôle actif

@@ -2,14 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lupus_arena/models/game_phase.dart';
 import 'package:lupus_arena/models/mort_instantanee_event.dart';
+import 'package:lupus_arena/services/death_registry_service.dart';
 import 'package:lupus_arena/ui/bento/bento_action_panel.dart';
 import 'package:lupus_arena/ui/overlays/revealed_death_card_overlay.dart';
 
 void main() {
+  setUp(() {
+    DeathRegistryService.instance.reset();
+  });
+
   group('UI - Succession du Maire', () {
     testWidgets('Affiche la bannière spectateur immersive pour le village', (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('fr'),
           home: Scaffold(
             body: BentoActionPanel(
               isCaptain: false,
@@ -30,6 +36,7 @@ void main() {
     testWidgets('Affiche le testament interactif pour le maire mourant', (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('fr'),
           home: Scaffold(
             body: BentoActionPanel(
               isCaptain: true,

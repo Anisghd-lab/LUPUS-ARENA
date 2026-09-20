@@ -24,16 +24,20 @@ class BlackWolfHandler extends RoleActionHandler {
   }) {
     final targetId = actionPayload['targetId'] as String?;
     if (targetId == null || !state.isAlive(targetId)) return state;
+    if (targetId == state.nightPrimaryVictimId) return state; // Inutile de réduire au silence la victime dévorée
 
     final acknowledged = Set<String>.from(state.nightAcknowledgedPlayerIds)..add(actorId);
     return state.copyWith(
+      blackWolfTargetId: targetId,
       nightAcknowledgedPlayerIds: acknowledged,
     );
   }
 
   @override
   RoleUIControls getUIControls(GameState state, String playerId) {
-    final targets = state.alivePlayerIds.where((id) => id != playerId).toList();
+    final targets = state.alivePlayerIds
+        .where((id) => id != playerId && id != state.nightPrimaryVictimId)
+        .toList();
 
     return RoleUIControls(
       title: 'Loup Noir',

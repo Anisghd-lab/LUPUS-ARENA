@@ -19,9 +19,17 @@ class IdiotHandler extends RoleActionHandler {
     required String actorId,
     required Map<String, dynamic> actionPayload,
   }) {
-    // Si l'idiot est exécuté, on annule l'exécution et on lui retire son droit de vote
-    final banned = Set<String>.from(state.expandedRolesState.bannedVotersForToday)..add(actorId);
-    final updated = state.expandedRolesState.copyWith(bannedVotersForToday: banned);
+    // Si l'idiot a déjà été gracié, la grâce ne s'applique plus : l'exécution a lieu
+    if (state.expandedRolesState.idiotPardoned) {
+      return state;
+    }
+
+    // Premier vote contre lui : il est gracié et perd définitivement son droit de vote
+    final permanentlyBanned = Set<String>.from(state.expandedRolesState.permanentlyBannedVoters)..add(actorId);
+    final updated = state.expandedRolesState.copyWith(
+      idiotPardoned: true,
+      permanentlyBannedVoters: permanentlyBanned,
+    );
 
     return state.copyWith(
       pendingExecutedPlayerId: null, // Gracié !
@@ -33,7 +41,7 @@ class IdiotHandler extends RoleActionHandler {
   RoleUIControls getUIControls(GameState state, String playerId) {
     return const RoleUIControls(
       title: 'L\'Idiot du Village',
-      instruction: 'Si le village vous condamne, vous êtes immédiatement gracié mais perdez votre droit de vote.',
+      instruction: 'Si le village vous condamne, vous êtes immédiatement gracié (une seule fois) mais perdez définitivement votre droit de vote.',
       inputType: RoleActionInputType.none,
     );
   }

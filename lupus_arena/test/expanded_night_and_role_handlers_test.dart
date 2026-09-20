@@ -14,6 +14,11 @@ import 'package:lupus_arena/engine/handlers/angel_handler.dart';
 import 'package:lupus_arena/engine/handlers/idiot_handler.dart';
 import 'package:lupus_arena/engine/handlers/pied_piper_handler.dart';
 import 'package:lupus_arena/engine/handlers/pyromaniac_handler.dart';
+import 'package:lupus_arena/engine/handlers/cupid_handler.dart';
+import 'package:lupus_arena/engine/handlers/defender_handler.dart';
+import 'package:lupus_arena/engine/handlers/hunter_handler.dart';
+import 'package:lupus_arena/engine/handlers/seer_handler.dart';
+import 'package:lupus_arena/engine/handlers/witch_handler.dart';
 
 void main() {
   setUp(() {
@@ -254,6 +259,244 @@ void main() {
       );
 
       expect(nextState.nightSecondaryDeaths, contains('wolf'));
+    });
+  });
+
+  group('IdiotHandler Directive Tests', () {
+    test('Gracié au premier vote et privé définitivement de vote', () {
+      final handler = IdiotHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.dayVoting,
+        pendingExecutedPlayerId: 'idiot1',
+        players: {
+          'idiot1': const PlayerModel(id: 'idiot1', name: 'Idiot', isAlive: true, role: GameRole.idiot),
+        },
+      );
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'idiot1',
+        actionPayload: {},
+      );
+
+      expect(nextState.pendingExecutedPlayerId, isNull, reason: 'L\'Idiot est gracié');
+      expect(nextState.expandedRolesState.idiotPardoned, isTrue);
+      expect(nextState.expandedRolesState.permanentlyBannedVoters, contains('idiot1'));
+    });
+
+    test('Exécuté au second vote si déjà gracié dans le passé', () {
+      final handler = IdiotHandler();
+      final state = GameState(
+        currentTurn: 2,
+        currentPhase: GamePhase.dayVoting,
+        pendingExecutedPlayerId: 'idiot1',
+        expandedRolesState: const ExpandedRolesState(
+          idiotPardoned: true,
+          permanentlyBannedVoters: {'idiot1'},
+        ),
+        players: {
+          'idiot1': const PlayerModel(id: 'idiot1', name: 'Idiot', isAlive: true, role: GameRole.idiot),
+        },
+      );
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'idiot1',
+        actionPayload: {},
+      );
+
+      expect(nextState.pendingExecutedPlayerId, equals('idiot1'), reason: 'La grâce est unique : il meurt');
+    });
+  });
+
+  group('PiedPiperHandler Directive Tests', () {
+    test('Envoûte deux joueurs et met à jour isCharmed dans players', () {
+      final handler = PiedPiperHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.nightPiper,
+        players: {
+          'piper': const PlayerModel(id: 'piper', name: 'Flûtiste', isAlive: true, role: GameRole.piedPiper),
+          'p1': const PlayerModel(id: 'p1', name: 'Joueur 1', isAlive: true, role: GameRole.simpleVillager),
+          'p2': const PlayerModel(id: 'p2', name: 'Joueur 2', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'piper',
+        actionPayload: {'targetIds': ['p1', 'p2']},
+      );
+
+      expect(nextState.players['p1']?.isCharmed, isTrue);
+      expect(nextState.players['p2']?.isCharmed, isTrue);
+    });
+  });
+
+  group('PyromaniacHandler Directive Tests', () {
+    test('Douse asperge un joueur et met à jour isDoused dans players', () {
+      final handler = PyromaniacHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.nightPyromaniac,
+        players: {
+          'pyro': const PlayerModel(id: 'pyro', name: 'Pyro', isAlive: true, role: GameRole.pyromaniac),
+          'target': const PlayerModel(id: 'target', name: 'Cible', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'pyro',
+        actionPayload: {'action': 'douse', 'targetId': 'target'},
+      );
+
+      expect(nextState.players['target']?.isDoused, isTrue);
+    });
+
+    test('Ignite enflamme tous les joueurs aspergés et les ajoute aux morts', () {
+      final handler = PyromaniacHandler();
+      final state = GameState(
+        currentTurn: 2,
+        currentPhase: GamePhase.nightPyromaniac,
+        players: {
+          'pyro': const PlayerModel(id: 'pyro', name: 'Pyro', isAlive: true, role: GameRole.pyromaniac),
+          'doused1': const PlayerModel(id: 'doused1', name: 'Aspergé 1', isAlive: true, isDoused: true, role: GameRole.simpleVillager),
+          'safe': const PlayerModel(id: 'safe', name: 'Non Aspergé', isAlive: true, isDoused: false, role: GameRole.simpleVillager),
+        },
+      );
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'pyro',
+        actionPayload: {'action': 'ignite'},
+      );
+
+      expect(nextState.nightSecondaryDeaths, contains('doused1'));
+      expect(nextState.nightSecondaryDeaths, isNot(contains('safe')));
+    });
+  });
+
+  group('CupidHandler Directive Tests', () {
+    test('Lie deux amoureux avec réciprocité des identifiants', () {
+      final handler = CupidHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.nightCupid,
+        players: {
+          'cupid': const PlayerModel(id: 'cupid', name: 'Cupidon', isAlive: true, role: GameRole.cupid),
+          'p1': const PlayerModel(id: 'p1', name: 'Amoureux 1', isAlive: true, role: GameRole.simpleVillager),
+          'p2': const PlayerModel(id: 'p2', name: 'Amoureux 2', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'cupid',
+        actionPayload: {'lover1Id': 'p1', 'lover2Id': 'p2'},
+      );
+
+      expect(nextState.players['p1']?.isLover, isTrue);
+      expect(nextState.players['p1']?.loverId, equals('p2'));
+      expect(nextState.players['p2']?.isLover, isTrue);
+      expect(nextState.players['p2']?.loverId, equals('p1'));
+    });
+  });
+
+  group('DefenderHandler Directive Tests', () {
+    test('Protège une cible et interdit de cibler le même joueur deux nuits de suite', () {
+      final handler = DefenderHandler();
+      final state = GameState(
+        currentTurn: 2,
+        currentPhase: GamePhase.nightDefender,
+        lastProtectedPlayerId: 'target1',
+        players: {
+          'def': const PlayerModel(id: 'def', name: 'Salvateur', isAlive: true, role: GameRole.defender),
+          'target1': const PlayerModel(id: 'target1', name: 'Cible 1', isAlive: true, role: GameRole.simpleVillager),
+          'target2': const PlayerModel(id: 'target2', name: 'Cible 2', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      // Rejet de target1 (protégé la nuit d'avant)
+      final rejectedState = handler.executeAction(
+        state,
+        actorId: 'def',
+        actionPayload: {'targetId': 'target1'},
+      );
+      expect(rejectedState.currentProtectedPlayerId, isNull);
+
+      // Succès pour target2
+      final validState = handler.executeAction(
+        state,
+        actorId: 'def',
+        actionPayload: {'targetId': 'target2'},
+      );
+      expect(validState.currentProtectedPlayerId, equals('target2'));
+
+      // UI controls excluent target1
+      final controls = handler.getUIControls(state, 'def');
+      expect(controls.availableTargetIds, contains('target2'));
+      expect(controls.availableTargetIds, isNot(contains('target1')));
+    });
+  });
+
+  group('BlackWolfHandler Directive Tests', () {
+    test('Enregistre la cible du silence et refuse de cibler la victime des loups', () {
+      final handler = BlackWolfHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.nightBlackWolf,
+        nightPrimaryVictimId: 'devoured',
+        players: {
+          'bw': const PlayerModel(id: 'bw', name: 'Loup Noir', isAlive: true, role: GameRole.blackWolf),
+          'devoured': const PlayerModel(id: 'devoured', name: 'Dévoré', isAlive: true, role: GameRole.simpleVillager),
+          'target': const PlayerModel(id: 'target', name: 'Cible', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      // Refus de cibler devoured
+      final rejected = handler.executeAction(
+        state,
+        actorId: 'bw',
+        actionPayload: {'targetId': 'devoured'},
+      );
+      expect(rejected.blackWolfTargetId, isNull);
+
+      // Succès sur target
+      final valid = handler.executeAction(
+        state,
+        actorId: 'bw',
+        actionPayload: {'targetId': 'target'},
+      );
+      expect(valid.blackWolfTargetId, equals('target'));
+    });
+  });
+
+  group('HunterHandler Directive Tests', () {
+    test('Seul le chasseur mourant peut agir pour abattre sa cible', () {
+      final handler = HunterHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.hunterDeathChoice,
+        pendingExecutedPlayerId: 'hunter1',
+        players: {
+          'hunter1': const PlayerModel(id: 'hunter1', name: 'Chasseur', isAlive: false, role: GameRole.hunter),
+          'other': const PlayerModel(id: 'other', name: 'Autre', isAlive: true, role: GameRole.simpleVillager),
+          'target': const PlayerModel(id: 'target', name: 'Cible', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      expect(handler.canAct(state, 'hunter1'), isTrue);
+      expect(handler.canAct(state, 'other'), isFalse);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'hunter1',
+        actionPayload: {'targetId': 'target'},
+      );
+
+      expect(nextState.players['target']?.isAlive, isFalse);
     });
   });
 }

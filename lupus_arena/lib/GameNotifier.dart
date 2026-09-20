@@ -2221,13 +2221,41 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
 
     if (condemnedRealRole == GameRole.idiot) {
-      logs.add(
-        '🤪 L\'Idiot du Village ${condemned.name} est gracié par la compassion du village ! Il reste en vie mais perd tout droit de vote.',
-      );
-      _finishDayCycle(room, updates, logs);
-      updates['logs'] = logs;
-      await _syncState(updates);
-      return;
+      if (room.expandedRolesState.idiotPardoned) {
+        logs.add(
+          '⚖️ L\'Idiot du Village ${condemned.name} a déjà épuisé sa grâce passée. Le verdict s\'abat irrémédiablement !',
+        );
+      } else {
+        logs.add(
+          '🤪 L\'Idiot du Village ${condemned.name} est gracié par la compassion du village ! Il reste en vie mais perd tout droit de vote.',
+        );
+        final inMemoryState = GameState(
+          currentTurn: room.round,
+          currentPhase: room.phase,
+          playerRoles: {condemnedId: GameRole.idiot},
+          players: room.players,
+          expandedRolesState: room.expandedRolesState,
+          pendingExecutedPlayerId: condemnedId,
+        );
+        RoleHandlersRegistry.dispatchAction(
+          inMemoryState,
+          role: GameRole.idiot,
+          actorId: condemnedId,
+          payload: {},
+        );
+        final updatedExpanded = room.expandedRolesState.copyWith(
+          idiotPardoned: true,
+          permanentlyBannedVoters: {
+            ...room.expandedRolesState.permanentlyBannedVoters,
+            condemnedId,
+          },
+        );
+        updates['expandedRolesState'] = updatedExpanded.toMap();
+        _finishDayCycle(room, updates, logs);
+        updates['logs'] = logs;
+        await _syncState(updates);
+        return;
+      }
     }
 
     updates['players/$condemnedId/isAlive'] = false;
@@ -2971,6 +2999,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       ...?state.room?.logs,
       '🎵 Une mélodie ensorcelante résonne dans la nuit : de nouvelles âmes sont charmées.',
     ];
+
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.piedPiper,
+        actorId: state.effectiveUserId,
+        payload: {'targetIds': targetIds},
+      );
+    }
+
     await _syncState(updates);
     await processNightTransitions();
   }
@@ -3045,6 +3089,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final room = state.room!;
     if (state.myRole != GameRole.fox && !state.isAdmin) return;
 
+    final inMemoryState = GameState(
+      currentTurn: room.round,
+      currentPhase: room.phase,
+      players: room.players,
+      expandedRolesState: room.expandedRolesState,
+    );
+    RoleHandlersRegistry.dispatchAction(
+      inMemoryState,
+      role: GameRole.fox,
+      actorId: state.effectiveUserId,
+      payload: {'skip': true},
+    );
+
     final logs = List<String>.from(room.logs);
     logs.add('🦊 Le Renard a choisi de préserver son flair et ne flaire personne cette nuit.');
     await _syncState({'logs': logs});
@@ -3055,6 +3112,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (state.room == null || _currentRoomRef == null) return;
     final room = state.room!;
     if (state.myRole != GameRole.whiteWerewolf && !state.isAdmin) return;
+
+    final inMemoryState = GameState(
+      currentTurn: room.round,
+      currentPhase: room.phase,
+      players: room.players,
+      expandedRolesState: room.expandedRolesState,
+    );
+    RoleHandlersRegistry.dispatchAction(
+      inMemoryState,
+      role: GameRole.whiteWerewolf,
+      actorId: state.effectiveUserId,
+      payload: {'targetId': targetPlayerId},
+    );
 
     final targetName = room.players[targetPlayerId]?.name ?? targetPlayerId;
     final logs = List<String>.from(room.logs);
@@ -3075,6 +3145,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     if (state.room == null || _currentRoomRef == null) return;
     final room = state.room!;
     if (state.myRole != GameRole.whiteWerewolf && !state.isAdmin) return;
+
+    final inMemoryState = GameState(
+      currentTurn: room.round,
+      currentPhase: room.phase,
+      players: room.players,
+      expandedRolesState: room.expandedRolesState,
+    );
+    RoleHandlersRegistry.dispatchAction(
+      inMemoryState,
+      role: GameRole.whiteWerewolf,
+      actorId: state.effectiveUserId,
+      payload: {'skip': true},
+    );
 
     final logs = List<String>.from(room.logs);
     logs.add('🐺⚪ Le Loup-Garou Blanc a choisi de ne dévorer aucun loup cette nuit.');
@@ -3203,6 +3286,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
     if (p1Id == p2Id) return;
 
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.cupid,
+        actorId: state.effectiveUserId,
+        payload: {'lover1Id': p1Id, 'lover2Id': p2Id},
+      );
+    }
+
     await _syncState({
       'players/$p1Id/isLover': true,
       'players/$p1Id/loverId': p2Id,
@@ -3224,6 +3322,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final target = state.room?.players[targetPlayerId];
     if (target == null) return;
 
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.pyromaniac,
+        actorId: state.effectiveUserId,
+        payload: {'action': 'douse', 'targetId': targetPlayerId},
+      );
+    }
+
     await _syncState({
       'players/$targetPlayerId/isDoused': true,
       'logs': [
@@ -3240,6 +3353,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       return;
     }
 
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.pyromaniac,
+        actorId: state.effectiveUserId,
+        payload: {'action': 'ignite'},
+      );
+    }
+
     await _syncState({
       'pyromaniacIgnited': true,
       'logs': [
@@ -3251,6 +3379,20 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   Future<void> pyromaniacPass() async {
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.pyromaniac,
+        actorId: state.effectiveUserId,
+        payload: {'skip': true},
+      );
+    }
     await processNightTransitions();
   }
 
@@ -3268,6 +3410,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             'Vous ne pouvez pas protéger le même joueur deux nuits consécutives.',
       );
       return false;
+    }
+
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        lastProtectedPlayerId: state.room!.lastProtectedPlayerId,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.defender,
+        actorId: state.effectiveUserId,
+        payload: {'targetId': targetPlayerId},
+      );
     }
 
     await _syncState({
@@ -3365,6 +3523,19 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
   Future<void> completeSeerTurn() async {
     if (state.room == null) return;
+    final inMemoryState = GameState(
+      currentTurn: state.room!.round,
+      currentPhase: state.room!.phase,
+      players: state.room!.players,
+      expandedRolesState: state.room!.expandedRolesState,
+    );
+    RoleHandlersRegistry.dispatchAction(
+      inMemoryState,
+      role: GameRole.seer,
+      actorId: state.effectiveUserId,
+      payload: {},
+    );
+
     final currentLogs = List<String>.from(state.room!.logs);
     currentLogs.add('La Voyante a achevé sa vision nocturne.');
     await _syncState({'logs': currentLogs});
@@ -3383,8 +3554,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       debugPrint('[castVote] ⛔ Action bloquée: impossible de voter contre $targetId qui est déjà décédé.');
       return;
     }
-    if (state.room?.phase == GamePhase.dayVoting &&
-        state.room?.expandedRolesState.bannedVotersForToday.contains(state.currentUserId) == true) {
+    if ((state.room?.phase == GamePhase.dayVoting || state.room?.phase == GamePhase.dayTieBreakVote) &&
+        (state.room?.expandedRolesState.bannedVotersForToday.contains(voterId) == true ||
+         state.room?.expandedRolesState.permanentlyBannedVoters.contains(voterId) == true)) {
+      debugPrint('[castVote] ⛔ Action bloquée: $voterId est privé de son droit de vote.');
       return;
     }
     final voteUpdates = <String, dynamic>{
@@ -3423,6 +3596,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
 
     // Enregistrement confidentiel du sortilège de silence (divulgué publiquement à l'Aube)
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        nightPrimaryVictimId: currentVictimId,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.blackWolf,
+        actorId: state.effectiveUserId,
+        payload: {'targetId': targetPlayerId},
+      );
+    }
+
     await _syncState({
       'blackWolfTargetId': targetPlayerId,
     });
@@ -3470,6 +3659,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final newVie = max(0, curVie - 1);
     final curMort = witchPlayer?.potionsMort ?? 0;
     final isDechue = newVie == 0 && curMort == 0;
+
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        nightPrimaryVictimId: wolfVictimId,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.witch,
+        actorId: witchId,
+        payload: {'save': true},
+      );
+    }
 
     await _syncState({
       'witchHealed': true,
@@ -3533,6 +3738,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final curVie = witchPlayer?.potionsVie ?? 0;
     final isDechue = newMort == 0 && curVie == 0;
 
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.witch,
+        actorId: witchId,
+        payload: {'poisonTargetId': targetId},
+      );
+    }
+
     // La potion de mort marque la cible pour la résolution du matin sans altérer son statut durant la nuit
     await _syncState({
       'witchPoisonVictimId': targetId,
@@ -3567,6 +3787,20 @@ class GameNotifier extends StateNotifier<LupusGameState> {
   }
 
   Future<void> witchPass() async {
+    if (state.room != null) {
+      final inMemoryState = GameState(
+        currentTurn: state.room!.round,
+        currentPhase: state.room!.phase,
+        players: state.room!.players,
+        expandedRolesState: state.room!.expandedRolesState,
+      );
+      RoleHandlersRegistry.dispatchAction(
+        inMemoryState,
+        role: GameRole.witch,
+        actorId: state.effectiveUserId,
+        payload: {'skip': true},
+      );
+    }
     await confirmWitchTurn();
   }
 
@@ -3578,6 +3812,20 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     final victim = room.players[targetId];
     if (victim == null || !victim.isAlive) return;
+
+    final inMemoryState = GameState(
+      currentTurn: room.round,
+      currentPhase: room.phase,
+      players: room.players,
+      pendingExecutedPlayerId: hunterId,
+      expandedRolesState: room.expandedRolesState,
+    );
+    RoleHandlersRegistry.dispatchAction(
+      inMemoryState,
+      role: GameRole.hunter,
+      actorId: hunterId,
+      payload: {'targetId': targetId},
+    );
 
     GameRole victimRealRole = victim.role;
     try {

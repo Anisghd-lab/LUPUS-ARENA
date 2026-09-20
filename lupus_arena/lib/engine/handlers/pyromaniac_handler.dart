@@ -45,8 +45,13 @@ class PyromaniacHandler extends RoleActionHandler {
         nightAcknowledgedPlayerIds: acknowledged,
       );
     } else if (action == 'douse' && targetId != null && state.isAlive(targetId)) {
+      final updatedPlayers = Map<String, PlayerModel>.from(state.players);
+      if (updatedPlayers.containsKey(targetId)) {
+        updatedPlayers[targetId] = updatedPlayers[targetId]!.copyWith(isDoused: true);
+      }
       final acknowledged = Set<String>.from(state.nightAcknowledgedPlayerIds)..add(actorId);
       return state.copyWith(
+        players: updatedPlayers,
         nightAcknowledgedPlayerIds: acknowledged,
       );
     }

@@ -16,6 +16,9 @@ class GameState {
   final String? lastEliminatedPlayerId;
   final List<String> nightSecondaryDeaths;
   final String? nightPrimaryVictimId;
+  final String? currentProtectedPlayerId;
+  final String? lastProtectedPlayerId;
+  final String? blackWolfTargetId;
 
   const GameState({
     this.currentTurn = 1,
@@ -29,6 +32,9 @@ class GameState {
     this.lastEliminatedPlayerId,
     this.nightSecondaryDeaths = const [],
     this.nightPrimaryVictimId,
+    this.currentProtectedPlayerId,
+    this.lastProtectedPlayerId,
+    this.blackWolfTargetId,
   });
 
   bool isAlive(String playerId) {
@@ -90,6 +96,9 @@ class GameState {
     String? lastEliminatedPlayerId,
     List<String>? nightSecondaryDeaths,
     String? nightPrimaryVictimId,
+    String? currentProtectedPlayerId,
+    String? lastProtectedPlayerId,
+    String? blackWolfTargetId,
   }) {
     return GameState(
       currentTurn: currentTurn ?? this.currentTurn,
@@ -109,6 +118,12 @@ class GameState {
           nightSecondaryDeaths ?? this.nightSecondaryDeaths,
       nightPrimaryVictimId:
           nightPrimaryVictimId ?? this.nightPrimaryVictimId,
+      currentProtectedPlayerId:
+          currentProtectedPlayerId ?? this.currentProtectedPlayerId,
+      lastProtectedPlayerId:
+          lastProtectedPlayerId ?? this.lastProtectedPlayerId,
+      blackWolfTargetId:
+          blackWolfTargetId ?? this.blackWolfTargetId,
     );
   }
 }

@@ -29,7 +29,7 @@ class PiedPiperHandler extends RoleActionHandler {
     final acknowledged = Set<String>.from(state.nightAcknowledgedPlayerIds)..add(actorId);
 
     // Mettre à jour les joueurs charmés dans l'état
-    final updatedPlayers = Map<String, dynamic>.from(state.players);
+    final updatedPlayers = Map<String, PlayerModel>.from(state.players);
     for (final tid in targets) {
       if (updatedPlayers.containsKey(tid)) {
         final p = state.players[tid]!;
@@ -38,6 +38,7 @@ class PiedPiperHandler extends RoleActionHandler {
     }
 
     return state.copyWith(
+      players: updatedPlayers,
       nightAcknowledgedPlayerIds: acknowledged,
     );
   }

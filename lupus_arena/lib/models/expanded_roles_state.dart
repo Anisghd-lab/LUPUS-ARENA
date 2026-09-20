@@ -25,6 +25,8 @@ class ExpandedRolesState {
   final bool hasUsedInfection;
 
   final String? whiteWolfTargetId;
+  final bool idiotPardoned;
+  final Set<String> permanentlyBannedVoters;
 
   // --- ÉTAT DU MAIRE (CAPITAINE) DU VILLAGE ---
   final String? mayorPlayerId;
@@ -56,6 +58,8 @@ class ExpandedRolesState {
     this.scapegoatNeedsToBan = false,
     this.hasUsedInfection = false,
     this.whiteWolfTargetId,
+    this.idiotPardoned = false,
+    this.permanentlyBannedVoters = const {},
     this.mayorPlayerId,
     this.isMayorElected = false,
     this.pendingMayorSuccessorId,
@@ -89,6 +93,8 @@ class ExpandedRolesState {
     bool? scapegoatNeedsToBan,
     bool? hasUsedInfection,
     String? whiteWolfTargetId,
+    bool? idiotPardoned,
+    Set<String>? permanentlyBannedVoters,
     String? mayorPlayerId,
     bool? isMayorElected,
     String? pendingMayorSuccessorId,
@@ -123,6 +129,8 @@ class ExpandedRolesState {
       scapegoatNeedsToBan: scapegoatNeedsToBan ?? this.scapegoatNeedsToBan,
       hasUsedInfection: hasUsedInfection ?? this.hasUsedInfection,
       whiteWolfTargetId: whiteWolfTargetId ?? this.whiteWolfTargetId,
+      idiotPardoned: idiotPardoned ?? this.idiotPardoned,
+      permanentlyBannedVoters: permanentlyBannedVoters ?? this.permanentlyBannedVoters,
       mayorPlayerId: mayorPlayerId ?? this.mayorPlayerId,
       isMayorElected: isMayorElected ?? this.isMayorElected,
       pendingMayorSuccessorId:
@@ -161,6 +169,8 @@ class ExpandedRolesState {
       'scapegoatNeedsToBan': scapegoatNeedsToBan,
       'hasUsedInfection': hasUsedInfection,
       'whiteWolfTargetId': whiteWolfTargetId,
+      'idiotPardoned': idiotPardoned,
+      'permanentlyBannedVoters': permanentlyBannedVoters.toList(),
       'mayorPlayerId': mayorPlayerId,
       'isMayorElected': isMayorElected,
       'pendingMayorSuccessorId': pendingMayorSuccessorId,
@@ -214,6 +224,14 @@ class ExpandedRolesState {
       }
     }
 
+    // Parsing permanentlyBannedVoters
+    final parsedPermanentlyBanned = <String>{};
+    if (map['permanentlyBannedVoters'] is Iterable) {
+      for (final id in map['permanentlyBannedVoters'] as Iterable) {
+        if (id != null) parsedPermanentlyBanned.add(id.toString());
+      }
+    }
+
     return ExpandedRolesState(
       infectedPlayerId: map['infectedPlayerId']?.toString(),
       wildChildModelId: map['wildChildModelId']?.toString(),
@@ -241,6 +259,8 @@ class ExpandedRolesState {
       scapegoatNeedsToBan: map['scapegoatNeedsToBan'] as bool? ?? false,
       hasUsedInfection: map['hasUsedInfection'] as bool? ?? false,
       whiteWolfTargetId: map['whiteWolfTargetId']?.toString(),
+      idiotPardoned: map['idiotPardoned'] as bool? ?? false,
+      permanentlyBannedVoters: parsedPermanentlyBanned,
       mayorPlayerId: map['mayorPlayerId']?.toString(),
       isMayorElected: map['isMayorElected'] as bool? ?? false,
       pendingMayorSuccessorId: map['pendingMayorSuccessorId']?.toString(),

@@ -57,8 +57,9 @@ class VoteCoordinator {
 
     final livingCount = players.values.where((p) => p.isAlive).length;
     for (final voter in players.values.where((p) => p.isAlive)) {
-      // Ignorer les votants bannis par le Bouc Émissaire
-      if (expandedRolesState.bannedVotersForToday.contains(voter.id)) {
+      // Ignorer les votants bannis par le Bouc Émissaire ou l'Idiot du Village gracié
+      if (expandedRolesState.bannedVotersForToday.contains(voter.id) ||
+          expandedRolesState.permanentlyBannedVoters.contains(voter.id)) {
         continue;
       }
 

@@ -27,8 +27,19 @@ class CupidHandler extends RoleActionHandler {
 
     if (lover1Id == null || lover2Id == null || lover1Id == lover2Id) return state;
 
+    final updatedPlayers = Map<String, PlayerModel>.from(state.players);
+    if (updatedPlayers.containsKey(lover1Id)) {
+      updatedPlayers[lover1Id] = updatedPlayers[lover1Id]!.copyWith(isLover: true, loverId: lover2Id);
+    }
+    if (updatedPlayers.containsKey(lover2Id)) {
+      updatedPlayers[lover2Id] = updatedPlayers[lover2Id]!.copyWith(isLover: true, loverId: lover1Id);
+    }
+
     final acknowledged = Set<String>.from(state.nightAcknowledgedPlayerIds)..add(actorId);
-    return state.copyWith(nightAcknowledgedPlayerIds: acknowledged);
+    return state.copyWith(
+      players: updatedPlayers,
+      nightAcknowledgedPlayerIds: acknowledged,
+    );
   }
 
   @override

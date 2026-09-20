@@ -11,7 +11,10 @@ class HunterHandler extends RoleActionHandler {
 
   @override
   bool canAct(GameState state, String playerId) {
-    return state.currentPhase == GamePhase.hunterDeathChoice;
+    if (state.currentPhase != GamePhase.hunterDeathChoice) return false;
+    return state.pendingExecutedPlayerId == playerId ||
+        state.lastEliminatedPlayerId == playerId ||
+        !state.isAlive(playerId);
   }
 
   @override

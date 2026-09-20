@@ -14,8 +14,9 @@ class WhiteWerewolfHandler extends RoleActionHandler {
   bool canAct(GameState state, String playerId) {
     if (!state.isAlive(playerId)) return false;
     final isEvenNight = state.currentTurn > 1 && (state.currentTurn % 2 == 0);
+    if (!isEvenNight) return false;
     final isWhiteWolfPhase = state.currentPhase == GamePhase.nightWhiteWerewolf ||
-        (isEvenNight && state.currentPhase == GamePhase.nightWerewolves);
+        state.currentPhase == GamePhase.nightWerewolves;
     return isWhiteWolfPhase;
   }
 

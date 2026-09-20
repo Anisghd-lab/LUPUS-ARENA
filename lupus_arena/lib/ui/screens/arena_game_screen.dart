@@ -1496,8 +1496,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         return context.tr('salvateur_power_title');
       case GamePhase.nightSeer:
         return context.tr('seer_power_title');
+      case GamePhase.nightFox:
+        return context.tr('phase_night_fox_title');
       case GamePhase.nightWerewolves:
         return context.tr('phase_werewolves_title');
+      case GamePhase.nightWhiteWerewolf:
+        return context.tr('phase_night_white_werewolf_title');
       case GamePhase.nightBlackWolf:
         return context.tr('phase_black_wolf_title');
       case GamePhase.nightWitch:
@@ -1543,6 +1547,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         return context.tr('phase_cupid_subtitle');
       case GamePhase.nightWerewolves:
         return context.tr('phase_werewolves_subtitle');
+      case GamePhase.nightWhiteWerewolf:
+        return context.tr('phase_night_white_werewolf_desc');
+      case GamePhase.nightFox:
+        return context.tr('phase_night_fox_desc');
       case GamePhase.dayVoting:
       case GamePhase.dayTieBreakVote:
         return context.tr('phase_voting_subtitle');

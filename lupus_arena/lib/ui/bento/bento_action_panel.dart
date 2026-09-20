@@ -3307,7 +3307,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       bannerBorderColor = const Color(0xFF64748B);
       bannerBgColor = const Color(0x2264748B);
     } else if (hasVictim) {
-      statusText = context.tr('little_girl_prey_detected', {'name': victimPlayer!.name});
+      statusText = context.tr('little_girl_prey_detected', {'name': victimPlayer.name});
       bannerBorderColor = const Color(0xFFFF2A55);
       bannerBgColor = const Color(0x22FF2A55);
     } else {
@@ -3532,12 +3532,12 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: isTargetWolf
-                  ? () => widget.onWhiteWolfDevour?.call(selectedTarget!.id)
+                  ? () => widget.onWhiteWolfDevour?.call(selectedTarget.id)
                   : null,
               icon: const Icon(Icons.brightness_7_rounded, size: 15),
               label: Text(
                 isTargetWolf
-                    ? context.tr('white_wolf_devour_target', {'name': selectedTarget!.name})
+                    ? context.tr('white_wolf_devour_target', {'name': selectedTarget.name})
                     : context.tr('white_wolf_select_target'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

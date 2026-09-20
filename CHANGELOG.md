@@ -10,6 +10,7 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 - **Témoins Visuels des Pouvoirs Actifs & Fog of War :** Rendu asymétrique et confidentiel des capacités nocturnes sur la Table Mystique et la Grille Bento — flairage du Renard avec distinction loup/innocent (`isSniffed`, `hasWolfSmell`), bouclier du Salvateur, potions de vie/mort de la Sorcière, malédiction du Corbeau, allégeance de l'Enfant Sauvage, grognement du Montreur d'Ours et contamination de l'Épée Rouillée.
 - **Micro-Animations Immersives :** Secousse d'écran amortie (`ScreenShakeWrapper`) et onde de choc d'impact pour le Chasseur, éclatement radial de flammes (`PyroFlameBurstEffect`) pour le Pyromane, halo pulsant fluide néon (`CharmedPulsingHalo`) pour le Joueur de Flûte, et entrée élastique (`AnimatedStatusBadge`) sur les badges de statut.
 - **Retours Haptiques Dédiés & Régulateur Anti-Saturation :** Retours physiques tactiles distincts (`heavyImpact` pour Chasseur/Pyromane, `lightImpact` pour Flûte/sélection) et régulateur `HapticThrottler` (debounce 120ms) prévenant l'engorgement du moteur de vibration.
+- **Illustration Haute Définition du Lobby :** Intégration de la nouvelle illustration d'arrière-plan immersive `backlobby.jpg` (1536x2752) pour l'écran d'accueil avec cascade de fallbacks adaptatifs.
 - **Couverture de Tests :** Suite de tests unitaires complète `test/expanded_night_and_role_handlers_test.dart` (814 lignes) validant tous les rôles étendus et la préservation stricte du secret asymétrique.
 
 #### Optimisé (Performance & Fluidité)

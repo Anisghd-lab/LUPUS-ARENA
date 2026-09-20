@@ -23,10 +23,7 @@ class LittleGirlHandler extends RoleActionHandler {
     required String actorId,
     required Map<String, dynamic> actionPayload,
   }) {
-    final closeEyes = actionPayload['closeEyes'] as bool? ?? false;
     final acknowledged = Set<String>.from(state.nightAcknowledgedPlayerIds)..add(actorId);
-
-    // Enregistre l'action de la petite fille (veille active ou yeux fermés)
     return state.copyWith(
       nightAcknowledgedPlayerIds: acknowledged,
     );

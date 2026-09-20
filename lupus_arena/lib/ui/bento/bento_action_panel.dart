@@ -3284,6 +3284,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ],
           ],
         ),
+      ],
+    );
+  }
+
   /// Module Petite Fille : Télémétrie de la chasse des loups et espionnage secret
   Widget _buildLittleGirlSection(PlayerModel? selectedTarget) {
     final rawVictimId = _wolfVictimId ?? widget.room.nightVictimId;

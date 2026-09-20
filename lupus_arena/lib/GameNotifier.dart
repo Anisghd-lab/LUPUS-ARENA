@@ -3017,7 +3017,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     RoleHandlersRegistry.dispatchAction(
       inMemoryState,
       role: GameRole.fox,
-      actorId: state.myId,
+      actorId: state.effectiveUserId,
       payload: {'targetId': targetPlayerId},
     );
 
@@ -3058,7 +3058,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
     final targetName = room.players[targetPlayerId]?.name ?? targetPlayerId;
     final logs = List<String>.from(room.logs);
-    logs.add('🐺⚪ Le Loup-Garou Blanc a frappé un membre de sa meute dans l\'obscurité...');
+    logs.add('🐺⚪ Le Loup-Garou Blanc a éliminé $targetName dans l\'obscurité...');
 
     final updatedExpanded = room.expandedRolesState.copyWith(
       whiteWolfTargetId: targetPlayerId,

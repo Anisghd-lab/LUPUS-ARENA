@@ -97,7 +97,7 @@ class BentoPlayerTile extends StatelessWidget {
 
     final GameRole roleToDisplay =
         (effectiveSeerRole != null && !isMe && !isDead)
-            ? effectiveSeerRole!
+            ? effectiveSeerRole
             : (isDead ? player.roleInitial : player.role);
 
     String roleLabel;

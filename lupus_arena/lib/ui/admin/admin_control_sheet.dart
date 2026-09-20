@@ -481,6 +481,7 @@ class _AdminControlSheetState extends ConsumerState<AdminControlSheet> {
                     final target = _selectedSeerTargetId ?? (alivePlayers.isNotEmpty ? alivePlayers.first.id : null);
                     if (target != null) {
                       final role = await notifier.devSeerInspect(target);
+                      if (!mounted) return;
                       setState(() => _inspectedSeerResult = role);
                       _showToast('🔮 ${room.players[target]?.name} est [${role?.getDisplayName(context) ?? "Inconnu"}] !');
                     }

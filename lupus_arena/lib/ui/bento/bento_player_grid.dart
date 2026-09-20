@@ -107,12 +107,10 @@ class BentoPlayerGrid extends StatelessWidget {
         wolfPlayerIds.contains(currentUserId);
 
     PlayerModel? me;
-    if (currentUserId != null) {
-      for (final p in players) {
-        if (p.id == currentUserId) {
-          me = p;
-          break;
-        }
+    for (final p in players) {
+      if (p.id == currentUserId) {
+        me = p;
+        break;
       }
     }
     final myIsLover = me?.isLover ?? false;

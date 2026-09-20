@@ -1649,315 +1649,243 @@ class _MysticRadialTableState extends State<MysticRadialTable>
             ),
     );
 
+    Gradient _getAvatarGradient() {
+      if (isDead) {
+        return const LinearGradient(
+          colors: [Color(0xFF1E212D), Color(0xFF12141C)],
+        );
+      }
+      if (!isMe) {
+        if (isProtected) {
+          return const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)],
+          );
+        }
+        if (isWitchHealed) {
+          return const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF065F46), Color(0xFF022C22)],
+          );
+        }
+        if (isWitchPoisoned) {
+          return const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF581C87), Color(0xFF3B0764)],
+          );
+        }
+        if (isWitchVictim) {
+          return const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF881337), Color(0xFF4C0519)],
+          );
+        }
+        if (isSniffed) {
+          return isWolfDetectedInTrio
+              ? const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF8B1E1E), Color(0xFF3F0B0B)],
+                )
+              : const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF5A3A1A), Color(0xFF2E1A05)],
+                );
+        }
+        if (isWolfPeer) {
+          return const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF8B1E1E), Color(0xFF3F0B0B)],
+          );
+        }
+        if (seerDiscoveredRole != null) {
+          return const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF312E81), Color(0xFF1E1B4B)],
+          );
+        }
+      }
+      if (isMe) {
+        return const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF8D705C), Color(0xFF5A4335)],
+        );
+      }
+      return const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF3F4558), Color(0xFF232734)],
+      );
+    }
+
+    Color _getAvatarBorderColor(double flash) {
+      if (isNewCaptainFlashing && flash > 0) {
+        return Color.lerp(LupusColors.arcaneGold, Colors.white, flash)!;
+      }
+      if (isSpeaking) {
+        return const Color(0xFF00FF88);
+      }
+      if (!isMe) {
+        if (isProtected) return const Color(0xFF3A86FF);
+        if (isWitchHealed) return const Color(0xFF06D6A0);
+        if (isWitchPoisoned) return const Color(0xFF9D4EDD);
+        if (isWitchVictim) return const Color(0xFFFF2A4B);
+        if (isSniffed) {
+          return isWolfDetectedInTrio
+              ? const Color(0xFFFF1E46)
+              : const Color(0xFFFB8500);
+        }
+        if (isCrowTarget) return const Color(0xFF94A3B8);
+        if (isWildChildModel) return const Color(0xFF52B788);
+        if (isContaminatedWolf) return const Color(0xFFE5989B);
+        if (isBearTamerGrowling) return const Color(0xFFDDA15E);
+        if (isWolfPeer) return const Color(0xFFFF2A4B);
+        if (seerDiscoveredRole != null) return const Color(0xFF818CF8);
+      }
+      if (isSelected) return LupusColors.arcaneGold;
+      if (isDead) return LupusColors.arcaneCrimson.withValues(alpha: 0.45);
+      if (isMe) return LupusColors.arcaneGold.withValues(alpha: 0.6);
+      return LupusColors.arcanePurple.withValues(alpha: 0.35);
+    }
+
+    double _getAvatarBorderWidth(double flash) {
+      if (isNewCaptainFlashing && flash > 0) {
+        return 2.5 + (1.5 * flash);
+      }
+      final hasSpecialStatus = isSpeaking ||
+          ((isWolfPeer ||
+                  seerDiscoveredRole != null ||
+                  isSniffed ||
+                  isProtected ||
+                  isWitchHealed ||
+                  isWitchPoisoned ||
+                  isWitchVictim ||
+                  isCrowTarget ||
+                  isWildChildModel ||
+                  isContaminatedWolf ||
+                  isBearTamerGrowling) &&
+              !isMe);
+      if (hasSpecialStatus) return 2.6;
+      if (isSelected) return 2.2;
+      return 1.2;
+    }
+
+    List<BoxShadow>? _getAvatarBoxShadow(double flash) {
+      if (isNewCaptainFlashing && flash > 0) {
+        return [
+          BoxShadow(
+            color: LupusColors.arcaneGold.withValues(alpha: 0.9 * flash),
+            blurRadius: 18 * flash,
+            spreadRadius: 3.5 * flash,
+          ),
+          if (isSelected)
+            BoxShadow(
+              color: LupusColors.arcaneGold.withValues(alpha: 0.7),
+              blurRadius: 16,
+              spreadRadius: 3,
+            ),
+        ];
+      }
+      if (isSpeaking) {
+        return [
+          const BoxShadow(
+            color: Color(0xFF00FF88),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+          if (isSelected)
+            BoxShadow(
+              color: LupusColors.arcaneGold.withValues(alpha: 0.7),
+              blurRadius: 14,
+              spreadRadius: 2.5,
+            ),
+        ];
+      }
+      if (!isMe) {
+        Color? glowColor;
+        double blur = 14;
+        double spread = 2.2;
+
+        if (isProtected) {
+          glowColor = const Color(0xFF3A86FF).withValues(alpha: 0.85);
+        } else if (isWitchHealed) {
+          glowColor = const Color(0xFF06D6A0).withValues(alpha: 0.85);
+        } else if (isWitchPoisoned) {
+          glowColor = const Color(0xFF9D4EDD).withValues(alpha: 0.85);
+        } else if (isWitchVictim) {
+          glowColor = const Color(0xFFFF2A4B).withValues(alpha: 0.85);
+        } else if (isSniffed) {
+          glowColor = isWolfDetectedInTrio
+              ? const Color(0xFFFF1E46).withValues(alpha: 0.85)
+              : const Color(0xFFFB8500).withValues(alpha: 0.75);
+          blur = isWolfDetectedInTrio ? 14 : 12;
+          spread = isWolfDetectedInTrio ? 2.5 : 2.0;
+        } else if (isCrowTarget) {
+          glowColor = const Color(0xFF64748B).withValues(alpha: 0.8);
+          blur = 12;
+          spread = 2.0;
+        } else if (isWildChildModel) {
+          glowColor = const Color(0xFF52B788).withValues(alpha: 0.8);
+          blur = 12;
+          spread = 2.0;
+        } else if (isContaminatedWolf) {
+          glowColor = const Color(0xFFB5838D).withValues(alpha: 0.8);
+          blur = 12;
+          spread = 2.0;
+        } else if (isBearTamerGrowling) {
+          glowColor = const Color(0xFFDDA15E).withValues(alpha: 0.8);
+          blur = 12;
+          spread = 2.0;
+        } else if (isWolfPeer) {
+          glowColor = const Color(0xFFFF2A4B);
+          blur = 12;
+          spread = 2.0;
+        } else if (seerDiscoveredRole != null) {
+          glowColor = const Color(0xFF6366F1);
+          blur = 12;
+          spread = 2.0;
+        }
+
+        if (glowColor != null) {
+          return [
+            BoxShadow(
+              color: glowColor,
+              blurRadius: blur,
+              spreadRadius: spread,
+            ),
+            if (isSelected)
+              BoxShadow(
+                color: LupusColors.arcaneGold.withValues(alpha: 0.7),
+                blurRadius: 14,
+                spreadRadius: 2.5,
+              ),
+          ];
+        }
+      }
+
+      if (isSelected) {
+        return LupusTheme.glowGold(opacity: 0.6);
+      }
+      return null;
+    }
+
     BoxDecoration getAvatarDecoration(double flash) {
       return BoxDecoration(
         shape: BoxShape.circle,
-        gradient: isDead
-            ? const LinearGradient(
-                colors: [Color(0xFF1E212D), Color(0xFF12141C)],
-              )
-            : (isProtected && !isMe)
-                ? const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)],
-                  )
-                : (isWitchHealed && !isMe)
-                    ? const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFF065F46), Color(0xFF022C22)],
-                      )
-                    : (isWitchPoisoned && !isMe)
-                        ? const LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Color(0xFF581C87), Color(0xFF3B0764)],
-                          )
-                        : (isWitchVictim && !isMe)
-                            ? const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0xFF881337), Color(0xFF4C0519)],
-                              )
-            : (isSniffed && !isMe
-                ? (isWolfDetectedInTrio
-                    ? const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFF8B1E1E), Color(0xFF3F0B0B)],
-                      )
-                    : const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFF5A3A1A), Color(0xFF2E1A05)],
-                      ))
-                : ((isWolfPeer && !isMe)
-                    ? const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFF8B1E1E), Color(0xFF3F0B0B)],
-                      )
-                    : (seerDiscoveredRole != null && !isMe)
-                        ? const LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Color(0xFF312E81), Color(0xFF1E1B4B)],
-                          )
-                        : (isMe
-                            ? const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0xFF8D705C), Color(0xFF5A4335)],
-                              )
-                            : const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0xFF3F4558), Color(0xFF232734)],
-                              ))))),
+        gradient: _getAvatarGradient(),
         border: Border.all(
-          color: (isNewCaptainFlashing && flash > 0)
-              ? Color.lerp(LupusColors.arcaneGold, Colors.white, flash)!
-              : (isSpeaking
-                  ? const Color(0xFF00FF88) // Tour de néon électrique vibrant si parle
-                  : (isProtected && !isMe
-                      ? const Color(0xFF3A86FF) // Bouclier protecteur néon bleu
-                      : (isWitchHealed && !isMe
-                          ? const Color(0xFF06D6A0) // Potion de vie vert émeraude
-                          : (isWitchPoisoned && !isMe
-                              ? const Color(0xFF9D4EDD) // Potion de mort violette
-                              : (isWitchVictim && !isMe
-                                  ? const Color(0xFFFF2A4B) // Victime meute rouge sang
-                                  : (isSniffed && !isMe
-                                      ? (isWolfDetectedInTrio
-                                          ? const Color(0xFFFF1E46) // Halo rougeoyant sang si loup détecté
-                                          : const Color(0xFFFB8500)) // Halo ambré doux si clean
-                                      : (isCrowTarget && !isMe
-                                          ? const Color(0xFF94A3B8) // Cible corbeau ardoise
-                                          : (isWildChildModel && !isMe
-                                              ? const Color(0xFF52B788) // Modèle vert forêt
-                                              : (isContaminatedWolf && !isMe
-                                                  ? const Color(0xFFE5989B) // Loup contaminé
-                                                  : (isBearTamerGrowling && !isMe
-                                                      ? const Color(0xFFDDA15E) // Grognement ours
-                                                      : ((isWolfPeer && !isMe)
-                                                          ? const Color(0xFFFF2A4B) // Bordure rouge sang néon pour les loups
-                                                          : (seerDiscoveredRole != null && !isMe)
-                                                              ? const Color(0xFF818CF8) // Bordure violette néon pour rôle sondé
-                                                              : (isSelected
-                                                                  ? LupusColors.arcaneGold
-                                                                  : (isDead
-                                                                      ? LupusColors.arcaneCrimson.withValues(alpha: 0.45)
-                                                                      : (isMe
-                                                                          ? LupusColors.arcaneGold.withValues(alpha: 0.6)
-                                                                          : LupusColors.arcanePurple.withValues(alpha: 0.35)))))))))))))),
-          width: (isNewCaptainFlashing && flash > 0)
-              ? (2.5 + (1.5 * flash))
-              : ((isSpeaking ||
-                      ((isWolfPeer ||
-                              seerDiscoveredRole != null ||
-                              isSniffed ||
-                              isProtected ||
-                              isWitchHealed ||
-                              isWitchPoisoned ||
-                              isWitchVictim ||
-                              isCrowTarget ||
-                              isWildChildModel ||
-                              isContaminatedWolf ||
-                              isBearTamerGrowling) &&
-                          !isMe))
-                  ? 2.6 // Contour néon / rouge sang bien affirmé
-                  : (isSelected
-                      ? 2.2
-                      : 1.2)),
+          color: _getAvatarBorderColor(flash),
+          width: _getAvatarBorderWidth(flash),
         ),
-        boxShadow: (isNewCaptainFlashing && flash > 0)
-            ? [
-                BoxShadow(
-                  color: LupusColors.arcaneGold.withValues(alpha: 0.9 * flash),
-                  blurRadius: 18 * flash,
-                  spreadRadius: 3.5 * flash,
-                ),
-                if (isSelected)
-                  BoxShadow(
-                    color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                    blurRadius: 16,
-                    spreadRadius: 3,
-                  ),
-              ]
-            : (isSpeaking
-                ? [
-                    const BoxShadow(
-                      color: Color(0xFF00FF88),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                    if (isSelected)
-                      BoxShadow(
-                        color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                        blurRadius: 14,
-                        spreadRadius: 2.5,
-                      ),
-                  ]
-                : (isProtected && !isMe
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF3A86FF).withValues(alpha: 0.85),
-                          blurRadius: 14,
-                          spreadRadius: 2.2,
-                        ),
-                        if (isSelected)
-                          BoxShadow(
-                            color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                            blurRadius: 14,
-                            spreadRadius: 2.5,
-                          ),
-                      ]
-                    : (isWitchHealed && !isMe
-                        ? [
-                            BoxShadow(
-                              color: const Color(0xFF06D6A0).withValues(alpha: 0.85),
-                              blurRadius: 14,
-                              spreadRadius: 2.2,
-                            ),
-                            if (isSelected)
-                              BoxShadow(
-                                color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                blurRadius: 14,
-                                spreadRadius: 2.5,
-                              ),
-                          ]
-                        : (isWitchPoisoned && !isMe
-                            ? [
-                                BoxShadow(
-                                  color: const Color(0xFF9D4EDD).withValues(alpha: 0.85),
-                                  blurRadius: 14,
-                                  spreadRadius: 2.2,
-                                ),
-                                if (isSelected)
-                                  BoxShadow(
-                                    color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                    blurRadius: 14,
-                                    spreadRadius: 2.5,
-                                  ),
-                              ]
-                            : (isWitchVictim && !isMe
-                                ? [
-                                    BoxShadow(
-                                      color: const Color(0xFFFF2A4B).withValues(alpha: 0.85),
-                                      blurRadius: 14,
-                                      spreadRadius: 2.2,
-                                    ),
-                                    if (isSelected)
-                                      BoxShadow(
-                                        color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                        blurRadius: 14,
-                                        spreadRadius: 2.5,
-                                      ),
-                                  ]
-                                : (isSniffed && !isMe
-                                    ? [
-                                        BoxShadow(
-                                          color: isWolfDetectedInTrio
-                                              ? const Color(0xFFFF1E46).withValues(alpha: 0.85)
-                                              : const Color(0xFFFB8500).withValues(alpha: 0.75),
-                                          blurRadius: isWolfDetectedInTrio ? 14 : 12,
-                                          spreadRadius: isWolfDetectedInTrio ? 2.5 : 2.0,
-                                        ),
-                                        if (isSelected)
-                                          BoxShadow(
-                                            color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                            blurRadius: 14,
-                                            spreadRadius: 2.5,
-                                          ),
-                                      ]
-                                    : (isCrowTarget && !isMe
-                                        ? [
-                                            BoxShadow(
-                                              color: const Color(0xFF64748B).withValues(alpha: 0.8),
-                                              blurRadius: 12,
-                                              spreadRadius: 2.0,
-                                            ),
-                                            if (isSelected)
-                                              BoxShadow(
-                                                color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                                blurRadius: 14,
-                                                spreadRadius: 2.5,
-                                              ),
-                                          ]
-                                        : (isWildChildModel && !isMe
-                                            ? [
-                                                BoxShadow(
-                                                  color: const Color(0xFF52B788).withValues(alpha: 0.8),
-                                                  blurRadius: 12,
-                                                  spreadRadius: 2.0,
-                                                ),
-                                                if (isSelected)
-                                                  BoxShadow(
-                                                    color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                                    blurRadius: 14,
-                                                    spreadRadius: 2.5,
-                                                  ),
-                                              ]
-                                            : (isContaminatedWolf && !isMe
-                                                ? [
-                                                    BoxShadow(
-                                                      color: const Color(0xFFB5838D).withValues(alpha: 0.8),
-                                                      blurRadius: 12,
-                                                      spreadRadius: 2.0,
-                                                    ),
-                                                    if (isSelected)
-                                                      BoxShadow(
-                                                        color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                                        blurRadius: 14,
-                                                        spreadRadius: 2.5,
-                                                      ),
-                                                  ]
-                                                : (isBearTamerGrowling && !isMe
-                                                    ? [
-                                                        BoxShadow(
-                                                          color: const Color(0xFFBC6C25).withValues(alpha: 0.8),
-                                                          blurRadius: 12,
-                                                          spreadRadius: 2.0,
-                                                        ),
-                                                        if (isSelected)
-                                                          BoxShadow(
-                                                            color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                                            blurRadius: 14,
-                                                            spreadRadius: 2.5,
-                                                          ),
-                                                      ]
-                                                    : ((isWolfPeer && !isMe)
-                                                        ? [
-                                                            const BoxShadow(
-                                                              color: Color(0xFFFF2A4B),
-                                                              blurRadius: 12,
-                                                              spreadRadius: 2.0,
-                                                            ),
-                                                            if (isSelected)
-                                                              BoxShadow(
-                                                                color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                                                blurRadius: 14,
-                                                                spreadRadius: 2.5,
-                                                              ),
-                                                          ]
-                                                        : (seerDiscoveredRole != null && !isMe)
-                                                            ? [
-                                                                const BoxShadow(
-                                                                  color: Color(0xFF6366F1),
-                                                                  blurRadius: 12,
-                                                                  spreadRadius: 2.0,
-                                                                ),
-                                                                if (isSelected)
-                                                                  BoxShadow(
-                                                                    color: LupusColors.arcaneGold.withValues(alpha: 0.7),
-                                                                    blurRadius: 14,
-                                                                    spreadRadius: 2.5,
-                                                                  ),
-                                                              ]
-                                                            : (isSelected
-                                                                ? LupusTheme.glowGold(opacity: 0.6)
-                                                                : null)))))))))))),
+        boxShadow: _getAvatarBoxShadow(flash),
       );
     }
 

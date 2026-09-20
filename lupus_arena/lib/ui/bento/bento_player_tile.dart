@@ -161,7 +161,7 @@ class BentoPlayerTile extends StatelessWidget {
                 clipBehavior: Clip.none,
                 children: [
                   // 0. Halo néon pulsant Flûte
-                  if (FogOfWarService.canSeeCharmed(
+                  if (FogOfWarService.canSeeCharmedBadge(
                     targetIsCharmed: player.isCharmed,
                     observerRole: myRole,
                     observerIsCharmed: myIsCharmed,

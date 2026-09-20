@@ -1,5 +1,5 @@
-import '../../models/game_role.dart';
 import '../../models/game_state.dart';
+import '../../models/player_model.dart';
 import 'role_action_handler.dart';
 
 class FoxHandler extends RoleActionHandler {

@@ -138,8 +138,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
   }
 
   void _checkAndQueueDeathAnnouncements(GameRoom room) {
-    bool hasNewDeaths = false;
-
     // 1. Source PRIORITAIRE : deathAnnouncementQueue (file ordonnée des défunts)
     if (room.deathAnnouncementQueue.isNotEmpty) {
       for (final entry in room.deathAnnouncementQueue) {
@@ -153,7 +151,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
           _processedDeathKeys.add(key);
           _processedDeathKeys.add('${pid}_${room.round}');
           _deathQueue.add(DeathAnnouncementEvent.fromMap(entry));
-          hasNewDeaths = true;
         }
       }
     }
@@ -181,7 +178,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
               role: role,
               cause: cause,
             ));
-            hasNewDeaths = true;
           }
         }
       }
@@ -199,7 +195,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
           _processedDeathKeys.add(key);
           _processedDeathKeys.add('${pid}_${room.round}');
           _deathQueue.add(DeathAnnouncementEvent.fromMap(flip));
-          hasNewDeaths = true;
         }
       }
     }

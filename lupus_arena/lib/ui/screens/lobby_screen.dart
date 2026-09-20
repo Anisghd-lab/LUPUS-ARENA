@@ -251,12 +251,31 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
             ),
           ),
 
-          // 3. Barre supérieure (Top Bar) : Capsule Joueur à gauche, Globe & MAJ à droite
-          Positioned(
-            top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
-            left: 18,
-            right: 18,
-            child: _buildTopBar(context, gameState),
+          // 3. Boutons d'action empilés verticalement
+          Positioned.fill(
+            child: SafeArea(
+              top: false,
+              bottom: true,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(height: topSpacing),
+                          _buildActionButtonsColumn(context, gameState),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
 
           // 4. Message d'erreur éventuel
@@ -264,7 +283,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
             Positioned(
               left: 18,
               right: 18,
-              top: (media.padding.top > 0 ? media.padding.top : 24) + 75,
+              top: (media.padding.top > 0 ? media.padding.top : 24) + 65,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
@@ -304,31 +323,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
               ),
             ),
 
-          // 5. Boutons d'action empilés verticalement
-          Positioned.fill(
-            child: SafeArea(
-              top: false,
-              bottom: true,
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(height: topSpacing),
-                          _buildActionButtonsColumn(context, gameState),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          // 5. Barre supérieure (Top Bar) au PREMIER PLAN absolu du Stack
+          // Capsule Joueur à gauche, Globe & MAJ à droite (au-dessus du ScrollView pour garantir 100% des clics)
+          Positioned(
+            top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
+            left: 18,
+            right: 18,
+            child: _buildTopBar(context, gameState),
           ),
         ],
       ),
@@ -423,7 +424,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
         : 'Loup-Garou';
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         // À gauche : Capsule compacte (Avatar, Pseudo, Crayon d'édition)
         GestureDetector(
@@ -434,7 +435,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
               color: const Color(0xCC0E1326),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: LupusColors.arcaneGold.withValues(alpha: 0.55),
+                color: const Color(0xFFFFD700).withValues(alpha: 0.65),
                 width: 1.2,
               ),
               boxShadow: [
@@ -447,6 +448,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Avatar interactif (tap direct pour sélecteur d'avatar)
                 GestureDetector(
@@ -492,7 +494,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                 const SizedBox(width: 6),
                 Icon(
                   Icons.edit_rounded,
-                  color: LupusColors.arcaneGold.withValues(alpha: 0.85),
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.85),
                   size: 14,
                 ),
               ],
@@ -502,85 +504,45 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
 
         const Spacer(),
 
-        // À droite : Globe + Mise à jour
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        // À droite : Dev badge + Pilule MAJ + Bouton Globe, alignés verticalement au centre
+        Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Badge DEV-MOD si Admin
-                if (gameState.isAdmin) ...[
-                  GestureDetector(
-                    onTap: () => AdminControlSheet.show(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1405),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: LupusColors.arcaneGold, width: 1.2),
-                        boxShadow: LupusTheme.glowGold(opacity: 0.35),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('👑', style: TextStyle(fontSize: 12)),
-                          SizedBox(width: 4),
-                          Text(
-                            'DEV',
-                            style: TextStyle(
-                              color: LupusColors.arcaneGold,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+            // Badge DEV-MOD si Admin
+            if (gameState.isAdmin) ...[
+              GestureDetector(
+                onTap: () => AdminControlSheet.show(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1405),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFFFD700), width: 1.2),
+                    boxShadow: LupusTheme.glowGold(opacity: 0.35),
                   ),
-                  const SizedBox(width: 8),
-                ],
-
-                // Bouton rond compact avec uniquement l'icône du globe (🌐), sans aucun drapeau ni code texte
-                GestureDetector(
-                  onTap: () => LanguageDialog.show(
-                    context,
-                    widget.localeProvider ?? LocaleProvider.instance,
-                  ),
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xCC0E1326),
-                      border: Border.all(
-                        color: LupusColors.arcaneGold.withValues(alpha: 0.6),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('👑', style: TextStyle(fontSize: 12)),
+                      SizedBox(width: 4),
+                      Text(
+                        'DEV',
+                        style: TextStyle(
+                          color: Color(0xFFFFD700),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 10,
                         ),
-                      ],
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.public_rounded,
-                        color: LupusColors.arcaneGold,
-                        size: 20,
                       ),
-                    ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+            ],
 
-            // Bouton compact au format pill/capsule pour la mise à jour ("Mise à jour v2..." avec badge "NEW")
+            // Bouton compact au format pill/capsule pour la mise à jour si disponible
             if (_availableUpdate != null) ...[
-              const SizedBox(height: 6),
               GestureDetector(
                 onTap: () => AppUpdateDialog.show(context, _availableUpdate!),
                 child: Container(
@@ -610,7 +572,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        'Mise à jour v${_availableUpdate!.version}',
+                        'v${_availableUpdate!.version}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10.5,
@@ -639,7 +601,48 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
             ],
+
+            // Bouton Globe (effet anneau or brillant 1.5, lueur ambrée)
+            GestureDetector(
+              onTap: () => LanguageDialog.show(
+                context,
+                widget.localeProvider ?? LocaleProvider.instance,
+              ),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xCC0E1326),
+                  border: Border.all(
+                    color: const Color(0xFFFFD700), // Effet anneau en or brillant
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.45), // Légère lueur ambrée
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 1),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.language_rounded,
+                    color: Color(0xFFFFD700),
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ],
@@ -1466,7 +1469,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
   }
 }
 
-/// Widget des boutons d'action du Lobby (Mauve néon, Code du salon sombre, Vert électrique runique)
+/// Widget des boutons d'action du Lobby (Style Dark Fantasy & Runes)
+/// Réduction de 40% (largeur 210 dp, hauteur 42 dp) avec dégradés riches et bordures dorées
 class LobbyActionButtons extends StatelessWidget {
   final LupusGameState gameState;
   final TextEditingController codeController;
@@ -1483,9 +1487,9 @@ class LobbyActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double buttonHeight = 50.0;
-    const double buttonWidth = 300.0;
-    final borderRadius = BorderRadius.circular(14);
+    const double buttonHeight = 42.0;
+    const double buttonWidth = 210.0;
+    final borderRadius = BorderRadius.circular(12);
 
     return Center(
       child: SizedBox(
@@ -1494,25 +1498,36 @@ class LobbyActionButtons extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. Bouton "CRÉER UN SALON" (Mauve néon mystique)
+            // 1. Bouton "CRÉER UN SALON"
+            // Dégradé vertical riche du violet/mauve néon au violet très sombre : [Color(0xFFAB47BC), Color(0xFF6A1B9A), Color(0xFF311B92)]
+            // Bordure dorée fine (Color(0xFFFFD700) avec opacité 0.7)
             Container(
               height: buttonHeight,
               decoration: BoxDecoration(
                 borderRadius: borderRadius,
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFC040FB), Color(0xFF5E178E)],
+                  colors: [
+                    Color(0xFFAB47BC),
+                    Color(0xFF6A1B9A),
+                    Color(0xFF311B92),
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
                 border: Border.all(
-                  color: const Color(0xFFE28BFF).withOpacity(0.8),
-                  width: 1.3,
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.7),
+                  width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFC040FB).withOpacity(0.45),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    color: const Color(0xFF6A1B9A).withValues(alpha: 0.45),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -1524,10 +1539,10 @@ class LobbyActionButtons extends StatelessWidget {
                   child: Center(
                     child: gameState.isLoading
                         ? const SizedBox(
-                            width: 22,
-                            height: 22,
+                            width: 18,
+                            height: 18,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
+                              strokeWidth: 2.0,
                               color: Colors.white,
                             ),
                           )
@@ -1537,16 +1552,23 @@ class LobbyActionButtons extends StatelessWidget {
                               const Icon(
                                 Icons.add_rounded,
                                 color: Colors.white,
-                                size: 22,
+                                size: 18,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Text(
                                 context.tr('create_room').toUpperCase(),
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
                                   letterSpacing: 0.8,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black87,
+                                      blurRadius: 4,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -1556,23 +1578,32 @@ class LobbyActionButtons extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
-            // 2. Bouton / Champ "CODE DU SALON" (Même taille, sombre semi-transparent avec bordure subtile)
+            // 2. Bouton / Champ "CODE DU SALON"
+            // Dégradé sombre et mystique : [Color(0xFF2E1A47), Color(0xFF160D24)]
+            // Bordure subtile violet/or atténué
             Container(
               height: buttonHeight,
               decoration: BoxDecoration(
-                color: const Color(0xD90E1326), // Sombre semi-transparent
                 borderRadius: borderRadius,
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF2E1A47),
+                    Color(0xFF160D24),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
                 border: Border.all(
-                  color: const Color(0x66A855F7), // Bordure subtile ardoise / violette
+                  color: const Color(0xFF9E7BB5).withValues(alpha: 0.55),
                   width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.45),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -1582,52 +1613,70 @@ class LobbyActionButtons extends StatelessWidget {
                   textAlign: TextAlign.center,
                   textCapitalization: TextCapitalization.characters,
                   maxLength: 8,
-                  cursorColor: const Color(0xFFA855F7),
+                  cursorColor: const Color(0xFFFFD700),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2.5,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.8,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black87,
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
                   ),
                   decoration: InputDecoration(
                     hintText: context.tr('enter_room_code').toUpperCase(),
                     hintStyle: const TextStyle(
-                      color: Color(0xFF808EA3),
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+                      color: Color(0xFF8E82A6),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
                     ),
                     counterText: '',
                     border: InputBorder.none,
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
                   onSubmitted: (_) => onJoin(),
                 ),
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
-            // 3. Bouton "REJOINDRE" (Vert électrique runique)
+            // 3. Bouton "REJOINDRE"
+            // Dégradé vertical du vert éclatant au vert forêt sombre : [Color(0xFF43A047), Color(0xFF2E7D32), Color(0xFF1B5E20)]
+            // Bordure dorée fine (Color(0xFFFFD700) avec opacité 0.7)
             Container(
               height: buttonHeight,
               decoration: BoxDecoration(
                 borderRadius: borderRadius,
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF64DD17), Color(0xFF1B5E20)],
+                  colors: [
+                    Color(0xFF43A047),
+                    Color(0xFF2E7D32),
+                    Color(0xFF1B5E20),
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
                 border: Border.all(
-                  color: const Color(0xFFB9F6CA).withOpacity(0.8),
-                  width: 1.3,
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.7),
+                  width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF64DD17).withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    color: const Color(0xFF2E7D32).withValues(alpha: 0.45),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -1641,17 +1690,17 @@ class LobbyActionButtons extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.meeting_room_rounded, // Porte entrante
+                          Icons.meeting_room_rounded,
                           color: Colors.white,
-                          size: 20,
+                          size: 18,
                         ),
-                        SizedBox(width: 8),
+                        SizedBox(width: 6),
                         Text(
                           'REJOINDRE',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
                             letterSpacing: 0.8,
                             shadows: [
                               Shadow(

@@ -251,95 +251,20 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
             ),
           ),
 
-          // 3. Bouton sélecteur de langue dans le bandeau supérieur (position fixe calquée sur le modèle français)
+          // 3. Barre supérieure (Top Bar) : Capsule Joueur à gauche, Globe & MAJ à droite
           Positioned(
-            left: 18,
             top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
-            child: GestureDetector(
-              onTap: () => LanguageDialog.show(
-                context,
-                widget.localeProvider ?? LocaleProvider.instance,
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10162A).withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: LupusColors.arcaneGold.withValues(alpha: 0.6),
-                    width: 1.2,
-                  ),
-                  boxShadow: LupusTheme.glowGold(opacity: 0.25),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.language_rounded,
-                      color: LupusColors.arcaneGold,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      LocaleProvider.instance.languageCode == 'ar'
-                          ? 'العربية 🇩🇿'
-                          : (LocaleProvider.instance.languageCode == 'en'
-                              ? 'EN 🇬🇧'
-                              : 'FR 🇫🇷'),
-                      style: const TextStyle(
-                        color: LupusColors.arcaneGold,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            left: 18,
+            right: 18,
+            child: _buildTopBar(context, gameState),
           ),
-
-          // 4. Indicateur / Badge DEV-MOD si l'Admin est activé (position fixe droite)
-          if (gameState.isAdmin)
-            Positioned(
-              right: 18,
-              top: (media.padding.top > 0 ? media.padding.top : 24) + 6,
-              child: GestureDetector(
-                onTap: () => AdminControlSheet.show(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1405),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: LupusColors.arcaneGold, width: 1.5),
-                    boxShadow: LupusTheme.glowGold(opacity: 0.45),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('👑', style: TextStyle(fontSize: 14)),
-                      SizedBox(width: 6),
-                      Text(
-                        'DEV-MOD',
-                        style: TextStyle(
-                          color: LupusColors.arcaneGold,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 10,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
 
           // 4. Message d'erreur éventuel
           if (gameState.errorMessage != null)
             Positioned(
               left: 18,
               right: 18,
-              top: (media.padding.top > 0 ? media.padding.top : 24) + 160,
+              top: (media.padding.top > 0 ? media.padding.top : 24) + 75,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
@@ -379,7 +304,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
               ),
             ),
 
-          // 5. Composants UI Natifs (Nom de joueur + Panneau d'action inférieur)
+          // 5. Boutons d'action empilés verticalement
           Positioned.fill(
             child: SafeArea(
               top: false,
@@ -393,16 +318,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           SizedBox(height: topSpacing),
-                          if (_availableUpdate != null) ...[
-                            _buildUpdateBanner(context, _availableUpdate!),
-                            const SizedBox(height: 12),
-                          ],
-                          _buildPlayerNameCard(gameState),
-                          const SizedBox(height: 12),
-                          _buildActionPanel(gameState),
+                          _buildActionButtonsColumn(context, gameState),
                           const SizedBox(height: 24),
                         ],
                       ),
@@ -417,87 +335,301 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     );
   }
 
-  /// Bandeau interactif moderne et élégant indiquant qu'une nouvelle version est disponible
-  Widget _buildUpdateBanner(BuildContext context, AppUpdateInfo info) {
-    final mb = (info.fileSize / (1024 * 1024)).toStringAsFixed(1);
-    return GestureDetector(
-      onTap: () => AppUpdateDialog.show(context, info),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xE61E1B4B), // Indigo dark
-              Color(0xE6064E3B), // Emerald dark
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: const Color(0xFF10B981).withValues(alpha: 0.85),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF10B981).withValues(alpha: 0.35),
-              blurRadius: 16,
-              spreadRadius: 1,
-            ),
-            const BoxShadow(
-              color: Colors.black87,
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
+  /// Boîte de dialogue pour modifier le pseudo depuis la capsule de la barre supérieure
+  void _showNameEditDialog(BuildContext context, String currentName) {
+    _nameController.text = currentName;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F1424),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: LupusColors.arcaneGold, width: 1.5),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.20),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF10B981), width: 1.5),
-              ),
-              child: const Icon(
-                Icons.system_update_rounded,
-                color: Color(0xFF34D399),
-                size: 22,
+        title: Text(
+          context.tr('player_name'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+          ),
+        ),
+        content: TextField(
+          controller: _nameController,
+          autofocus: true,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+          cursorColor: LupusColors.arcaneGold,
+          decoration: InputDecoration(
+            hintText: context.tr('name_hint'),
+            hintStyle: const TextStyle(color: Colors.white38),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: LupusColors.arcaneGold.withValues(alpha: 0.5),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'Mise à jour v${info.version} disponible !',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.3,
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: LupusColors.arcaneGold, width: 2),
+            ),
+          ),
+          onSubmitted: (val) {
+            final trimmed = val.trim();
+            if (trimmed.isNotEmpty) {
+              ref.read(gameNotifierProvider.notifier).updateProfile(name: trimmed);
+            }
+            Navigator.of(ctx).pop();
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              context.tr('cancel'),
+              style: const TextStyle(color: Colors.white60),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: LupusColors.arcaneGold,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () {
+              final trimmed = _nameController.text.trim();
+              if (trimmed.isNotEmpty) {
+                ref.read(gameNotifierProvider.notifier).updateProfile(name: trimmed);
+              }
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 1. Barre supérieure (Top Bar)
+  /// - À gauche : Capsule compacte (Avatar + Pseudo + Crayon)
+  /// - À droite : Bouton rond compact Globe (🌐) + Capsule Mise à jour compacte ("Mise à jour v2..." + "NEW")
+  Widget _buildTopBar(BuildContext context, LupusGameState gameState) {
+    final avatarItem = LupusAvatars.getByIndex(gameState.currentUserAvatar);
+    final displayName = gameState.currentUserName.isNotEmpty
+        ? gameState.currentUserName
+        : 'Loup-Garou';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // À gauche : Capsule compacte (Avatar, Pseudo, Crayon d'édition)
+        GestureDetector(
+          onTap: () => _showNameEditDialog(context, gameState.currentUserName),
+          child: Container(
+            padding: const EdgeInsets.only(left: 4, right: 12, top: 4, bottom: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xCC0E1326),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: LupusColors.arcaneGold.withValues(alpha: 0.55),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Avatar interactif (tap direct pour sélecteur d'avatar)
+                GestureDetector(
+                  onTap: () => _showAvatarSelector(context),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: avatarItem.gradientColors,
+                      ),
+                      border: Border.all(
+                        color: avatarItem.borderColor,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        avatarItem.icon,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 120),
+                  child: Text(
+                    displayName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.edit_rounded,
+                  color: LupusColors.arcaneGold.withValues(alpha: 0.85),
+                  size: 14,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const Spacer(),
+
+        // À droite : Globe + Mise à jour
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Badge DEV-MOD si Admin
+                if (gameState.isAdmin) ...[
+                  GestureDetector(
+                    onTap: () => AdminControlSheet.show(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1405),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: LupusColors.arcaneGold, width: 1.2),
+                        boxShadow: LupusTheme.glowGold(opacity: 0.35),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('👑', style: TextStyle(fontSize: 12)),
+                          SizedBox(width: 4),
+                          Text(
+                            'DEV',
+                            style: TextStyle(
+                              color: LupusColors.arcaneGold,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+
+                // Bouton rond compact avec uniquement l'icône du globe (🌐), sans aucun drapeau ni code texte
+                GestureDetector(
+                  onTap: () => LanguageDialog.show(
+                    context,
+                    widget.localeProvider ?? LocaleProvider.instance,
+                  ),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xCC0E1326),
+                      border: Border.all(
+                        color: LupusColors.arcaneGold.withValues(alpha: 0.6),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.public_rounded,
+                        color: LupusColors.arcaneGold,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Bouton compact au format pill/capsule pour la mise à jour ("Mise à jour v2..." avec badge "NEW")
+            if (_availableUpdate != null) ...[
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () => AppUpdateDialog.show(context, _availableUpdate!),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xE6064E3B),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.85),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.system_update_rounded,
+                        color: Color(0xFF34D399),
+                        size: 13,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Mise à jour v${_availableUpdate!.version}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 5),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: const Color(0xFF10B981),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
-                          'NOUVEAU',
+                          'NEW',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 8,
+                            fontSize: 7.5,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.5,
                           ),
@@ -505,387 +637,28 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                       ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Touchez pour installer (${mb != '0.0' ? '$mb Mo' : 'APK'})',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.80),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white30),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Installer',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 10),
-                ],
-              ),
-            ),
+            ],
           ],
         ),
-      ),
+      ],
     );
   }
 
-  /// 1. Carte native semi-transparente "Nom de joueur"
-  Widget _buildPlayerNameCard(LupusGameState gameState) {
-    return Container(
-      margin: EdgeInsets.zero,
-      decoration: BoxDecoration(
-        color: const Color(0xD90B0E20),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFA855F7).withValues(alpha: 0.70),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFA855F7).withValues(alpha: 0.30),
-            blurRadius: 18,
-            spreadRadius: 1,
-          ),
-          const BoxShadow(
-            color: Colors.black87,
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Text(
-                  context.tr('player_name'),
-                  style: const TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  context.tr('language') == 'العربية'
-                      ? 'المس لتغيير الصورة'
-                      : (context.tr('language') == 'English'
-                          ? 'Tap avatar to change'
-                          : 'Toucher l\'avatar pour changer'),
-                  style: TextStyle(
-                    color: const Color(0xFFA855F7).withValues(alpha: 0.75),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                // Avatar interactif du joueur
-                GestureDetector(
-                  onTap: () => _showAvatarSelector(context),
-                  child: () {
-                    final avatarItem = LupusAvatars.getByIndex(gameState.currentUserAvatar);
-                    return Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: avatarItem.gradientColors,
-                        ),
-                        border: Border.all(
-                          color: avatarItem.borderColor,
-                          width: 1.8,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: avatarItem.glowColor,
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Icon(
-                          avatarItem.icon,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    );
-                  }(),
-                ),
-                const SizedBox(width: 12),
-                // Vrai TextField natif persistant
-                Expanded(
-                  child: TextField(
-                    controller: _nameController,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
-                    ),
-                    cursorColor: const Color(0xFFA855F7),
-                    decoration: InputDecoration(
-                      hintText: context.tr('name_hint'),
-                      hintStyle: const TextStyle(
-                        color: Color(0x66FFFFFF),
-                        fontSize: 18,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (val) {
-                      ref.read(gameNotifierProvider.notifier).updateProfile(name: val);
-                    },
-                    onSubmitted: (val) {
-                      ref.read(gameNotifierProvider.notifier).updateProfile(name: val);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 2. Panneau d'actions inférieur natif Flutter (CRÉER UN SALON + CODE / REJOINDRE)
-  /// Réduit de 15%, bouton rejoindre ambre #F7B831, police 10 et label 'REJOINDRE'
-  Widget _buildActionPanel(LupusGameState gameState) {
-    return Container(
-      margin: EdgeInsets.zero,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F0B1E).withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFF6B4A8E).withValues(alpha: 0.7),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF7C3AED).withValues(alpha: 0.20),
-            blurRadius: 16,
-            spreadRadius: 1,
-          ),
-          const BoxShadow(
-            color: Colors.black87,
-            blurRadius: 14,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // GAUCHE : Bouton "CRÉER UN SALON" (Améthyste Somptueux)
-            Expanded(
-              flex: 13,
-              child: MedievalFantasyButton.amethyst(
-                onTap: gameState.isLoading
-                    ? null
-                    : () async {
-                        await LobbyAudioManager.instance.stopLobbyMusic();
-                        await ref.read(gameNotifierProvider.notifier).createRoom();
-                      },
-                enabled: !gameState.isLoading,
-                borderRadius: 14,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Croix / Sceau runique doré et lumineux (format compact -15%)
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFA855F7).withValues(alpha: 0.85),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: const Center(
-                          child: Text(
-                            '᛭',
-                            style: TextStyle(
-                              color: Color(0xFFF5E8FF),
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              height: 1.0,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      if (gameState.isLoading)
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.0,
-                            color: Color(0xFFE9D5FF),
-                          ),
-                        )
-                      else ...[
-                        Text(
-                          context.tr('create_room').toUpperCase(),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.6,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 4,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          context.tr('become_host'),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFFD8B4FE),
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(width: 6),
-
-            // DROITE : Zone Code & Rejoindre (empilés)
-            Expanded(
-              flex: 11,
-              child: Column(
-                children: [
-                  // Champ "CODE" dans le bouton Ardoise/Pierre taillée
-                  Expanded(
-                    child: MedievalFantasyButton.stone(
-                      borderRadius: 10,
-                      child: Center(
-                        child: TextField(
-                          controller: _codeController,
-                          textAlign: TextAlign.center,
-                          textCapitalization: TextCapitalization.characters,
-                          maxLength: 8,
-                          cursorColor: const Color(0xFFA855F7),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2.0,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black87,
-                                blurRadius: 4,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          decoration: InputDecoration(
-                            hintText: context.tr('enter_room_code').toUpperCase(),
-                            hintStyle: const TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.8,
-                            ),
-                            counterText: '',
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                          ),
-                          onSubmitted: (_) => _handleJoinOrAdmin(),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  // Bouton "REJOINDRE" (Ambre / Or Éclatant F7B831 Biseauté)
-                  Expanded(
-                    child: MedievalFantasyButton.amber(
-                      onTap: gameState.isLoading ? null : _handleJoinOrAdmin,
-                      enabled: !gameState.isLoading,
-                      borderRadius: 10,
-                      child: const Center(
-                        child: Text(
-                          'REJOINDRE',
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 4,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+  /// 2. Boutons d'action empilés verticalement dans une Column centrée
+  /// - CRÉER UN SALON : Mauve néon mystique
+  /// - CODE DU SALON : Sombre semi-transparent + bordure subtile
+  /// - REJOINDRE : Vert électrique runique
+  Widget _buildActionButtonsColumn(BuildContext context, LupusGameState gameState) {
+    return LobbyActionButtons(
+      gameState: gameState,
+      codeController: _codeController,
+      onJoin: _handleJoinOrAdmin,
+      onCreate: () async {
+        await LobbyAudioManager.instance.stopLobbyMusic();
+        await ref.read(gameNotifierProvider.notifier).createRoom();
+      },
     );
   }
 
@@ -1690,5 +1463,214 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     } else {
       AdminSecretDialog.show(context);
     }
+  }
+}
+
+/// Widget des boutons d'action du Lobby (Mauve néon, Code du salon sombre, Vert électrique runique)
+class LobbyActionButtons extends StatelessWidget {
+  final LupusGameState gameState;
+  final TextEditingController codeController;
+  final VoidCallback onJoin;
+  final VoidCallback onCreate;
+
+  const LobbyActionButtons({
+    super.key,
+    required this.gameState,
+    required this.codeController,
+    required this.onJoin,
+    required this.onCreate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const double buttonHeight = 50.0;
+    const double buttonWidth = 300.0;
+    final borderRadius = BorderRadius.circular(14);
+
+    return Center(
+      child: SizedBox(
+        width: buttonWidth,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Bouton "CRÉER UN SALON" (Mauve néon mystique)
+            Container(
+              height: buttonHeight,
+              decoration: BoxDecoration(
+                borderRadius: borderRadius,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFC040FB), Color(0xFF5E178E)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                border: Border.all(
+                  color: const Color(0xFFE28BFF).withOpacity(0.8),
+                  width: 1.3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFC040FB).withOpacity(0.45),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: borderRadius,
+                  onTap: gameState.isLoading ? null : onCreate,
+                  child: Center(
+                    child: gameState.isLoading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.add_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                context.tr('create_room').toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // 2. Bouton / Champ "CODE DU SALON" (Même taille, sombre semi-transparent avec bordure subtile)
+            Container(
+              height: buttonHeight,
+              decoration: BoxDecoration(
+                color: const Color(0xD90E1326), // Sombre semi-transparent
+                borderRadius: borderRadius,
+                border: Border.all(
+                  color: const Color(0x66A855F7), // Bordure subtile ardoise / violette
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.45),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: TextField(
+                  controller: codeController,
+                  textAlign: TextAlign.center,
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 8,
+                  cursorColor: const Color(0xFFA855F7),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.5,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: context.tr('enter_room_code').toUpperCase(),
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF808EA3),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                    counterText: '',
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  onSubmitted: (_) => onJoin(),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // 3. Bouton "REJOINDRE" (Vert électrique runique)
+            Container(
+              height: buttonHeight,
+              decoration: BoxDecoration(
+                borderRadius: borderRadius,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF64DD17), Color(0xFF1B5E20)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                border: Border.all(
+                  color: const Color(0xFFB9F6CA).withOpacity(0.8),
+                  width: 1.3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF64DD17).withOpacity(0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: borderRadius,
+                  onTap: gameState.isLoading ? null : onJoin,
+                  child: const Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.meeting_room_rounded, // Porte entrante
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'REJOINDRE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black87,
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

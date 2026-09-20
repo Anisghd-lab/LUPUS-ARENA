@@ -31,6 +31,7 @@ class InfectFatherOfWolvesHandler extends RoleActionHandler {
     // La victime survit à l'attaque de nuit
     return state.copyWith(
       nightPrimaryVictimId: null,
+      clearNightPrimaryVictimId: true,
       expandedRolesState: updatedExpanded,
     );
   }

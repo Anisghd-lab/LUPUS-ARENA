@@ -45,6 +45,7 @@ class WitchHandler extends RoleActionHandler {
 
     return state.copyWith(
       nightPrimaryVictimId: primaryVictim,
+      clearNightPrimaryVictimId: save,
       nightSecondaryDeaths: secondaryDeaths,
       nightAcknowledgedPlayerIds: acknowledged,
     );

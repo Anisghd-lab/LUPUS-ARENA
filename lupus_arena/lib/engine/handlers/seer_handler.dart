@@ -11,6 +11,8 @@ class SeerHandler extends RoleActionHandler {
 
   @override
   bool canAct(GameState state, String playerId) {
+    final playerRole = state.players[playerId]?.role ?? state.playerRoles[playerId];
+    if (playerRole != null && playerRole != GameRole.seer) return false;
     return state.isAlive(playerId) &&
         (state.currentPhase == GamePhase.nightSeer || state.currentPhase.isNight);
   }

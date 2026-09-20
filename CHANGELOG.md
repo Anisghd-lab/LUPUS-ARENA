@@ -2,6 +2,23 @@
 
 Toutes les modifications notables apportées à ce projet sont documentées dans ce fichier.
 
+## [2.5.6] - 2026-09-20
+
+### 🎨 Refonte Palette du Lobby, Ergonomie Compacte & Boutons d'Action Unifiés
+
+#### Ajouté (Added)
+- **Palette Mystique & Runique des Boutons (`LobbyActionButtons`) :** 
+  - Bouton **« CRÉER UN SALON »** paré d'un dégradé vertical Mauve néon mystique (`#C040FB` vers `#5E178E`), d'une bordure luminescente (`#E28BFF`) et d'une ombre portée diffuse.
+  - Bouton **« REJOINDRE »** revêtu d'un dégradé Vert électrique runique (`#64DD17` vers `#1B5E20`), d'une bordure vert menthe (`#B9F6CA`) et d'un halo runique.
+  - Champ **« CODE DU SALON »** unifié au format sombre semi-transparent (`#0E1326`) avec liseré subtil violet/ardoise.
+- **Top Bar Épurée & Ergonomie du Lobby :**
+  - Remplacement du sélecteur par une capsule profil compacte affichant l'avatar, le pseudo du joueur et l'icône interactive d'édition rapide (suppression des libellés superflus).
+  - Bouton langue compact et minimaliste à icône globe 🌐 unique (38px), sans drapeau ni texte redondant.
+  - Bouton de mise à jour compact en capsule (format pill) avec badge « NEW » dynamique.
+  - Empilement vertical harmonieux des 3 actions principales (`height: 50`, `width: 300`, `borderRadius: 14`) en pied d'écran.
+
+---
+
 ## [2.5.5] - 2026-09-20
 
 ### 🦊 Rendu Visuel des Rôles, Micro-Animations, Retours Haptiques & Performance 60/120 FPS

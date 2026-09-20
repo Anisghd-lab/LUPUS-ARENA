@@ -123,27 +123,32 @@ jobs:
           tag_name: ${{ env.APP_VERSION }}
           name: "Lupus Arena ${{ env.APP_VERSION }}"
           body: |
-            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Refonte Palette du Lobby, Ergonomie Compacte & Boutons d'Action)
+            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Top Bar Arena · Taille Boutons +30% · Aperçu Web Propre)
 
-            Mise à jour dédiée à l'ergonomie et au design du lobby, intégrant les nouvelles teintes runiques et néon extraites de l'illustration officielle :
+            #### 🌟 Nouveautés & Améliorations
 
-            #### 🌟 Nouveautés & Améliorations Clés :
-            - **🎨 Boutons d'Action Néon & Runiques (`LobbyActionButtons`)** :
-              - **Créer un Salon** : Dégradé vertical Mauve néon mystique (`#C040FB` vers `#5E178E`), bordure luminescente (`#E28BFF`) et ombre portée diffuse.
-              - **Rejoindre** : Dégradé vertical Vert électrique runique (`#64DD17` vers `#1B5E20`), bordure vert menthe (`#B9F6CA`) et projection d'ombre runique.
-              - **Code du Salon** : Conteneur sombre semi-transparent (`#0E1326`) aux dimensions coordonnées avec bordure discrète violette/ardoise.
-              - **Gabarit Unifié** : Normalisation stricte des dimensions (`height: 50`, `width: 300`, `borderRadius: 14`) et empilement vertical centré.
-            - **📱 Top Bar & Ergonomie Compacte** :
-              - **Capsule Profil Joueur** : Remplacement du sélecteur encombrant par une capsule compacte (avatar, pseudo et crayon d'édition rapide) sans libellé redondant.
-              - **Bouton Langue Épuré** : Bouton circulaire 38px avec icône globe 🌐 unique, sans code texte ni drapeau.
-              - **Badge de Mise à Jour Compact** : Format capsule pill avec badge « NEW » dynamique remplaçant l'ancienne bannière.
+            **Top Bar — Styles 100% identiques à l'Arena (Room)**
+            - **Globe Langue** : Cercle 32×32, fond `0xC012182E`, bordure `arcaneGold 0.4`, icône `language_rounded 16pt` — pixel-perfect avec le HUD Arena.
+            - **Capsule Profil** : Fond `0xCC12182E`, bordure `arcaneGold 0.6 w=0.8`, radius 10, pseudo en arcaneGold serif 10.5pt — identique au code-room de la Room.
+            - **Badge DEV** : Harmonisé Arena (`0xFF422006`, radius 10, arcaneGold).
+            - **Pilule MAJ** : Thème sombre runique (`0xCC0D1F1A`, liseré émeraude `#34D399 0.7`, radius 10).
+            - **Hit Testing** : `HitTestBehavior.opaque` sur tous les `GestureDetector` → 100% des clics garantis.
+
+            **Boutons d'Action — +30% & décalage vers le haut**
+            - Dimensions : **144×42 dp** (radius 10) avec espacement 10 dp.
+            - Typographie : 11.5–12 pt avec `FittedBox` anti-overflow.
+            - Position : `topSpacing` relevé, boutons remontés de ~35 dp.
+            - Bouton REJOINDRE : sans icône porte (texte seul centré).
+
+            **Aperçu Web localhost :8080**
+            - Code HTML/CSS nettoyé, commentaires concis, JS compact.
 
             ---
-            #### 📲 Binaires Téléchargeables :
-            * **`LupusArena.apk`** : Paquet **Universel** (recommandé par défaut, compatible avec tous les téléphones Android).
-            * **`LupusArena-arm64.apk`** : Paquet optimisé **64-bit** (taille réduite, smartphones récents).
-            * **`LupusArena-arm32.apk`** : Paquet optimisé **32-bit** (anciens smartphones Android).
-            * **`LupusArena-x86_64.apk`** : Paquet optimisé **x86_64** (émulateurs et Chromebooks).
+            #### 📲 Binaires Téléchargeables
+            * **`LupusArena.apk`** — Universel (recommandé)
+            * **`LupusArena-arm64.apk`** — 64-bit (smartphones récents)
+            * **`LupusArena-arm32.apk`** — 32-bit (anciens smartphones)
+            * **`LupusArena-x86_64.apk`** — x86_64 (émulateurs)
           draft: false
           prerelease: false
           files: |

@@ -8,7 +8,7 @@ import 'package:lupus_arena/ui/overlays/revealed_death_card_overlay.dart';
 
 void main() {
   setUp(() {
-    DeathRegistryService.instance.reset();
+    DeathRegistryService.instance.clearForNewGame();
   });
 
   group('UI - Succession du Maire', () {

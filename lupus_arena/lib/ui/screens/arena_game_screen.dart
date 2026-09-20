@@ -143,7 +143,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     // 1. Source PRIORITAIRE : deathAnnouncementQueue (file ordonnée des défunts)
     if (room.deathAnnouncementQueue.isNotEmpty) {
       for (final entry in room.deathAnnouncementQueue) {
-        if (entry is! Map) continue;
         final pid = (entry['joueurId'] ?? entry['playerId'] ?? '').toString();
         if (pid.isEmpty) continue;
         final cause = (entry['cause'] ?? '').toString();

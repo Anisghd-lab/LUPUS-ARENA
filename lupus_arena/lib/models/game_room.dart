@@ -396,7 +396,11 @@ class GameRoom {
         ? first
         : (second is String ? second : (map['roomCode'] ?? map['code'] ?? 'DEV').toString());
     final roomCodeStr = (map['roomCode'] ?? map['code'] ?? code).toString();
-    final isDevRoom = map['isDevRoom'] == true;
+    final isDevRoom = map['isDevRoom'] == true ||
+        code.toUpperCase().startsWith('TEST') ||
+        code.toUpperCase().startsWith('DEV') ||
+        roomCodeStr.toUpperCase().startsWith('TEST') ||
+        roomCodeStr.toUpperCase().startsWith('DEV');
 
     final rawPlayers = map['players'];
     final Map<String, PlayerModel> parsedPlayers = {};

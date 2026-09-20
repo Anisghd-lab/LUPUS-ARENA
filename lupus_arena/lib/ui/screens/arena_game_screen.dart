@@ -450,11 +450,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                         room,
                                       ),
                                       onPlayerSelected: (id) {
-                                        if (room.phase == GamePhase.nightSeer &&
-                                            (myRole == GameRole.seer || isDevMode) &&
-                                            _selectedPlayerId != null) {
-                                          return;
-                                        }
                                         final target = room.players[id];
                                         if (target == null || !target.isAlive || DeathRegistryService.instance.isDead(id)) return;
                                         setState(() {

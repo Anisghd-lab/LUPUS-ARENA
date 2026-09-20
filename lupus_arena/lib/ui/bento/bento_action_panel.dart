@@ -524,8 +524,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       if (phase == GamePhase.nightThief) {
         if (role == GameRole.thief || role == GameRole.thiefOfHearts || isDevMode) {
           return _buildThiefSection(selectedTarget);
-        } else if (role == GameRole.raven) {
-          return _buildRavenSection(selectedTarget);
         } else {
           return _buildNightSleepingSection();
         }
@@ -535,8 +533,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       if (phase == GamePhase.nightCupid) {
         if (role == GameRole.cupid || isDevMode) {
           return _buildCupidSection(selectedTarget);
-        } else if (role == GameRole.raven) {
-          return _buildRavenSection(selectedTarget);
         } else {
           return _buildNightSleepingSection();
         }
@@ -546,8 +542,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       if (phase == GamePhase.nightSeer) {
         if (role == GameRole.seer || isDevMode) {
           return _buildSeerSection(selectedTarget);
-        } else if (role == GameRole.raven) {
-          return _buildRavenSection(selectedTarget);
         } else {
           return _buildNightSleepingSection();
         }
@@ -557,8 +551,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       if (phase == GamePhase.nightDefender) {
         if (role == GameRole.defender || isDevMode) {
           return _buildDefenderSection(selectedTarget);
-        } else if (role == GameRole.raven) {
-          return _buildRavenSection(selectedTarget);
         } else {
           return _buildNightSleepingSection();
         }
@@ -568,8 +560,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       if (phase == GamePhase.nightWerewolves || phase == GamePhase.nightBlackWolf) {
         if (role.isEvil || isDevMode) {
           return _buildWerewolvesSection(me, selectedTarget);
-        } else if (role == GameRole.raven) {
-          return _buildRavenSection(selectedTarget);
         } else {
           return _buildNightSleepingSection();
         }
@@ -583,8 +573,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             orElse: () => me,
           );
           return _buildWitchSection(witchPlayer, selectedTarget);
-        } else if (role == GameRole.raven) {
-          return _buildRavenSection(selectedTarget);
         } else {
           return _buildNightSleepingSection();
         }
@@ -594,8 +582,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       if (phase == GamePhase.nightPyromaniac) {
         if (role == GameRole.pyromaniac || isDevMode) {
           return _buildPyromaniacSection(selectedTarget);
-        } else if (role == GameRole.raven) {
-          return _buildRavenSection(selectedTarget);
         } else {
           return _buildNightSleepingSection();
         }
@@ -605,8 +591,6 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       if (phase == GamePhase.nightPiper) {
         if (role == GameRole.piedPiper || isDevMode) {
           return _buildPiperSection(selectedTarget);
-        } else if (role == GameRole.raven) {
-          return _buildRavenSection(selectedTarget);
         } else {
           return _buildNightSleepingSection();
         }
@@ -1983,55 +1967,45 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     final totalVoted = widget.room.alivePlayers.where((p) => p.targetVoteId != null).length;
     final allVoted = totalAlive > 0 && totalVoted >= totalAlive;
 
-    // Condition stricte de fermeture des votes
-    final dynamic roomDynamic = widget.room;
-    final isRoomVotesClosed = (roomDynamic.votesClosed as bool?) ?? false;
-    final isVotesClosed = isRoomVotesClosed ||
-        allVoted ||
-        (phase != GamePhase.dayVoting && phase != GamePhase.dayTieBreakVote);
-
-    // ÉTAT 1 : Les votes sont clos (Dépouillement / Verdict / Tous ont voté)
-    if (isVotesClosed) {
-      if (allVoted) {
-        return Container(
-          key: const ValueKey('action_voting_all_voted'),
-          height: 40,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: LupusColors.bloodRed.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: LupusColors.bloodRed.withValues(alpha: 0.6)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(LupusColors.bloodRed),
+    // Tous les survivants ont voté : affichage du bandeau de dépouillement immédiat
+    if (allVoted) {
+      return Container(
+        key: const ValueKey('action_voting_all_voted'),
+        height: 40,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: LupusColors.bloodRed.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: LupusColors.bloodRed.withValues(alpha: 0.6)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(LupusColors.bloodRed),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                context.tr('voting_all_recorded', {'voted': '$totalVoted', 'total': '$totalAlive'}),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
                 ),
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  context.tr('voting_all_recorded', {'voted': '$totalVoted', 'total': '$totalAlive'}),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-      return _buildVotesClosedBanner();
+            ),
+          ],
+        ),
+      );
     }
 
     // ÉTAT 2 : L'utilisateur a déjà voté et peut annuler

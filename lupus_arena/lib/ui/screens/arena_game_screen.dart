@@ -422,7 +422,11 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                       isDevRoom: isDevRoom,
                                       myRole: myRole,
                                       seerInspectedRoles:
-                                          gameState.seerInspectedRoles,
+                                          (myRole == GameRole.seer ||
+                                                  isDevModeActive ||
+                                                  isDevRoom)
+                                              ? gameState.seerInspectedRoles
+                                              : const {},
                                       wolfPlayerIds: gameState.wolfPlayerIds,
                                       voteCounts: room.voteCounts,
                                       captainTargetVoteId:
@@ -473,8 +477,11 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                 isDevModeActive: isDevModeActive,
                                 isDevRoom: isDevRoom,
                                 myRole: myRole,
-                                seerInspectedRoles:
-                                    gameState.seerInspectedRoles,
+                                seerInspectedRoles: (myRole == GameRole.seer ||
+                                        isDevModeActive ||
+                                        isDevRoom)
+                                    ? gameState.seerInspectedRoles
+                                    : const {},
                                 wolfPlayerIds: gameState.wolfPlayerIds,
                                 onPlayerSelected: (id) {
                                   if (room.phase == GamePhase.nightSeer &&
@@ -1612,7 +1619,13 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     if (phase == GamePhase.dayVoting || phase == GamePhase.dayTieBreakVote) {
       return context.tr('accused');
     }
-    if (phase == GamePhase.nightSeer) return context.tr('status_scanned');
+    if (phase == GamePhase.nightSeer) {
+      if (_selectedPlayerId != null &&
+          ref.read(gameNotifierProvider).seerInspectedRoles.containsKey(_selectedPlayerId)) {
+        return context.tr('status_scanned');
+      }
+      return context.tr('target');
+    }
     if (phase == GamePhase.nightDefender) return context.tr('status_protected');
     if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) return context.tr('candidate');
     if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) return context.tr('successor');

@@ -5,6 +5,7 @@ import '../../GameNotifier.dart';
 import '../../models/game_phase.dart';
 import '../../models/game_room.dart';
 import '../../models/player_model.dart';
+import '../../services/app_translations.dart';
 import '../../services/lupus_permission_service.dart';
 import '../bento/bento_card.dart';
 import '../bento/lupus_permission_dialog.dart';

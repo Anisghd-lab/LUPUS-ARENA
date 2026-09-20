@@ -183,4 +183,17 @@ class FogOfWarService {
     if (isObserverWolf) return true;
     return false;
   }
+
+  /// 13. Règle de visibilité de l'inspection de la Voyante (Seer Inspected Role)
+  /// Le rôle découvert par la Voyante et l'icône de la boule de cristal (🔮)
+  /// ne doivent être visibles QUE par la Voyante elle-même ou en Mode Développeur / Admin.
+  static bool canSeeSeerInspection({
+    required GameRole observerRole,
+    bool isDevMode = false,
+  }) {
+    if (isDevMode) return true;
+    if (observerRole == GameRole.seer) return true;
+    return false;
+  }
 }
+

@@ -138,6 +138,7 @@ class LupusGameState {
     bool? isOmniscientVoice,
     String? currentVoiceChannel,
     Map<String, GameRole>? seerInspectedRoles,
+    bool clearSeerInspectedRoles = false,
     List<String>? foxSniffedPlayerIds,
     bool? foxWolfDetected,
     bool clearFoxSniff = false,
@@ -167,7 +168,9 @@ class LupusGameState {
           : (impersonatedUserId ?? this.impersonatedUserId),
       isOmniscientVoice: isOmniscientVoice ?? this.isOmniscientVoice,
       currentVoiceChannel: currentVoiceChannel ?? this.currentVoiceChannel,
-      seerInspectedRoles: seerInspectedRoles ?? this.seerInspectedRoles,
+      seerInspectedRoles: clearSeerInspectedRoles
+          ? const {}
+          : (seerInspectedRoles ?? this.seerInspectedRoles),
       foxSniffedPlayerIds: clearFoxSniff
           ? const []
           : (foxSniffedPlayerIds ?? this.foxSniffedPlayerIds),
@@ -1327,6 +1330,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       'timerSeconds': firstPhase.durationSeconds,
       'logs': initialLogs,
     });
+    state = state.copyWith(
+      clearInspectedRole: true,
+      clearSeerInspectedRoles: true,
+      clearFoxSniff: true,
+    );
   }
 
   // ===========================================================================
@@ -4770,6 +4778,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       final finalRoom = updatedRoom.copyWith(players: currentPlayers);
       state = state.copyWith(
         clearInspectedRole: phaseChanged,
+        clearSeerInspectedRoles: parsedPhase == GamePhase.lobby,
         room: finalRoom,
       );
       _applyVoiceRulesForPhase(finalRoom);
@@ -4811,6 +4820,7 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           state = state.copyWith(
             room: updatedRoom,
             clearInspectedRole: true,
+            clearSeerInspectedRoles: parsed == GamePhase.lobby,
           );
           _applyVoiceRulesForPhase(updatedRoom);
         }
@@ -6032,6 +6042,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     final logs = List<String>.from(state.room!.logs);
     logs.insert(0, '🔮 [DEV VOYANTE] Sonde sur ${target.name} -> [${role.displayNameFr}].');
     await _syncState({'logs': logs});
+    final updatedMap = Map<String, GameRole>.from(state.seerInspectedRoles);
+    updatedMap[targetId] = role;
+    state = state.copyWith(seerInspectedRoles: updatedMap);
     return role;
   }
 
@@ -6504,7 +6517,12 @@ class GameNotifier extends StateNotifier<LupusGameState> {
 
       // ── Écriture atomique unique de réinitialisation : rooms/ ──
       await roomRef.update(roomResetUpdates);
-      state = state.copyWith(isVictoryVoiceExpired: false);
+      state = state.copyWith(
+        isVictoryVoiceExpired: false,
+        clearSeerInspectedRoles: true,
+        clearInspectedRole: true,
+        clearFoxSniff: true,
+      );
     } catch (e) {
       debugPrint('[Replay Reset Error] $e');
     }
@@ -6620,6 +6638,8 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         clearRoom: true,
         isVictoryVoiceExpired: false,
         clearFoxSniff: true,
+        clearSeerInspectedRoles: true,
+        clearInspectedRole: true,
       );
     }
   }

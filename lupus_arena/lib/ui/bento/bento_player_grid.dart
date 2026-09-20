@@ -140,7 +140,11 @@ class BentoPlayerGrid extends StatelessWidget {
             player.role.isWolfTeam ||
             wolfPlayerIds.contains(player.id);
         final isWolfPeer = isMeWolfTeam && isOtherWolf;
-        final seerRole = seerInspectedRoles[player.id];
+        final canSeeSeer = FogOfWarService.canSeeSeerInspection(
+          observerRole: myRole,
+          isDevMode: isDevMode,
+        );
+        final seerRole = canSeeSeer ? seerInspectedRoles[player.id] : null;
 
         final isProtected = FogOfWarService.canSeeDefenderShield(
           targetIsProtected: currentProtectedPlayerId == player.id,

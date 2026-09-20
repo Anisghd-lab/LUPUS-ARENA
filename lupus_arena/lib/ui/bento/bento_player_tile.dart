@@ -77,21 +77,27 @@ class BentoPlayerTile extends StatelessWidget {
     final avatarItem = LupusAvatars.getByIndex(player.avatarIndex);
     final icon = avatarItem.icon;
 
+    final canSeeSeer = FogOfWarService.canSeeSeerInspection(
+      observerRole: myRole,
+      isDevMode: isDevMode,
+    );
+    final effectiveSeerRole = canSeeSeer ? seerDiscoveredRole : null;
+
     // Seules exceptions autorisées pour afficher le rôle :
     // 1. Mon propre rôle (isMe)
     // 2. Joueur éliminé révélé au village (isDead)
-    // 3. Voyante ayant personnellement sondé ce joueur (seerDiscoveredRole != null)
+    // 3. Voyante ayant personnellement sondé ce joueur (effectiveSeerRole != null)
     // 4. Confrère Loup-Garou (isWolfPeer && player.isAlive)
     // 5. Dev-Mode strict (isDevMode => isDevModeActive && isDevRoom)
     final canSeeRole = isMe ||
         isDead ||
         isDevMode ||
         (isWolfPeer && player.isAlive) ||
-        (seerDiscoveredRole != null && player.isAlive);
+        (effectiveSeerRole != null && player.isAlive);
 
     final GameRole roleToDisplay =
-        (seerDiscoveredRole != null && !isMe && !isDead)
-            ? seerDiscoveredRole!
+        (effectiveSeerRole != null && !isMe && !isDead)
+            ? effectiveSeerRole!
             : (isDead ? player.roleInitial : player.role);
 
     String roleLabel;
@@ -99,8 +105,8 @@ class BentoPlayerTile extends StatelessWidget {
       roleLabel = context.tr('my_role_label', {'role': player.role.getDisplayName(context)});
     } else if (isDead) {
       roleLabel = player.roleInitial.getDisplayName(context);
-    } else if (seerDiscoveredRole != null) {
-      roleLabel = '🔮 ${seerDiscoveredRole!.getDisplayName(context)}';
+    } else if (effectiveSeerRole != null) {
+      roleLabel = '🔮 ${effectiveSeerRole.getDisplayName(context)}';
     } else if (isWolfPeer) {
       final wolfName = (player.role == GameRole.whiteWerewolf)
           ? context.tr('role_white_werewolf')
@@ -459,7 +465,7 @@ class BentoPlayerTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 2),
                 ],
-                if (seerDiscoveredRole != null && !isMe && player.isAlive) ...[
+                if (effectiveSeerRole != null && !isMe && player.isAlive) ...[
                   const AnimatedStatusBadge(
                     child: Text('🔮', style: TextStyle(fontSize: 10)),
                   ),
@@ -533,12 +539,12 @@ class BentoPlayerTile extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
-                color: (isWolfPeer && !isMe && !isDevMode && seerDiscoveredRole == null)
+                color: (isWolfPeer && !isMe && !isDevMode && effectiveSeerRole == null)
                     ? LupusColors.bloodRed.withValues(alpha: 0.25)
                     : roleToDisplay.accentColor.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: (isWolfPeer && !isMe && !isDevMode && seerDiscoveredRole == null)
+                  color: (isWolfPeer && !isMe && !isDevMode && effectiveSeerRole == null)
                       ? LupusColors.bloodRed.withValues(alpha: 0.6)
                       : roleToDisplay.accentColor.withValues(alpha: 0.4),
                   width: 0.8,
@@ -551,7 +557,7 @@ class BentoPlayerTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 8.5,
                   fontWeight: FontWeight.w700,
-                  color: (isWolfPeer && !isMe && !isDevMode && seerDiscoveredRole == null)
+                  color: (isWolfPeer && !isMe && !isDevMode && effectiveSeerRole == null)
                       ? const Color(0xFFFF8B8B)
                       : roleToDisplay.accentColor,
                 ),

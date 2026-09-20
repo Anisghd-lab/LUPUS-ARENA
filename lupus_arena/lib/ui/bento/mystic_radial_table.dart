@@ -507,8 +507,13 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                                 .contains(widget.currentUserId))) &&
                     (selectedPlayer.role.isEvil ||
                         widget.wolfPlayerIds.contains(selectedPlayer.id));
-                final targetSeerRole =
-                    widget.seerInspectedRoles[selectedPlayer.id];
+                final canSeeTargetSeer = FogOfWarService.canSeeSeerInspection(
+                  observerRole: widget.myRole,
+                  isDevMode: isTargetDevMode,
+                );
+                final targetSeerRole = canSeeTargetSeer
+                    ? widget.seerInspectedRoles[selectedPlayer.id]
+                    : null;
 
                 String? roleText;
                 Color? roleColor;
@@ -745,7 +750,13 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       isDevMode: isDevMode,
     ) && (player.isAlive || isDevMode);
 
-    final seerDiscoveredRole = widget.seerInspectedRoles[player.id];
+    final canSeeSeerInspection = FogOfWarService.canSeeSeerInspection(
+      observerRole: widget.myRole,
+      isDevMode: isDevMode,
+    );
+    final seerDiscoveredRole = canSeeSeerInspection
+        ? widget.seerInspectedRoles[player.id]
+        : null;
     final isSniffed = (widget.foxSniffedPlayerIds.contains(player.id) || player.isSniffed) &&
         canSeeFoxSniff &&
         (player.isAlive || isDevMode);
@@ -1033,8 +1044,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                           ),
                         ),
 
-                      // Badge Rôle Sondé par la Voyante (visible uniquement par la voyante)
-                      if (seerDiscoveredRole != null && !isMe && (player.isAlive || isDevMode))
+                      // Badge Rôle Sondé par la Voyante (visible uniquement par la voyante sur joueurs réellement sondés)
+                      if (canSeeSeerInspection && seerDiscoveredRole != null && !isMe && (player.isAlive || isDevMode))
                         Positioned(
                           top: -6,
                           right: -6,
@@ -1500,7 +1511,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
                         const Text('🐺', style: TextStyle(fontSize: 8.0)),
                         const SizedBox(width: 1.5),
                       ],
-                      if (seerDiscoveredRole != null && !isMe) ...[
+                      if (canSeeSeerInspection && seerDiscoveredRole != null && !isMe && (player.isAlive || isDevMode)) ...[
                         const Text('🔮', style: TextStyle(fontSize: 8.0)),
                         const SizedBox(width: 1.5),
                       ],
@@ -1649,7 +1660,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
             ),
     );
 
-    Gradient _getAvatarGradient() {
+    Gradient getAvatarGradient() {
       if (isDead) {
         return const LinearGradient(
           colors: [Color(0xFF1E212D), Color(0xFF12141C)],
@@ -1726,7 +1737,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       );
     }
 
-    Color _getAvatarBorderColor(double flash) {
+    Color getAvatarBorderColor(double flash) {
       if (isNewCaptainFlashing && flash > 0) {
         return Color.lerp(LupusColors.arcaneGold, Colors.white, flash)!;
       }
@@ -1756,7 +1767,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       return LupusColors.arcanePurple.withValues(alpha: 0.35);
     }
 
-    double _getAvatarBorderWidth(double flash) {
+    double getAvatarBorderWidth(double flash) {
       if (isNewCaptainFlashing && flash > 0) {
         return 2.5 + (1.5 * flash);
       }
@@ -1778,7 +1789,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       return 1.2;
     }
 
-    List<BoxShadow>? _getAvatarBoxShadow(double flash) {
+    List<BoxShadow>? getAvatarBoxShadow(double flash) {
       if (isNewCaptainFlashing && flash > 0) {
         return [
           BoxShadow(
@@ -1880,12 +1891,12 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     BoxDecoration getAvatarDecoration(double flash) {
       return BoxDecoration(
         shape: BoxShape.circle,
-        gradient: _getAvatarGradient(),
+        gradient: getAvatarGradient(),
         border: Border.all(
-          color: _getAvatarBorderColor(flash),
-          width: _getAvatarBorderWidth(flash),
+          color: getAvatarBorderColor(flash),
+          width: getAvatarBorderWidth(flash),
         ),
-        boxShadow: _getAvatarBoxShadow(flash),
+        boxShadow: getAvatarBoxShadow(flash),
       );
     }
 

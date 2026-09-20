@@ -18,7 +18,9 @@ class LupusAssets {
   static const String villageNightBgAssetFallback =
       'village_background.png';
   static const String wolfSealAsset = 'assets/images/lupus_seal.png';
-  static const String lobbyFantasyBgAsset = 'assets/images/lobby_fantasy_bg.png';
+  static const String lobbyBackdropAsset = 'assets/images/backlobby.jpg';
+  static const String lobbyFantasyBgAsset = 'assets/images/backlobby.jpg';
+  static const String lobbyFantasyBgFallbackAsset = 'assets/images/lobby_fantasy_bg.png';
   static const String lobbyFantasyBgAltAsset = 'assets/images/IMG_20260918_175859.png';
   static const String lobbyCleanBgAsset = 'assets/images/lobby_clean_bg.png';
   static const String tableNuitMockupAsset =

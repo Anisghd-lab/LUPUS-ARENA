@@ -189,11 +189,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     final screenSize = media.size;
     final isLandscape = screenSize.width > screenSize.height;
 
-    // Calcul réactif et précis de l'échelle d'affichage de l'image de fond (704 x 1470)
+    // Calcul réactif et précis de l'échelle d'affichage de l'image de fond (1536 x 2752)
     // L'image de fond est rendue en plein écran avec BoxFit.cover et Alignment.topCenter.
-    final scale = math.max(screenSize.width / 704.0, screenSize.height / 1470.0);
-    // Le bas du cadre de pierre du loup-garou se termine à y = 774 dans l'image 704x1470.
-    final wolfFrameBottom = 774.0 * scale;
+    final scale = math.max(screenSize.width / 1536.0, screenSize.height / 2752.0);
+    // Le bas du cadre de pierre / illustration principale se termine à y = 1448 dans l'image 1536x2752.
+    final wolfFrameBottom = 1448.0 * scale;
 
     // Espace au-dessus des cartes :
     // - En mode portrait : démarre harmonieusement juste sous le cadre du loup (+ marge esthétique de 10dp).
@@ -209,21 +209,26 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
           // 1. Image d'arrière-plan en plein écran avec BoxFit.cover (garantit 0 vide noir)
           Positioned.fill(
             child: Image.asset(
-              LupusAssets.lobbyFantasyBgAsset,
+              LupusAssets.lobbyBackdropAsset,
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
               errorBuilder: (context, error, stackTrace) => Image.asset(
-                LupusAssets.lobbyFantasyBgAltAsset,
+                LupusAssets.lobbyFantasyBgFallbackAsset,
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
                 errorBuilder: (context, error, stackTrace) => Image.asset(
-                  LupusAssets.lobbyCleanBgAsset,
+                  LupusAssets.lobbyFantasyBgAltAsset,
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
                   errorBuilder: (context, error, stackTrace) => Image.asset(
-                    LupusAssets.villageNightBgAssetFallback,
+                    LupusAssets.lobbyCleanBgAsset,
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
+                    errorBuilder: (context, error, stackTrace) => Image.asset(
+                      LupusAssets.villageNightBgAssetFallback,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    ),
                   ),
                 ),
               ),

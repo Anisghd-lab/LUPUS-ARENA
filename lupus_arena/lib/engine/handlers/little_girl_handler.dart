@@ -23,8 +23,13 @@ class LittleGirlHandler extends RoleActionHandler {
     required String actorId,
     required Map<String, dynamic> actionPayload,
   }) {
+    final eyesClosed = actionPayload['eyesClosed'] as bool? ?? false;
+    final updatedExpanded = state.expandedRolesState.copyWith(
+      littleGirlEyesOpen: !eyesClosed,
+    );
     final acknowledged = Set<String>.from(state.nightAcknowledgedPlayerIds)..add(actorId);
     return state.copyWith(
+      expandedRolesState: updatedExpanded,
       nightAcknowledgedPlayerIds: acknowledged,
     );
   }

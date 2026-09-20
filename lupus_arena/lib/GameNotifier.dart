@@ -1583,6 +1583,21 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         updates['expandedRolesState'] = room.expandedRolesState.copyWith(whiteWolfTargetId: '').toMap();
       }
 
+      // 2d. Petite Fille surprise les yeux ouverts par la meute
+      final caughtLittleGirlId = room.expandedRolesState.littleGirlCaughtId;
+      if (caughtLittleGirlId != null &&
+          caughtLittleGirlId.isNotEmpty &&
+          !effectiveDeaths.contains(caughtLittleGirlId)) {
+        effectiveDeaths.add(caughtLittleGirlId);
+        final lgName = room.players[caughtLittleGirlId]?.name ?? caughtLittleGirlId;
+        logs.add('😱 Surprise les yeux ouverts par la meute, la Petite Fille ($lgName) a succombé à la terreur !');
+        updates['expandedRolesState'] = (updates['expandedRolesState'] != null
+                ? ExpandedRolesState.fromMap(updates['expandedRolesState'] as Map)
+                : room.expandedRolesState)
+            .copyWith(clearLittleGirlCaughtId: true)
+            .toMap();
+      }
+
       // 3. Morts et Chagrin des Amoureux
       final allDeaths = <String>{...effectiveDeaths};
       for (final deadId in effectiveDeaths) {
@@ -1609,9 +1624,16 @@ class GameNotifier extends StateNotifier<LupusGameState> {
             }
           } catch (_) {}
           updates['players/$id/role'] = revealedRole.id;
-          final cause = (id == poisonVictimId)
-              ? 'POISON_SORCIERE'
-              : 'MORSURE_LOUPS';
+          final String cause;
+          if (id == caughtLittleGirlId) {
+            cause = 'PETITE_FILLE_SURPRISE';
+          } else if (id == poisonVictimId) {
+            cause = 'POISON_SORCIERE';
+          } else if (id == whiteWolfTargetId) {
+            cause = 'LOUP_BLANC';
+          } else {
+            cause = 'MORSURE_LOUPS';
+          }
           final deathEntry = {
             'action': 'FLIP_CARTE_MORT',
             'joueurId': id,
@@ -3356,6 +3378,65 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     };
     await _syncState(updates);
     await processNightTransitions();
+  }
+
+  Future<void> littleGirlToggleEyes(bool eyesClosed) async {
+    final room = state.room;
+    if (room == null || _currentRoomRef == null) return;
+    final me = room.players[state.currentUserId];
+    if (me == null || (me.role != GameRole.littleGirl && !state.isAdmin)) return;
+
+    final eyesOpen = !eyesClosed;
+    if (room.phase == GamePhase.nightWerewolves) {
+      await _voiceService.muteSpeaker(eyesClosed);
+    }
+
+    final updatedExpanded = room.expandedRolesState.copyWith(
+      littleGirlEyesOpen: eyesOpen,
+    );
+    await _syncState({
+      'expandedRolesState': updatedExpanded.toMap(),
+    });
+  }
+
+  Future<void> werewolvesCatchLittleGirl(String targetId) async {
+    final room = state.room;
+    if (room == null || _currentRoomRef == null) return;
+    if (room.phase != GamePhase.nightWerewolves) return;
+
+    final me = room.players[state.currentUserId];
+    final isWolf = me != null && (me.role.isEvil || me.role == GameRole.whiteWerewolf);
+    if (!isWolf && !state.isAdmin) return;
+
+    final target = room.players[targetId];
+    if (target == null || !target.isAlive) return;
+
+    final realRoles = await _resolveRealRoles(room);
+    final targetRole = realRoles[targetId] ?? target.role;
+    final isLittleGirl = targetRole == GameRole.littleGirl;
+    final isEyesOpen = room.expandedRolesState.littleGirlEyesOpen;
+
+    final logs = List<String>.from(room.logs);
+
+    if (isLittleGirl && isEyesOpen) {
+      logs.add(
+        '😱 LA PETITE FILLE A ÉTÉ DÉMASQUÉE ! Surprise les yeux grands ouverts par la meute, ${target.name} périt immédiatement de terreur !',
+      );
+      final updatedExpanded = room.expandedRolesState.copyWith(
+        littleGirlCaughtId: targetId,
+      );
+      await _syncState({
+        'expandedRolesState': updatedExpanded.toMap(),
+        'logs': logs,
+      });
+    } else {
+      logs.add(
+        '🐺 Les loups ont cru apercevoir des yeux dans l\'ombre vers ${target.name}... mais nul n\'espionnait.',
+      );
+      await _syncState({
+        'logs': logs,
+      });
+    }
   }
 
   Future<void> cupidBindLovers(String p1Id, String p2Id) async {
@@ -5354,8 +5435,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     // - Autres nuits solitaires (Voyante, Sorcière, etc.) : silence complet pour tous (muteSpeaker = true).
     // - Phases de jour / Débat / Vote / Aube / GameOver : haut-parleur actif pour tous les survivants (muteSpeaker = false).
     if (room.phase == GamePhase.nightWerewolves) {
-      if (isWolf || canSpy) {
+      if (isWolf) {
         await _voiceService.muteSpeaker(false);
+      } else if (canSpy) {
+        final isEyesOpen = room.expandedRolesState.littleGirlEyesOpen;
+        await _voiceService.muteSpeaker(!isEyesOpen);
       } else {
         await _voiceService.muteSpeaker(true);
       }

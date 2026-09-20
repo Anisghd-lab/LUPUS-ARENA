@@ -35,6 +35,9 @@ class ExpandedRolesState {
   final bool isMayorSuccessionPending;
   final bool mayorSpeechOpeningDone;
   final bool mayorSpeechClosingDone;
+  // --- ÉTAT DE LA PETITE FILLE (ESPIONNAGE & DÉTECTION) ---
+  final bool littleGirlEyesOpen;
+  final String? littleGirlCaughtId;
 
   const ExpandedRolesState({
     this.infectedPlayerId,
@@ -66,6 +69,8 @@ class ExpandedRolesState {
     this.isMayorSuccessionPending = false,
     this.mayorSpeechOpeningDone = false,
     this.mayorSpeechClosingDone = false,
+    this.littleGirlEyesOpen = true,
+    this.littleGirlCaughtId,
   });
 
   List<String> get sectarianTeamA => sectarianTeams['teamA'] ?? const [];
@@ -101,6 +106,9 @@ class ExpandedRolesState {
     bool? isMayorSuccessionPending,
     bool? mayorSpeechOpeningDone,
     bool? mayorSpeechClosingDone,
+    bool? littleGirlEyesOpen,
+    String? littleGirlCaughtId,
+    bool clearLittleGirlCaughtId = false,
   }) {
     return ExpandedRolesState(
       infectedPlayerId: infectedPlayerId ?? this.infectedPlayerId,
@@ -141,6 +149,10 @@ class ExpandedRolesState {
           mayorSpeechOpeningDone ?? this.mayorSpeechOpeningDone,
       mayorSpeechClosingDone:
           mayorSpeechClosingDone ?? this.mayorSpeechClosingDone,
+      littleGirlEyesOpen: littleGirlEyesOpen ?? this.littleGirlEyesOpen,
+      littleGirlCaughtId: clearLittleGirlCaughtId
+          ? null
+          : (littleGirlCaughtId ?? this.littleGirlCaughtId),
     );
   }
 
@@ -177,6 +189,8 @@ class ExpandedRolesState {
       'isMayorSuccessionPending': isMayorSuccessionPending,
       'mayorSpeechOpeningDone': mayorSpeechOpeningDone,
       'mayorSpeechClosingDone': mayorSpeechClosingDone,
+      'littleGirlEyesOpen': littleGirlEyesOpen,
+      'littleGirlCaughtId': littleGirlCaughtId,
     };
   }
 
@@ -270,6 +284,8 @@ class ExpandedRolesState {
           map['mayorSpeechOpeningDone'] as bool? ?? false,
       mayorSpeechClosingDone:
           map['mayorSpeechClosingDone'] as bool? ?? false,
+      littleGirlEyesOpen: map['littleGirlEyesOpen'] as bool? ?? true,
+      littleGirlCaughtId: map['littleGirlCaughtId']?.toString(),
     );
   }
 }

@@ -39,6 +39,9 @@ class DeathAnnouncementEvent {
       case 'AMOUREUX':
       case 'CHAGRIN':
         return AppTranslations.getText(context, 'death_cause_heartbreak');
+      case 'PETITE_FILLE_SURPRISE':
+      case 'PETITE_FILLE':
+        return AppTranslations.getText(context, 'death_cause_little_girl_caught');
       default:
         return AppTranslations.getText(context, 'death_cause_elimination');
     }
@@ -60,6 +63,9 @@ class DeathAnnouncementEvent {
       case 'AMOUREUX':
       case 'CHAGRIN':
         return Icons.favorite_rounded;
+      case 'PETITE_FILLE_SURPRISE':
+      case 'PETITE_FILLE':
+        return Icons.visibility_off_rounded;
       default:
         return Icons.dangerous_rounded;
     }
@@ -79,6 +85,9 @@ class DeathAnnouncementEvent {
       case 'AMOUREUX':
       case 'CHAGRIN':
         return const Color(0xFFEC4899);
+      case 'PETITE_FILLE_SURPRISE':
+      case 'PETITE_FILLE':
+        return const Color(0xFFFFC6FF);
       default:
         return const Color(0xFF94A3B8);
     }

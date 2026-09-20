@@ -43,6 +43,8 @@ class BentoActionPanel extends StatefulWidget {
   final VoidCallback? onFoxPass;
   final ValueChanged<String>? onWhiteWolfDevour;
   final VoidCallback? onWhiteWolfPass;
+  final ValueChanged<bool>? onLittleGirlToggleEyes;
+  final ValueChanged<String>? onWerewolvesCatchLittleGirl;
   final bool isAdmin;
   final VoidCallback? onPassDebate;
   final ValueListenable<int>? countdownListenable;
@@ -88,6 +90,8 @@ class BentoActionPanel extends StatefulWidget {
     this.onFoxPass,
     this.onWhiteWolfDevour,
     this.onWhiteWolfPass,
+    this.onLittleGirlToggleEyes,
+    this.onWerewolvesCatchLittleGirl,
     this.onPassDebate,
     this.countdownListenable,
     this.onSelectTarget,
@@ -1262,6 +1266,34 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ],
           ],
         ),
+
+        // 3. Optionnel : Bouton Dénicher l'espionne (Petite Fille) si un villageois est sélectionné
+        if (selectedTarget != null &&
+            selectedTarget.isAlive &&
+            !selectedTarget.isWolf &&
+            widget.onWerewolvesCatchLittleGirl != null) ...[
+          const SizedBox(height: 5),
+          SizedBox(
+            height: 32,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0x1AFFC6FF),
+                foregroundColor: const Color(0xFFFFC6FF),
+                side: const BorderSide(color: Color(0xFFFFC6FF), width: 1.0),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => widget.onWerewolvesCatchLittleGirl?.call(selectedTarget.id),
+              icon: const Icon(Icons.visibility_rounded, size: 14, color: Color(0xFFFFC6FF)),
+              label: Text(
+                context.tr('wolf_unmask_peeker_btn', {'name': selectedTarget.name}),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10.5),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -3336,7 +3368,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          margin: const EdgeInsets.only(bottom: 6),
+          margin: const EdgeInsets.only(bottom: 5),
           decoration: BoxDecoration(
             color: bannerBgColor,
             borderRadius: BorderRadius.circular(8),
@@ -3363,6 +3395,34 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             ],
           ),
         ),
+        if (!_littleGirlEyesClosed)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            margin: const EdgeInsets.only(bottom: 5),
+            decoration: BoxDecoration(
+              color: const Color(0x2BFF0033),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0x55FF2A4B)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, size: 12, color: Color(0xFFFF8080)),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    context.tr('little_girl_peeking_warning'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFFFD1D1),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Row(
           children: [
             Expanded(
@@ -3378,9 +3438,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () {
+                    final nextState = !_littleGirlEyesClosed;
                     setState(() {
-                      _littleGirlEyesClosed = !_littleGirlEyesClosed;
+                      _littleGirlEyesClosed = nextState;
                     });
+                    widget.onLittleGirlToggleEyes?.call(nextState);
                   },
                   icon: Icon(
                     _littleGirlEyesClosed ? Icons.visibility_rounded : Icons.hearing_rounded,
@@ -3411,6 +3473,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   setState(() {
                     _littleGirlEyesClosed = true;
                   });
+                  widget.onLittleGirlToggleEyes?.call(true);
                 },
                 icon: const Icon(Icons.visibility_off_rounded, size: 14),
                 label: Text(

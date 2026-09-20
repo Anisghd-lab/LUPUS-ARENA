@@ -243,6 +243,32 @@ void main() {
       expect(controls.instruction, contains('Thomas'));
       expect(controls.canSkip, isTrue);
     });
+
+    test('executeAction met à jour littleGirlEyesOpen dans expandedRolesState', () {
+      final handler = LittleGirlHandler();
+
+      final state = GameState(
+        currentPhase: GamePhase.nightWerewolves,
+        players: {
+          'lg': PlayerModel(id: 'lg', name: 'Petite Fille', isAlive: true, role: GameRole.littleGirl),
+        },
+      );
+
+      final nextStateClosed = handler.executeAction(
+        state,
+        actorId: 'lg',
+        actionPayload: {'eyesClosed': true},
+      );
+      expect(nextStateClosed.expandedRolesState.littleGirlEyesOpen, isFalse);
+      expect(nextStateClosed.nightAcknowledgedPlayerIds.contains('lg'), isTrue);
+
+      final nextStateOpen = handler.executeAction(
+        nextStateClosed,
+        actorId: 'lg',
+        actionPayload: {'eyesClosed': false},
+      );
+      expect(nextStateOpen.expandedRolesState.littleGirlEyesOpen, isTrue);
+    });
   });
 
   group('WhiteWerewolfHandler Strategic Actions', () {

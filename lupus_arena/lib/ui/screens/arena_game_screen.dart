@@ -405,7 +405,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                     child: ValueListenableBuilder<Set<int>>(
                       valueListenable: AgoraVoiceService().speakingUids,
                       builder: (context, speakingUids, _) {
-                        return _useRadialView
+                        final tableOrGrid = _useRadialView
                             ? Center(
                                 child: FittedBox(
                                   fit: BoxFit.scaleDown,
@@ -497,6 +497,19 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                                   });
                                 },
                               );
+
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            tableOrGrid,
+                            if (myRole == GameRole.littleGirl &&
+                                room.phase == GamePhase.nightWerewolves)
+                              _buildLittleGirlVignette(
+                                context,
+                                room.expandedRolesState.littleGirlEyesOpen,
+                              ),
+                          ],
+                        );
                       },
                     ),
                   ),
@@ -591,6 +604,12 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                             onBlackWolfSilence: (targetId) => ref
                                 .read(gameNotifierProvider.notifier)
                                 .werewolfSilence(targetId),
+                            onLittleGirlToggleEyes: (eyesClosed) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .littleGirlToggleEyes(eyesClosed),
+                            onWerewolvesCatchLittleGirl: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .werewolvesCatchLittleGirl(targetId),
                             onPassDebate: () => ref
                                 .read(gameNotifierProvider.notifier)
                                 .passTurnDebate(),
@@ -1506,6 +1525,72 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Vignette thématique d'espionnage pour la Petite Fille (yeux entrouverts / fermés)
+  Widget _buildLittleGirlVignette(BuildContext context, bool isEyesOpen) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          child: isEyesOpen
+              ? Container(
+                  key: const ValueKey('little_girl_vignette_open'),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.0, 0.22, 0.78, 1.0],
+                      colors: [
+                        Color(0xDD08030F),
+                        Colors.transparent,
+                        Colors.transparent,
+                        Color(0xDD08030F),
+                      ],
+                    ),
+                  ),
+                )
+              : Container(
+                  key: const ValueKey('little_girl_vignette_closed'),
+                  decoration: BoxDecoration(
+                    color: const Color(0xF207030C),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.visibility_off_rounded, size: 36, color: Color(0xFFC4B5FD)),
+                        const SizedBox(height: 8),
+                        Text(
+                          context.tr('little_girl_eyes_closed'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          context.tr('wolves_night_total_silence'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
         ),
       ),
     );

@@ -1470,7 +1470,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
 }
 
 /// Widget des boutons d'action du Lobby (Style Dark Fantasy & Runes)
-/// Réduction de 40% (largeur 210 dp, hauteur 42 dp) avec dégradés riches et bordures dorées
+/// Taille divisée par deux (largeur 110 dp, hauteur 32 dp, sans emoji/icône porte)
 class LobbyActionButtons extends StatelessWidget {
   final LupusGameState gameState;
   final TextEditingController codeController;
@@ -1487,9 +1487,9 @@ class LobbyActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double buttonHeight = 42.0;
-    const double buttonWidth = 210.0;
-    final borderRadius = BorderRadius.circular(12);
+    const double buttonHeight = 32.0;
+    const double buttonWidth = 110.0;
+    final borderRadius = BorderRadius.circular(8);
 
     return Center(
       child: SizedBox(
@@ -1516,18 +1516,18 @@ class LobbyActionButtons extends StatelessWidget {
                 ),
                 border: Border.all(
                   color: const Color(0xFFFFD700).withValues(alpha: 0.7),
-                  width: 1.2,
+                  width: 1.1,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF6A1B9A).withValues(alpha: 0.45),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.4),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    blurRadius: 5,
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
@@ -1536,49 +1536,55 @@ class LobbyActionButtons extends StatelessWidget {
                 child: InkWell(
                   borderRadius: borderRadius,
                   onTap: gameState.isLoading ? null : onCreate,
-                  child: Center(
-                    child: gameState.isLoading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.0,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.add_rounded,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Center(
+                      child: gameState.isLoading
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.8,
                                 color: Colors.white,
-                                size: 18,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                context.tr('create_room').toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black87,
-                                      blurRadius: 4,
-                                      offset: Offset(0, 1),
+                            )
+                          : FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.add_rounded,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    context.tr('create_room').toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black87,
+                                          blurRadius: 3,
+                                          offset: Offset(0, 1),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                    ),
                   ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
             // 2. Bouton / Champ "CODE DU SALON"
             // Dégradé sombre et mystique : [Color(0xFF2E1A47), Color(0xFF160D24)]
@@ -1597,12 +1603,12 @@ class LobbyActionButtons extends StatelessWidget {
                 ),
                 border: Border.all(
                   color: const Color(0xFF9E7BB5).withValues(alpha: 0.55),
-                  width: 1.2,
+                  width: 1.1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 8,
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -1616,9 +1622,9 @@ class LobbyActionButtons extends StatelessWidget {
                   cursorColor: const Color(0xFFFFD700),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 1.8,
+                    letterSpacing: 1.2,
                     shadows: [
                       Shadow(
                         color: Colors.black87,
@@ -1631,23 +1637,23 @@ class LobbyActionButtons extends StatelessWidget {
                     hintText: context.tr('enter_room_code').toUpperCase(),
                     hintStyle: const TextStyle(
                       color: Color(0xFF8E82A6),
-                      fontSize: 11,
+                      fontSize: 8.5,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
+                      letterSpacing: 0.5,
                     ),
                     counterText: '',
                     border: InputBorder.none,
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                   ),
                   onSubmitted: (_) => onJoin(),
                 ),
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
-            // 3. Bouton "REJOINDRE"
+            // 3. Bouton "REJOINDRE" (Sans emoji/icône porte)
             // Dégradé vertical du vert éclatant au vert forêt sombre : [Color(0xFF43A047), Color(0xFF2E7D32), Color(0xFF1B5E20)]
             // Bordure dorée fine (Color(0xFFFFD700) avec opacité 0.7)
             Container(
@@ -1665,18 +1671,18 @@ class LobbyActionButtons extends StatelessWidget {
                 ),
                 border: Border.all(
                   color: const Color(0xFFFFD700).withValues(alpha: 0.7),
-                  width: 1.2,
+                  width: 1.1,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF2E7D32).withValues(alpha: 0.45),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.4),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    blurRadius: 5,
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
@@ -1685,33 +1691,28 @@ class LobbyActionButtons extends StatelessWidget {
                 child: InkWell(
                   borderRadius: borderRadius,
                   onTap: gameState.isLoading ? null : onJoin,
-                  child: const Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.meeting_room_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
                           'REJOINDRE',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 13,
+                            fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
+                            letterSpacing: 0.6,
                             shadows: [
                               Shadow(
                                 color: Colors.black87,
-                                blurRadius: 4,
+                                blurRadius: 3,
                                 offset: Offset(0, 1),
                               ),
                             ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

@@ -414,9 +414,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     );
   }
 
-  /// 1. Barre supérieure (Top Bar)
-  /// - À gauche : Capsule compacte (Avatar + Pseudo + Crayon)
-  /// - À droite : Bouton rond compact Globe (🌐) + Capsule Mise à jour compacte ("Mise à jour v2..." + "NEW")
+  /// 1. Barre supérieure (Top Bar) — styles identiques au HUD de l'Arena (Room)
+  ///
+  /// ┌──────────────────────────────────────────────────────────┐
+  /// │ [Avatar] Pseudo ✏️          [MAJ pill] [🌐 Globe arcaneGold] │
+  /// └──────────────────────────────────────────────────────────┘
+  ///
+  /// • Capsule pseudo  : fond 0xCC12182E, border arcaneGold 0.6, radius 10 → identique à la room
+  /// • Bouton Globe    : cercle 32×32, fond 0xC012182E, border arcaneGold 0.4, icône 16pt → identique à la room
+  /// • Badge version   : pilule sombre 0xCC0D1F1A, liseré emerald runique
   Widget _buildTopBar(BuildContext context, LupusGameState gameState) {
     final avatarItem = LupusAvatars.getByIndex(gameState.currentUserAvatar);
     final displayName = gameState.currentUserName.isNotEmpty
@@ -426,23 +432,24 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // À gauche : Capsule compacte (Avatar, Pseudo, Crayon d'édition)
+        // ── À GAUCHE : Capsule Profil — style identique au header de la Room ──
+        // Fond 0xCC12182E · border arcaneGold 0.6 w=0.8 · radius 10 · padding h7/v3.5
         GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () => _showNameEditDialog(context, gameState.currentUserName),
           child: Container(
-            padding: const EdgeInsets.only(left: 4, right: 12, top: 4, bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
             decoration: BoxDecoration(
-              color: const Color(0xCC0E1326),
-              borderRadius: BorderRadius.circular(24),
+              color: const Color(0xCC12182E),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: const Color(0xFFFFD700).withValues(alpha: 0.65),
-                width: 1.2,
+                color: LupusColors.arcaneGold.withValues(alpha: 0.6),
+                width: 0.8,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+                  color: LupusColors.arcaneGold.withValues(alpha: 0.12),
+                  blurRadius: 6,
                 ),
               ],
             ),
@@ -450,12 +457,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Avatar interactif (tap direct pour sélecteur d'avatar)
+                // Mini-avatar circulaire (tap → sélecteur d'avatar)
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () => _showAvatarSelector(context),
                   child: Container(
-                    width: 32,
-                    height: 32,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
@@ -465,37 +473,40 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                       ),
                       border: Border.all(
                         color: avatarItem.borderColor,
-                        width: 1.5,
+                        width: 1.2,
                       ),
                     ),
                     child: Center(
                       child: Icon(
                         avatarItem.icon,
                         color: Colors.white,
-                        size: 18,
+                        size: 15,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
+                // Pseudo en arcaneGold serif — identique à la typographie du code-room de l'Arena
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 120),
+                  constraints: const BoxConstraints(maxWidth: 110),
                   child: Text(
                     displayName,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
+                      fontFamily: 'serif',
+                      color: LupusColors.arcaneGold,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 0.3,
+                      letterSpacing: 0.8,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 5),
+                // Icône crayon d'édition en arcaneGold
                 Icon(
                   Icons.edit_rounded,
-                  color: const Color(0xFFFFD700).withValues(alpha: 0.85),
-                  size: 14,
+                  color: LupusColors.arcaneGold.withValues(alpha: 0.75),
+                  size: 12,
                 ),
               ],
             ),
@@ -504,61 +515,67 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
 
         const Spacer(),
 
-        // À droite : Dev badge + Pilule MAJ + Bouton Globe, alignés verticalement au centre
+        // ── À DROITE : [Badge DEV] + [Pilule MAJ] + [Globe] ──
         Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Badge DEV-MOD si Admin
+            // Badge DEV (admin uniquement) — style harmonisé Arena
             if (gameState.isAdmin) ...[
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => AdminControlSheet.show(context),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1405),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFFFD700), width: 1.2),
-                    boxShadow: LupusTheme.glowGold(opacity: 0.35),
+                    color: const Color(0xFF422006),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: LupusColors.arcaneGold.withValues(alpha: 0.6),
+                      width: 0.8,
+                    ),
+                    boxShadow: LupusTheme.glowGold(opacity: 0.3),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('👑', style: TextStyle(fontSize: 12)),
-                      SizedBox(width: 4),
+                      Text('👑', style: TextStyle(fontSize: 11)),
+                      SizedBox(width: 3),
                       Text(
                         'DEV',
                         style: TextStyle(
-                          color: Color(0xFFFFD700),
+                          color: LupusColors.arcaneGold,
                           fontWeight: FontWeight.w900,
                           fontSize: 10,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
             ],
 
-            // Bouton compact au format pill/capsule pour la mise à jour si disponible
+            // Pilule MAJ — thème sombre runique, liseré doré-émeraude (si mise à jour disponible)
             if (_availableUpdate != null) ...[
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => AppUpdateDialog.show(context, _availableUpdate!),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xE6064E3B),
-                    borderRadius: BorderRadius.circular(16),
+                    color: const Color(0xCC0D1F1A),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.85),
-                      width: 1.2,
+                      color: const Color(0xFF34D399).withValues(alpha: 0.7),
+                      width: 0.9,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
                       ),
                     ],
                   ),
@@ -568,30 +585,30 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                       const Icon(
                         Icons.system_update_rounded,
                         color: Color(0xFF34D399),
-                        size: 13,
+                        size: 12,
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 4),
                       Text(
                         'v${_availableUpdate!.version}',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10.5,
+                          fontSize: 10,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.3,
                         ),
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(5),
                         ),
                         child: const Text(
                           'NEW',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 7.5,
+                            fontSize: 7,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.5,
                           ),
@@ -601,45 +618,31 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
             ],
 
-            // Bouton Globe (effet anneau or brillant 1.5, lueur ambrée)
+            // ── Bouton Globe — IDENTIQUE au HUD de l'Arena (_buildStitchTopHUD) ──
+            // Cercle 32×32 · fond 0xC012182E · border arcaneGold 0.4 · icône language_rounded 16pt
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => LanguageDialog.show(
                 context,
                 widget.localeProvider ?? LocaleProvider.instance,
               ),
               child: Container(
-                width: 38,
-                height: 38,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
+                  color: const Color(0xC012182E),
                   shape: BoxShape.circle,
-                  color: const Color(0xCC0E1326),
                   border: Border.all(
-                    color: const Color(0xFFFFD700), // Effet anneau en or brillant
-                    width: 1.5,
+                    color: LupusColors.arcaneGold.withValues(alpha: 0.4),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFFD700).withValues(alpha: 0.45), // Légère lueur ambrée
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 1),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
-                child: const Center(
-                  child: Icon(
-                    Icons.language_rounded,
-                    color: Color(0xFFFFD700),
-                    size: 20,
-                  ),
+                child: const Icon(
+                  Icons.language_rounded,
+                  size: 16,
+                  color: LupusColors.arcaneGold,
                 ),
               ),
             ),

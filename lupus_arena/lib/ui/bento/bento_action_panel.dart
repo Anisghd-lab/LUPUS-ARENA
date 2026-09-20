@@ -380,7 +380,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       ),
                     ),
                     child: Text(
-                      phase.isNight ? 'NOCTURNE' : 'DIURNE',
+                      context.tr(phase.isNight ? 'phase_tag_night' : 'phase_tag_day'),
                       style: TextStyle(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w900,
@@ -395,7 +395,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 children: [
                   if (selectedTarget != null)
                     Container(
-                      margin: const EdgeInsets.only(right: 6),
+                      margin: const EdgeInsetsDirectional.only(end: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
                         color: LupusColors.arcaneGold.withValues(alpha: 0.15),
@@ -448,6 +448,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 return FadeTransition(opacity: animation, child: child);
               },
               child: SizedBox(
+                key: ValueKey('action_panel_${phase.name}_${role.name}_${isAlive}_${isDyingCaptain}_${selectedTarget?.id ?? "none"}'),
                 width: double.infinity,
                 child: _buildRoleActionDispatcher(
                   context: context,
@@ -478,165 +479,172 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     required bool isDevMode,
     required bool isDyingCaptain,
   }) {
-    // 1. CHASSEUR AU DERNIER SOUFFLE
-    if (phase == GamePhase.hunterDeathChoice) {
-      if (widget.room.pendingHunterId == widget.currentUserId || isDevMode) {
-        return _buildHunterSection(selectedTarget);
-      } else {
-        return _buildHunterSpectatorSection();
+    try {
+      // 1. CHASSEUR AU DERNIER SOUFFLE
+      if (phase == GamePhase.hunterDeathChoice) {
+        if (widget.room.pendingHunterId == widget.currentUserId || isDevMode) {
+          return _buildHunterSection(selectedTarget);
+        } else {
+          return _buildHunterSpectatorSection();
+        }
       }
-    }
 
-    // 2. CAPITAINE / MAIRE DÉFUNT (TESTAMENT) OU SPECTATEUR
-    if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) {
-      if (isDyingCaptain || isDevMode) {
-        return _buildCaptainSuccessionSection(selectedTarget);
-      } else {
-        return _buildCaptainSuccessionSpectatorSection();
+      // 2. CAPITAINE / MAIRE DÉFUNT (TESTAMENT) OU SPECTATEUR
+      if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) {
+        if (isDyingCaptain || isDevMode) {
+          return _buildCaptainSuccessionSection(selectedTarget);
+        } else {
+          return _buildCaptainSuccessionSpectatorSection();
+        }
       }
-    }
 
-    // 3. JOUEUR ÉLIMINÉ SANS ACTION PARTICULIÈRE (HORS DEV-MODE)
-    if (!isAlive && !isDevMode) {
-      return _buildEliminatedSection();
-    }
+      // 3. JOUEUR ÉLIMINÉ SANS ACTION PARTICULIÈRE (HORS DEV-MODE)
+      if (!isAlive && !isDevMode) {
+        return _buildEliminatedSection();
+      }
 
-    // 4. VOLEUR (NUIT 1)
-    if (phase == GamePhase.nightThief) {
-      if (role == GameRole.thief || role == GameRole.thiefOfHearts || isDevMode) {
-        return _buildThiefSection(selectedTarget);
-      } else if (role == GameRole.raven) {
-        return _buildRavenSection(selectedTarget);
-      } else {
+      // 4. VOLEUR (NUIT 1)
+      if (phase == GamePhase.nightThief) {
+        if (role == GameRole.thief || role == GameRole.thiefOfHearts || isDevMode) {
+          return _buildThiefSection(selectedTarget);
+        } else if (role == GameRole.raven) {
+          return _buildRavenSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 5. CUPIDON (NUIT 1)
+      if (phase == GamePhase.nightCupid) {
+        if (role == GameRole.cupid || isDevMode) {
+          return _buildCupidSection(selectedTarget);
+        } else if (role == GameRole.raven) {
+          return _buildRavenSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 6. VOYANTE
+      if (phase == GamePhase.nightSeer) {
+        if (role == GameRole.seer || isDevMode) {
+          return _buildSeerSection(selectedTarget);
+        } else if (role == GameRole.raven) {
+          return _buildRavenSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 7. SALVATEUR
+      if (phase == GamePhase.nightDefender) {
+        if (role == GameRole.defender || isDevMode) {
+          return _buildDefenderSection(selectedTarget);
+        } else if (role == GameRole.raven) {
+          return _buildRavenSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 8. LOUPS-GAROUS & LOUP NOIR
+      if (phase == GamePhase.nightWerewolves || phase == GamePhase.nightBlackWolf) {
+        if (role.isEvil || isDevMode) {
+          return _buildWerewolvesSection(me, selectedTarget);
+        } else if (role == GameRole.raven) {
+          return _buildRavenSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 9. SORCIÈRE
+      if (phase == GamePhase.nightWitch) {
+        if (role == GameRole.witch || me.roleInitial == GameRole.witch || isDevMode) {
+          final witchPlayer = widget.room.playerList.firstWhere(
+            (p) => p.role == GameRole.witch || p.roleInitial == GameRole.witch,
+            orElse: () => me,
+          );
+          return _buildWitchSection(witchPlayer, selectedTarget);
+        } else if (role == GameRole.raven) {
+          return _buildRavenSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 9.B PYROMANE
+      if (phase == GamePhase.nightPyromaniac) {
+        if (role == GameRole.pyromaniac || isDevMode) {
+          return _buildPyromaniacSection(selectedTarget);
+        } else if (role == GameRole.raven) {
+          return _buildRavenSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 9.C JOUEUR DE FLÛTE
+      if (phase == GamePhase.nightPiper) {
+        if (role == GameRole.piedPiper || isDevMode) {
+          return _buildPiperSection(selectedTarget);
+        } else if (role == GameRole.raven) {
+          return _buildRavenSection(selectedTarget);
+        } else {
+          return _buildNightSleepingSection();
+        }
+      }
+
+      // 10. ÉLECTION DU CAPITAINE / MAIRE
+      if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) {
+        return _buildCaptainElectionSection(selectedTarget);
+      }
+
+      // 10.B DISCOURS D'OUVERTURE DU MAIRE
+      if (phase == GamePhase.mayorSpeechOpening) {
+        return _buildMayorSpeechOpeningSection();
+      }
+
+      // 11. DÉBAT TOUR PAR TOUR
+      if (phase == GamePhase.dayDebate) {
+        return _buildDebateSection();
+      }
+
+      // 11.B DISCOURS DE CLÔTURE DU MAIRE
+      if (phase == GamePhase.mayorSpeechClosing) {
+        return _buildMayorSpeechClosingSection();
+      }
+
+      // 12. SCRUTIN DU BÛCHER & SECOND VOTE
+      if (phase == GamePhase.dayVoting || phase == GamePhase.dayTieBreakVote) {
+        return _buildVotingSection(me, selectedTarget);
+      }
+
+      // 13. EXÉCUTION DU VERDICT (« Le Verdict Tombe ») / PLAIDOIRIE
+      if (phase == GamePhase.dayResolution || phase == GamePhase.dayDefense) {
+        return _buildVotesClosedBanner();
+      }
+
+      // 14. AUBE / ANNONCE DES MORTS (joueurs attendent la résolution)
+      if (phase == GamePhase.morningAnnouncement) {
         return _buildNightSleepingSection();
       }
-    }
 
-    // 5. CUPIDON (NUIT 1)
-    if (phase == GamePhase.nightCupid) {
-      if (role == GameRole.cupid || isDevMode) {
-        return _buildCupidSection(selectedTarget);
-      } else if (role == GameRole.raven) {
-        return _buildRavenSection(selectedTarget);
-      } else {
+      // PAR DÉFAUT : NUIT OU JOUR
+      if (phase.isNight) {
+        if (role == GameRole.raven) {
+          return _buildRavenSection(selectedTarget);
+        }
         return _buildNightSleepingSection();
       }
-    }
 
-    // 6. VOYANTE
-    if (phase == GamePhase.nightSeer) {
-      if (role == GameRole.seer || isDevMode) {
-        return _buildSeerSection(selectedTarget);
-      } else if (role == GameRole.raven) {
-        return _buildRavenSection(selectedTarget);
-      } else {
-        return _buildNightSleepingSection();
-      }
-    }
-
-    // 7. SALVATEUR
-    if (phase == GamePhase.nightDefender) {
-      if (role == GameRole.defender || isDevMode) {
-        return _buildDefenderSection(selectedTarget);
-      } else if (role == GameRole.raven) {
-        return _buildRavenSection(selectedTarget);
-      } else {
-        return _buildNightSleepingSection();
-      }
-    }
-
-    // 8. LOUPS-GAROUS & LOUP NOIR
-    if (phase == GamePhase.nightWerewolves || phase == GamePhase.nightBlackWolf) {
-      if (role.isEvil || isDevMode) {
-        return _buildWerewolvesSection(me, selectedTarget);
-      } else if (role == GameRole.raven) {
-        return _buildRavenSection(selectedTarget);
-      } else {
-        return _buildNightSleepingSection();
-      }
-    }
-
-    // 9. SORCIÈRE
-    if (phase == GamePhase.nightWitch) {
-      if (role == GameRole.witch || me.roleInitial == GameRole.witch || isDevMode) {
-        final witchPlayer = widget.room.playerList.firstWhere(
-          (p) => p.role == GameRole.witch || p.roleInitial == GameRole.witch,
-          orElse: () => me,
-        );
-        return _buildWitchSection(witchPlayer, selectedTarget);
-      } else if (role == GameRole.raven) {
-        return _buildRavenSection(selectedTarget);
-      } else {
-        return _buildNightSleepingSection();
-      }
-    }
-
-    // 9.B PYROMANE
-    if (phase == GamePhase.nightPyromaniac) {
-      if (role == GameRole.pyromaniac || isDevMode) {
-        return _buildPyromaniacSection(selectedTarget);
-      } else if (role == GameRole.raven) {
-        return _buildRavenSection(selectedTarget);
-      } else {
-        return _buildNightSleepingSection();
-      }
-    }
-
-    // 9.C JOUEUR DE FLÛTE
-    if (phase == GamePhase.nightPiper) {
-      if (role == GameRole.piedPiper || isDevMode) {
-        return _buildPiperSection(selectedTarget);
-      } else if (role == GameRole.raven) {
-        return _buildRavenSection(selectedTarget);
-      } else {
-        return _buildNightSleepingSection();
-      }
-    }
-
-    // 10. ÉLECTION DU CAPITAINE / MAIRE
-    if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) {
-      return _buildCaptainElectionSection(selectedTarget);
-    }
-
-    // 10.B DISCOURS D'OUVERTURE DU MAIRE
-    if (phase == GamePhase.mayorSpeechOpening) {
-      return _buildMayorSpeechOpeningSection();
-    }
-
-    // 11. DÉBAT TOUR PAR TOUR
-    if (phase == GamePhase.dayDebate) {
-      return _buildDebateSection();
-    }
-
-    // 11.B DISCOURS DE CLÔTURE DU MAIRE
-    if (phase == GamePhase.mayorSpeechClosing) {
-      return _buildMayorSpeechClosingSection();
-    }
-
-    // 12. SCRUTIN DU BÛCHER & SECOND VOTE
-    if (phase == GamePhase.dayVoting || phase == GamePhase.dayTieBreakVote) {
-      return _buildVotingSection(me, selectedTarget);
-    }
-
-    // 13. EXÉCUTION DU VERDICT (« Le Verdict Tombe ») / PLAIDOIRIE
-    if (phase == GamePhase.dayResolution || phase == GamePhase.dayDefense) {
       return _buildVotesClosedBanner();
+    } catch (e, stack) {
+      debugPrint('BentoActionPanel error in _buildRoleActionDispatcher: $e\n$stack');
+      return _buildVotesClosedBanner(
+        message: context.tr('phase_in_progress'),
+      );
     }
-
-    // 14. AUBE / ANNONCE DES MORTS (joueurs attendent la résolution)
-    if (phase == GamePhase.morningAnnouncement) {
-      return _buildNightSleepingSection();
-    }
-
-    // PAR DÉFAUT : NUIT OU JOUR
-    if (phase.isNight) {
-      if (role == GameRole.raven) {
-        return _buildRavenSection(selectedTarget);
-      }
-      return _buildNightSleepingSection();
-    }
-
-    return _buildVotesClosedBanner();
   }
 
   // ==========================================
@@ -728,12 +736,12 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               children: [
                 if (isHealed)
                   Text(
-                    '✅ ${wolfVictim?.name ?? "La victime"} sauvée par votre potion !',
+                    context.tr('witch_victim_saved', {'name': wolfVictim?.name ?? context.tr('the_victim')}),
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: LupusColors.poisonGreen),
                   ),
                 if (poisonVictim != null)
                   Text(
-                    '☠️ ${poisonVictim.name} empoisonné(e) pour l\'aube !',
+                    context.tr('witch_victim_poisoned', {'name': poisonVictim.name}),
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFFECDD3)),
                   ),
               ],
@@ -749,7 +757,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
               onPressed: widget.onWitchPass,
               icon: const Icon(Icons.check_circle_outline, size: 15),
-              label: const Text('Terminer mon tour', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5)),
+              label: Text(context.tr('complete_turn'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5)),
             ),
           ),
         ],
@@ -775,7 +783,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '🧪 Vie : ${witch.potionsVie}',
+                context.tr('potion_life_count', {'count': '${witch.potionsVie}'}),
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
@@ -783,7 +791,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ),
               ),
               Text(
-                '☠️ Mort : ${witch.potionsMort}',
+                context.tr('potion_death_count', {'count': '${witch.potionsMort}'}),
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
@@ -810,7 +818,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '✅ ${wolfVictim?.name ?? "Victime"} sauvée',
+                    context.tr('victim_saved_pill', {'name': wolfVictim?.name ?? context.tr('the_victim')}),
                     style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: LupusColors.poisonGreen),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -844,7 +852,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Victime : ${wolfVictim.name}',
+                    context.tr('witch_victim_label', {'name': wolfVictim.name}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
@@ -860,9 +868,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     ),
                     onPressed: () => widget.onWitchSave(wolfVictim.id),
                     icon: const Icon(Icons.healing_rounded, size: 13),
-                    label: const Text(
-                      'Sauver',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10.5),
+                    label: Text(
+                      context.tr('save_victim_btn'),
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10.5),
                     ),
                   ),
               ],
@@ -877,14 +885,14 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Text('🕊️', style: TextStyle(fontSize: 12)),
-                SizedBox(width: 6),
+                const Text('🕊️', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Aucune victime des loups cette nuit',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFBAE6FD)),
+                    context.tr('no_wolf_victim_tonight'),
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFBAE6FD)),
                   ),
                 ),
               ],
@@ -906,7 +914,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    '☠️ ${poisonVictim.name} empoisonné(e)',
+                    context.tr('poison_pill', {'name': poisonVictim.name}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFFFECDD3)),
@@ -931,7 +939,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                           onPressed: () => widget.onWitchPoison(selectedTarget.id),
                           icon: const Icon(Icons.science_rounded, size: 13),
                           label: Text(
-                            '☠️ Empoisonner ${selectedTarget.name}',
+                            context.tr('poison_target', {'name': selectedTarget.name}),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10.5),
@@ -948,7 +956,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            hasPoison ? 'Touchez pour empoisonner' : 'Fiole épuisée',
+                            hasPoison ? context.tr('tap_to_poison') : context.tr('vial_empty'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -974,7 +982,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       ),
                       onPressed: widget.onWitchPass,
                       icon: const Icon(Icons.check_circle_outline, size: 13),
-                      label: const Text('Terminer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
+                      label: Text(context.tr('finish'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
                     )
                   : OutlinedButton(
                       style: OutlinedButton.styleFrom(
@@ -1022,11 +1030,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final String statusText;
     if (victim == null) {
-      statusText = '🐺 1/2 : Touchez le 1er joueur à DÉVORER';
+      statusText = context.tr('wolf_step1_select_devour');
     } else if (muted == null) {
-      statusText = '🤫 2/2 : Proie (${victim.name}) choisie • Touchez le 2e joueur à MUSELER';
+      statusText = context.tr('wolf_step2_select_mute', {'name': victim.name});
     } else {
-      statusText = '🩸 Assaut prêt : ${victim.name} (Dévoré) & ${muted.name} (Muselé) !';
+      statusText = context.tr('wolf_assault_ready', {'victim': victim.name, 'muted': muted.name});
     }
 
     return Column(
@@ -1113,7 +1121,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
-                          victim != null ? '🥩 ${victim.name}' : '1. Dévorer (Proie)',
+                          victim != null ? '🥩 ${victim.name}' : context.tr('wolf_devour_btn'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1175,7 +1183,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
-                          muted != null ? '🔇 ${muted.name}' : '2. Museler (Silence)',
+                          muted != null ? '🔇 ${muted.name}' : context.tr('wolf_mute_btn'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1209,7 +1217,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   ),
                   onPressed: () => widget.onInfect?.call(victim.id),
                   child: Text(
-                    isInfected ? '🧟 Infecté' : '🧬 Infecter',
+                    isInfected ? context.tr('wolf_infected_pill') : context.tr('wolf_infect_btn'),
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10.5),
                   ),
                 ),
@@ -1246,13 +1254,13 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: LupusColors.arcaneCrimson.withValues(alpha: 0.4)),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Text('🔮', style: TextStyle(fontSize: 13)),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Vos visions sont épuisées. Vous observez la nuit en simple villageoise.',
+                    context.tr('seer_exhausted_msg'),
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
@@ -1273,7 +1281,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               ),
               onPressed: widget.onCompleteSeerTurn,
               icon: const Icon(Icons.check_rounded, size: 15),
-              label: const Text('Passer mon tour', style: TextStyle(fontSize: 11)),
+              label: Text(context.tr('pass_my_turn'), style: const TextStyle(fontSize: 11)),
             ),
           ),
         ],
@@ -1366,7 +1374,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   const Text('🔮', style: TextStyle(fontSize: 12)),
                   const SizedBox(width: 6),
                   Text(
-                    'Visions restantes : $visionsLeft',
+                    context.tr('seer_visions_left', {'count': '$visionsLeft'}),
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
@@ -1378,7 +1386,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ],
               ),
               Text(
-                canInspect ? 'Prête à sonder' : 'Choisissez une cible',
+                canInspect ? context.tr('ready_to_inspect') : context.tr('choose_a_target'),
                 style: const TextStyle(
                   fontSize: 9.5,
                   fontWeight: FontWeight.w700,
@@ -1467,7 +1475,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '🛡️ Protection active sur ${currentProtected.name} !',
+                        context.tr('defender_protected_title', {'name': currentProtected.name}),
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
@@ -1475,9 +1483,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
-                        'Votre égide le préserve des griffes nocturnes jusqu\'à l\'aurore.',
-                        style: TextStyle(
+                      Text(
+                        context.tr('defender_protected_subtitle'),
+                        style: const TextStyle(
                           fontSize: 9.5,
                           color: Colors.white70,
                         ),
@@ -1534,7 +1542,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '${selectedTarget.name} a été protégé(e) la nuit dernière. Impossible 2 nuits de suite.',
+                    context.tr('defender_consecutive_warning', {'name': selectedTarget.name}),
                     style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFFECDD3)),
                   ),
                 ),
@@ -1618,14 +1626,14 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: LupusColors.sunAmber.withValues(alpha: 0.5)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Text('🏹', style: TextStyle(fontSize: 13)),
-              SizedBox(width: 6),
+              const Text('🏹', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Dernier souffle : Désignez un suspect à emporter avec vous !',
-                  style: TextStyle(
+                  context.tr('hunter_last_breath_banner'),
+                  style: const TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFFFDE68A),
@@ -1677,10 +1685,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ),
                 onPressed: widget.onNextPhase,
                 icon: const Icon(Icons.cancel_outlined, size: 14),
-                label: const Text(
-                  'Passer',
+                label: Text(
+                  context.tr('pass'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
                 ),
               ),
             ),
@@ -1701,17 +1709,17 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: LupusColors.sunAmber.withValues(alpha: 0.4)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.crisis_alert_rounded, color: LupusColors.sunAmber, size: 16),
-          SizedBox(width: 8),
+          const Icon(Icons.crisis_alert_rounded, color: LupusColors.sunAmber, size: 16),
+          const SizedBox(width: 8),
           Flexible(
             child: Text(
-              '🏹 Le Chasseur agonisant ajuste sa mire...',
+              context.tr('hunter_spectator_banner'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Color(0xFFFDE68A),
                 fontWeight: FontWeight.w800,
                 fontSize: 11.5,
@@ -1754,7 +1762,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Malédiction posée sur ${crowTarget.name} (+2 voix demain)',
+                        context.tr('raven_cursed_title', {'name': crowTarget.name}),
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
@@ -1762,9 +1770,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
-                        'Vos corbeaux hanteront ce suspect lors du prochain scrutin.',
-                        style: TextStyle(
+                      Text(
+                        context.tr('raven_cursed_subtitle'),
+                        style: const TextStyle(
                           fontSize: 9.5,
                           color: Colors.white70,
                         ),
@@ -1797,14 +1805,14 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.35)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Text('🦅', style: TextStyle(fontSize: 13)),
-              SizedBox(width: 6),
+              const Text('🦅', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Malédiction du Corbeau : Désignez un suspect (+2 voix d\'office demain)',
-                  style: TextStyle(
+                  context.tr('raven_action_banner'),
+                  style: const TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFFC7D2FE),
@@ -1831,8 +1839,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
             icon: const Icon(Icons.visibility_off_rounded, size: 15),
             label: Text(
               selectedTarget != null
-                  ? '🦅 Maudire ${selectedTarget.name}'
-                  : '🦅 Touchez un suspect à maudire',
+                  ? context.tr('raven_curse_target', {'name': selectedTarget.name})
+                  : context.tr('raven_select_target'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -1992,7 +2000,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'Tous les votes sont enregistrés ($totalVoted/$totalAlive) • Dépouillement immédiat...',
+                  context.tr('voting_all_recorded', {'voted': '$totalVoted', 'total': '$totalAlive'}),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -2012,7 +2020,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
     // ÉTAT 2 : L'utilisateur a déjà voté et peut annuler
     if (currentVoteTargetId != null) {
       final votedTarget = widget.room.players[currentVoteTargetId];
-      final votedName = votedTarget?.name ?? 'suspect';
+      final votedName = votedTarget?.name ?? context.tr('suspect');
 
       return SizedBox(
         key: ValueKey('action_voting_voted_$currentVoteTargetId'),
@@ -2041,7 +2049,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Vote émis contre $votedName${me.isCaptain ? " (x2)" : ""}',
+                        '${context.tr("vote_cast_against", {"name": votedName})}${me.isCaptain ? " (x2)" : ""}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -2148,10 +2156,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 color: LupusColors.arcaneCrimson.withValues(alpha: 0.4),
               ),
             ),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 12,
                   height: 12,
                   child: CircularProgressIndicator(
@@ -2159,10 +2167,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     valueColor: AlwaysStoppedAnimation(LupusColors.arcaneCrimson),
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
-                  "Temps expiré — Transmission d'office du titre...",
-                  style: TextStyle(
+                  context.tr('captain_expired_transmission'),
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFFFFA4A4),
@@ -2231,14 +2239,14 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Testament du Maire',
-                          style: TextStyle(
+                          context.tr('mayor_testament'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
                             color: LupusColors.arcaneGold,
@@ -2246,8 +2254,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                           ),
                         ),
                         Text(
-                          "Désignez l'héritier de l'écharpe parmi les survivants",
-                          style: TextStyle(
+                          context.tr('mayor_testament_subtitle'),
+                          style: const TextStyle(
                             fontSize: 9.5,
                             color: LupusColors.textSecondary,
                           ),
@@ -2292,12 +2300,12 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
             // Liste interactive des survivants
             if (survivors.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Text(
-                  'Aucun survivant disponible.',
+                  context.tr('no_survivors_available'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: LupusColors.textMuted),
+                  style: const TextStyle(fontSize: 11, color: LupusColors.textMuted),
                 ),
               )
             else
@@ -2413,8 +2421,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       ),
                       label: Text(
                         isValidSuccessor
-                            ? "Léguer l'écharpe à ${effectiveSuccessor.name}"
-                            : "Choisir un survivant...",
+                            ? context.tr('bequeath_sash_target', {'name': effectiveSuccessor.name})
+                            : context.tr('choose_survivor_hint'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -2442,10 +2450,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     ),
                     onPressed: widget.onNextPhase,
                     icon: const Icon(Icons.casino_outlined, size: 14),
-                    label: const Text(
-                      "D'office",
+                    label: Text(
+                      context.tr('auto_pass_badge'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
                     ),
                   ),
                 ),
@@ -2502,23 +2510,23 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Le Maire agonisant choisit son successeur...',
-                      style: TextStyle(
+                      context.tr('captain_dying_banner'),
+                      style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'Le village retient son souffle devant ses dernières volontés.',
-                      style: TextStyle(
+                      context.tr('captain_dying_subtitle'),
+                      style: const TextStyle(
                         fontSize: 9.5,
                         color: LupusColors.textSecondary,
                       ),
@@ -2597,7 +2605,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   Widget _buildMayorSpeechOpeningSection() {
     final mayorId = widget.room.captainId ?? widget.room.expandedRolesState.mayorPlayerId ?? widget.room.currentSpeakerId;
     final isMayor = mayorId == widget.currentUserId || widget.isAdmin;
-    final mayorName = widget.room.players[mayorId]?.name ?? 'Le Maire';
+    final mayorName = widget.room.players[mayorId]?.name ?? context.tr('role_mayor');
 
     if (isMayor) {
       return SizedBox(
@@ -2612,10 +2620,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           ),
           onPressed: widget.onPassDebate,
           icon: const Icon(Icons.record_voice_over_rounded, size: 16, color: Colors.black),
-          label: const Text(
-            '🎖️ Ouvrir les débats du village',
+          label: Text(
+            context.tr('mayor_open_debate_btn'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontWeight: FontWeight.w900,
               color: Colors.black,
               fontSize: 12,
@@ -2642,7 +2650,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '🎖️ $mayorName ouvre solennellement les débats...',
+              context.tr('mayor_opening_debate_waiting', {'name': mayorName}),
               style: const TextStyle(
                 color: LupusColors.sunAmber,
                 fontWeight: FontWeight.w700,
@@ -2673,7 +2681,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           onPressed: widget.onPassDebate,
           icon: const Text('🎙️', style: TextStyle(fontSize: 16)),
           label: Text(
-            isSpeaker ? context.tr('pass_speaking_turn') : 'Forcer la parole au suivant (MJ)',
+            isSpeaker ? context.tr('pass_speaking_turn') : context.tr('force_speaker_turn_mj'),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontWeight: FontWeight.w900,
@@ -2721,7 +2729,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
   Widget _buildMayorSpeechClosingSection() {
     final mayorId = widget.room.captainId ?? widget.room.expandedRolesState.mayorPlayerId ?? widget.room.currentSpeakerId;
     final isMayor = mayorId == widget.currentUserId || widget.isAdmin;
-    final mayorName = widget.room.players[mayorId]?.name ?? 'Le Maire';
+    final mayorName = widget.room.players[mayorId]?.name ?? context.tr('role_mayor');
 
     if (isMayor) {
       return SizedBox(
@@ -2736,10 +2744,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           ),
           onPressed: widget.onPassDebate,
           icon: const Icon(Icons.gavel_rounded, size: 16, color: Colors.white),
-          label: const Text(
-            '⚖️ Clôturer & Lancer le vote du bûcher',
+          label: Text(
+            context.tr('mayor_close_debate_btn'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontWeight: FontWeight.w900,
               color: Colors.white,
               fontSize: 12,
@@ -2766,7 +2774,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '⚖️ $mayorName prononce le mot de clôture...',
+              context.tr('mayor_closing_debate_waiting', {'name': mayorName}),
               style: const TextStyle(
                 color: Color(0xFFFFA4A4),
                 fontWeight: FontWeight.w700,
@@ -2812,9 +2820,9 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFF8338EC).withValues(alpha: 0.4)),
             ),
-            child: const Text(
-              '🃏 Cartes disponibles au centre :',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFC084FC)),
+            child: Text(
+              context.tr('thief_available_roles'),
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFC084FC)),
             ),
           ),
           Row(
@@ -2834,7 +2842,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       onPressed: () => widget.onThiefChooseRole?.call(role),
                       icon: Icon(role.icon, size: 14),
                       label: Text(
-                        role.displayNameFr,
+                        AppTranslations.translateRoleName(context, role.name),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
@@ -2867,10 +2875,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   label: Text(
                     selectedTarget != null
                         ? (isSoulStealer
-                            ? 'Dérober l\'âme (${selectedTarget.name})'
+                            ? context.tr('thief_steal_soul_target', {'name': selectedTarget.name})
                             : context.tr('steal_target', {'name': selectedTarget.name}))
                         : (isSoulStealer
-                            ? 'Dérober une âme'
+                            ? context.tr('thief_steal_soul')
                             : context.tr('steal_select')),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -2890,7 +2898,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 onPressed: widget.onNextPhase,
-                child: Text(isSoulStealer ? 'Conserver mon statut' : 'Rester Voleur', style: const TextStyle(fontSize: 10.5)),
+                child: Text(
+                  isSoulStealer ? context.tr('thief_keep_status') : context.tr('thief_stay_thief'),
+                  style: const TextStyle(fontSize: 10.5),
+                ),
               ),
             ),
           ],
@@ -2906,11 +2917,11 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final String statusText;
     if (lover1 == null) {
-      statusText = '💘 Touchez le 1er joueur à lier par amour (0/2)';
+      statusText = context.tr('cupid_step1');
     } else if (lover2 == null) {
-      statusText = '💘 ${lover1.name} choisi(e) • Touchez le 2e joueur (1/2)';
+      statusText = context.tr('cupid_step2', {'name': lover1.name});
     } else {
-      statusText = '💖 Âmes sœurs liées : ${lover1.name} & ${lover2.name} !';
+      statusText = context.tr('cupid_bound', {'p1': lover1.name, 'p2': lover2.name});
     }
 
     return Column(
@@ -3117,13 +3128,13 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final String statusText;
     if (uncharmedLiving.length <= 1) {
-      statusText = '🎵 Touchez le dernier joueur à charmer (0/1)';
+      statusText = context.tr('piper_step_last');
     } else if (target1 == null) {
-      statusText = '🎵 Touchez la 1ère cible à charmer (0/2)';
+      statusText = context.tr('piper_step1');
     } else if (target2 == null) {
-      statusText = '🎵 ${target1.name} enchanté(e) • Touchez la 2e cible (1/2)';
+      statusText = context.tr('piper_step2', {'name': target1.name});
     } else {
-      statusText = '🎶 Cibles envoûtées : ${target1.name} & ${target2.name} !';
+      statusText = context.tr('piper_bound', {'p1': target1.name, 'p2': target2.name});
     }
 
     return Column(
@@ -3188,7 +3199,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
-                          target1 != null ? target1.name : '1ère Cible',
+                          target1 != null ? target1.name : context.tr('target_1'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -3217,8 +3228,8 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
                       color: target2 != null
-                          ? const Color(0xFF06D6A0).withValues(alpha: 0.2)
-                          : Colors.black26,
+                        ? const Color(0xFF06D6A0).withValues(alpha: 0.2)
+                        : Colors.black26,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: target2 != null
@@ -3233,7 +3244,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
-                            target2 != null ? target2.name : '2ème Cible',
+                            target2 != null ? target2.name : context.tr('target_2'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(

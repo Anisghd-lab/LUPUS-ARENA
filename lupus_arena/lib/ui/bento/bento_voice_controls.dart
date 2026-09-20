@@ -121,8 +121,8 @@ class BentoVoiceControls extends StatelessWidget {
                         } else if (phase == GamePhase.nightWerewolves && !isWolf) {
                           statusColor = LupusColors.textMuted;
                           borderColor = LupusColors.border;
-                          statusText = 'Nuit des Loups (Silence total)';
-                          subtitleText = 'Micro et écoute coupés';
+                          statusText = context.tr('wolves_night_total_silence');
+                          subtitleText = context.tr('mic_and_listen_cut');
                         } else {
                           // Phases normales (Lobby, Votes, etc.)
                           if (connected) {

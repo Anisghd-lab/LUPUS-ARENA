@@ -21,6 +21,14 @@ void main() async {
     debugPrint('[PlatformError] $error');
     return true; // Annule le crash et maintient l'app ouverte
   };
+  // Éradication absolue du Grey Screen en cas d'erreur de rendu
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('[ErrorWidget] Erreur de rendu interceptée : ${details.exception}');
+    return const Material(
+      color: Colors.transparent,
+      child: SizedBox.shrink(),
+    );
+  };
 
   try {
     if (Firebase.apps.isEmpty) {
@@ -63,6 +71,7 @@ class LupusArenaApp extends StatelessWidget {
     return AnimatedBuilder(
       animation: localeProvider,
       builder: (context, _) {
+        final isAr = localeProvider.locale.languageCode == 'ar';
         return MaterialApp(
           title: 'Lupus Arena',
           debugShowCheckedModeBanner: false,
@@ -79,10 +88,8 @@ class LupusArenaApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           builder: (context, child) {
-            // Conserve l'agencement et la disposition LTR identiques au modèle français
-            // pour toutes les langues (y compris l'arabe), sans inverser les boutons ou le layout.
             return Directionality(
-              textDirection: TextDirection.ltr,
+              textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
               child: child ?? const SizedBox.shrink(),
             );
           },

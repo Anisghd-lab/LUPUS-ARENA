@@ -207,8 +207,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     required int totalPlayers,
     required bool isDoubleRing,
   }) {
-    // Rayon large et imposant garantissant un espacement parfait (non responsive / fixe 380px)
-    final double maxRadius = (tableSize / 2) - 30.0;
+    // Rayon calibré pour diamètre 318px garantissant un espacement parfait
+    final double maxRadius = (tableSize / 2) - 25.0;
 
     if (isDoubleRing) {
       final outerCount = (totalPlayers + 1) ~/ 2;
@@ -220,9 +220,9 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       return _TableDimensions(
         radius: outerRadius,
         innerRadius: innerRadius,
-        avatarSize: 32.0,
-        nodeWidth: 38.0,
-        fontSize: 8.5,
+        avatarSize: 27.0,
+        nodeWidth: 32.0,
+        fontSize: 7.5,
         isDoubleRing: true,
         outerCount: outerCount,
         innerCount: innerCount,
@@ -236,18 +236,18 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     final double fontSize;
 
     if (totalPlayers <= 8) {
-      avatarSize = 50.0;
-      nodeWidth = 56.0;
-      fontSize = 12.0;
-    } else if (totalPlayers <= 12) {
-      avatarSize = 44.0;
-      nodeWidth = 50.0;
+      avatarSize = 42.0;
+      nodeWidth = 48.0;
       fontSize = 10.5;
+    } else if (totalPlayers <= 12) {
+      avatarSize = 37.0;
+      nodeWidth = 42.0;
+      fontSize = 9.5;
     } else {
       // 13..16
-      avatarSize = 38.0;
-      nodeWidth = 44.0;
-      fontSize = 9.5;
+      avatarSize = 32.0;
+      nodeWidth = 37.0;
+      fontSize = 8.5;
     }
 
     return _TableDimensions(
@@ -279,8 +279,8 @@ class _MysticRadialTableState extends State<MysticRadialTable>
       }
     }
 
-    // Table circulaire large et imposante non écrasée (diamètre fixe 380px)
-    const double tableSize = 380.0;
+    // Table circulaire calibrée (diamètre 318px)
+    const double tableSize = 318.0;
     const double center = tableSize / 2;
 
     final dimensions = _computeDimensions(
@@ -352,7 +352,7 @@ class _MysticRadialTableState extends State<MysticRadialTable>
     bool isCompact = false,
     double maxRadius = 140.0,
   }) {
-    final double baseWidth = isCompact ? 104.0 : 126.0;
+    final double baseWidth = isCompact ? 94.0 : 116.0;
     // Borner la boîte centrale pour qu'elle ne dépasse jamais 88% du rayon effectif
     final double cardWidth = math.min(baseWidth, maxRadius * 0.88);
     final double hPadding = isCompact ? 6.0 : 8.0;
@@ -456,26 +456,26 @@ class _MysticRadialTableState extends State<MysticRadialTable>
 
                 if (isTargetMe) {
                   roleText = context.tr('my_role_label',
-                      {'role': selectedPlayer.role.displayName});
+                      {'role': selectedPlayer.role.getDisplayName(context)});
                   roleColor = selectedPlayer.role.accentColor;
                 } else if (isTargetDead) {
-                  roleText = selectedPlayer.roleInitial.displayName;
+                  roleText = selectedPlayer.roleInitial.getDisplayName(context);
                   roleColor = selectedPlayer.roleInitial.accentColor;
                 } else if (targetSeerRole != null) {
-                  roleText = '🔮 ${targetSeerRole.displayName}';
+                  roleText = '🔮 ${targetSeerRole.getDisplayName(context)}';
                   roleColor = targetSeerRole.accentColor;
                 } else if (isTargetWolf) {
                   final wolfName = (selectedPlayer.role == GameRole.whiteWerewolf)
-                      ? 'Loup Blanc'
+                      ? context.tr('role_white_werewolf')
                       : (selectedPlayer.role.isEvil && selectedPlayer.role != GameRole.simpleVillager)
-                          ? selectedPlayer.role.displayName
-                          : 'Loup-Garou';
+                          ? selectedPlayer.role.getDisplayName(context)
+                          : context.tr('role_simple_werewolf');
                   roleText = '🐺 $wolfName';
                   roleColor = const Color(0xFFFF8B8B);
                 } else if (isTargetDevMode) {
                   roleText = selectedPlayer.estDechu
-                      ? '${selectedPlayer.role.displayName} (Ex-${selectedPlayer.roleInitial.displayName})'
-                      : selectedPlayer.role.displayName;
+                      ? '${selectedPlayer.role.getDisplayName(context)} (Ex-${selectedPlayer.roleInitial.getDisplayName(context)})'
+                      : selectedPlayer.role.getDisplayName(context);
                   roleColor = selectedPlayer.role.accentColor;
                 }
 

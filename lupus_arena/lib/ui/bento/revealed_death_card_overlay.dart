@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../models/game_role.dart';
+import '../../services/app_translations.dart';
 import '../theme/lupus_theme.dart';
 import 'role_card_image.dart';
 
@@ -24,24 +25,26 @@ class DeathAnnouncementEvent {
 
   String get key => '${playerId}_${cause}_$timestamp';
 
-  String get causeLabel {
+  String getCauseLabel([BuildContext? context]) {
     switch (cause.toUpperCase()) {
       case 'MORSURE_LOUPS':
-        return 'Morsure des Loups';
+        return AppTranslations.getText(context, 'death_cause_wolf_bite');
       case 'POISON_SORCIERE':
-        return 'Poison de la Sorcière';
+        return AppTranslations.getText(context, 'death_cause_witch_poison');
       case 'VOTE_VILLAGE':
-        return 'Sentence du Bûcher';
+        return AppTranslations.getText(context, 'death_cause_village_vote');
       case 'CHASSEUR':
       case 'TIR_CHASSEUR':
-        return 'Tir du Chasseur';
+        return AppTranslations.getText(context, 'death_cause_hunter_shot');
       case 'AMOUREUX':
       case 'CHAGRIN':
-        return 'Mort de Chagrin';
+        return AppTranslations.getText(context, 'death_cause_heartbreak');
       default:
-        return 'Élimination';
+        return AppTranslations.getText(context, 'death_cause_elimination');
     }
   }
+
+  String get causeLabel => getCauseLabel();
 
   IconData get causeIcon {
     switch (cause.toUpperCase()) {
@@ -493,7 +496,7 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
 
           // 2. Rôle d'origine révélé
           Text(
-            event.role.displayNameFr,
+            event.role.getDisplayName(context),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -533,7 +536,7 @@ class _RevealedDeathCardOverlayState extends State<RevealedDeathCardOverlay>
                 const SizedBox(width: 3),
                 Flexible(
                   child: Text(
-                    event.causeLabel,
+                    event.getCauseLabel(context),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

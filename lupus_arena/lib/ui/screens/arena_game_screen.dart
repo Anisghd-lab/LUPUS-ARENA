@@ -886,9 +886,9 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                       ),
                     ),
                     if (unreadCount > 0)
-                      Positioned(
+                      PositionedDirectional(
                         top: -3,
-                        right: -3,
+                        end: -3,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 4,
@@ -1369,8 +1369,10 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
+            Icon(
+              Directionality.of(context) == TextDirection.rtl
+                  ? Icons.arrow_back_ios_rounded
+                  : Icons.arrow_forward_ios_rounded,
               size: 8.5,
               color: LupusColors.arcaneGold,
             ),
@@ -1382,16 +1384,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
 
   /// Formate et traduit les logs clés du village pour l'affichage en temps réel
   String _formatLogForDisplay(BuildContext context, String log) {
-    if (log.contains('La première nuit tombe... Salvateur, réveillez-vous !') ||
-        log.contains('Salvateur, réveillez-vous')) {
-      return context.tr('salvateur_wake_banner');
-    }
-    if (log.startsWith('Éveil nocturne :')) {
-      final roleOrPhase =
-          log.replaceFirst('Éveil nocturne :', '').replaceAll('.', '').trim();
-      return '${context.tr("night_awakening")} $roleOrPhase';
-    }
-    return log;
+    return context.translateLog(log);
   }
 
   /// Sélecteur de vue (Table Mystique vs Grille Bento)
@@ -1588,7 +1581,7 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     if (phase == GamePhase.nightSeer) return context.tr('status_scanned');
     if (phase == GamePhase.nightDefender) return context.tr('status_protected');
     if (phase == GamePhase.captainElection || phase == GamePhase.mayorElection) return context.tr('candidate');
-    if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) return 'Successeur';
+    if (phase == GamePhase.captainSuccession || phase == GamePhase.mayorSuccession) return context.tr('successor');
     return context.tr('target');
   }
 

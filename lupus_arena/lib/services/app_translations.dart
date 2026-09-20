@@ -4,6 +4,8 @@ import 'locale_provider.dart';
 extension TranslationExtension on BuildContext {
   String tr(String key, [dynamic params]) =>
       AppTranslations.getText(this, key, params);
+  String translateLog(String log) =>
+      AppTranslations.translateLog(this, log);
 }
 
 /// Dictionnaire global exhaustif et centralisé pour Lupus Arena.
@@ -509,6 +511,120 @@ class AppTranslations {
       'witch_victim_dying_banner': "Victime des Loups : {name} (À l'agonie !)",
       'captain_double_voice': '⭐ Maire (Voix double)',
       'soulmate_label': '💖 Âme sœur : {name}',
+      'phase_tag_night': 'NOCTURNE',
+      'phase_tag_day': 'DIURNE',
+      'channel_wolves': 'CANAL MEUTE',
+      'successor': 'Successeur',
+      'phase_in_progress': 'Action en cours...',
+      'witch_victim_saved': '✅ {name} sauvée par votre potion !',
+      'witch_victim_poisoned': '☠️ {name} empoisonné(e) pour l\'aube !',
+      'complete_turn': 'Terminer mon tour',
+      'potion_life_count': '🧪 Vie : {count}',
+      'potion_death_count': '☠️ Mort : {count}',
+      'victim_saved_pill': '✅ {name} sauvée',
+      'the_victim': 'La victime',
+      'witch_victim_label': 'Victime : {name}',
+      'save_victim_btn': 'Sauver',
+      'no_wolf_victim_tonight': 'Aucune victime des loups cette nuit',
+      'poison_pill': '☠️ {name} empoisonné(e)',
+      'poison_target': '☠️ Empoisonner {name}',
+      'tap_to_poison': 'Touchez pour empoisonner',
+      'vial_empty': 'Fiole épuisée',
+      'finish': 'Terminer',
+      'wolf_step1_select_devour': '🐺 1/2 : Touchez le 1er joueur à DÉVORER',
+      'wolf_step2_select_mute': '🤫 2/2 : Proie ({name}) choisie • Touchez le 2e joueur à MUSELER',
+      'wolf_assault_ready': '🩸 Assaut prêt : {victim} (Dévoré) & {muted} (Muselé) !',
+      'wolf_devour_btn': '1. Dévorer (Proie)',
+      'wolf_mute_btn': '2. Museler (Silence)',
+      'wolf_infect_btn': '🧬 Infecter',
+      'wolf_infected_pill': '🧟 Infecté',
+      'seer_exhausted_msg': 'Vos visions sont épuisées. Vous observez la nuit en simple villageoise.',
+      'seer_visions_left': 'Visions restantes : {count}',
+      'ready_to_inspect': 'Prête à sonder',
+      'choose_a_target': 'Choisissez une cible',
+      'defender_protected_title': '🛡️ Protection active sur {name} !',
+      'defender_protected_subtitle': 'Votre égide le préserve des griffes nocturnes jusqu\'à l\'aurore.',
+      'defender_consecutive_warning': '{name} a été protégé(e) la nuit dernière. Impossible 2 nuits de suite.',
+      'hunter_last_breath_banner': 'Dernier souffle : Désignez un suspect à emporter avec vous !',
+      'hunter_spectator_banner': '🏹 Le Chasseur agonisant ajuste sa mire...',
+      'raven_cursed_title': 'Malédiction posée sur {name} (+2 voix demain)',
+      'raven_cursed_subtitle': 'Vos corbeaux hanteront ce suspect lors du prochain scrutin.',
+      'raven_action_banner': 'Malédiction du Corbeau : Désignez un suspect (+2 voix d\'office demain)',
+      'raven_curse_target': '🦅 Maudire {name}',
+      'raven_select_target': '🦅 Touchez un suspect à maudire',
+      'mayor_testament': 'Testament du Maire',
+      'mayor_testament_subtitle': 'Désignez l\'héritier de l\'écharpe parmi les survivants',
+      'no_survivors_available': 'Aucun survivant disponible.',
+      'captain_dying_banner': 'Le Maire agonisant choisit son successeur...',
+      'captain_dying_subtitle': 'Le village retient son souffle devant ses dernières volontés.',
+      'captain_expired_transmission': 'Temps expiré — Transmission d\'office du titre...',
+      'mayor_open_debate_btn': '🎖️ Ouvrir les débats du village',
+      'mayor_opening_debate_waiting': '🎖️ {name} ouvre solennellement les débats...',
+      'mayor_close_debate_btn': '⚖️ Clôturer & Lancer le vote du bûcher',
+      'mayor_closing_debate_waiting': '⚖️ {name} prononce le mot de clôture...',
+      'voting_all_recorded': 'Tous les votes sont enregistrés ({voted}/{total}) • Dépouillement immédiat...',
+      'vote_cast_against': 'Vote émis contre {name}',
+      'suspect': 'suspect',
+      'thief_available_roles': '🃏 Cartes disponibles au centre :',
+      'thief_steal_soul_target': 'Dérober l\'âme ({name})',
+      'thief_steal_soul': 'Dérober une âme',
+      'thief_keep_status': 'Conserver mon statut',
+      'thief_stay_thief': 'Rester Voleur',
+      'cupid_step1': '💘 Touchez le 1er joueur à lier par amour (0/2)',
+      'cupid_step2': '💘 {name} choisi(e) • Touchez le 2e joueur (1/2)',
+      'cupid_bound': '💖 Âmes sœurs liées : {p1} & {p2} !',
+      'piper_step_last': '🎵 Touchez le dernier joueur à charmer (0/1)',
+      'piper_step1': '🎵 Touchez la 1ère cible à charmer (0/2)',
+      'piper_step2': '🎵 {name} enchanté(e) • Touchez la 2e cible (1/2)',
+      'piper_bound': '🎶 Cibles envoûtées : {p1} & {p2} !',
+      'target_1': '1ère Cible',
+      'target_2': '2ème Cible',
+      'log_cupid_destiny': '💘 Le destin a uni deux cœurs dans la nuit.',
+      'log_witch_potion_healed': '✨ Une potion de guérison miraculeuse a sauvé la victime !',
+      'log_elder_survived': '🛡️ L\'Ancien ({name}) résiste à la morsure des loups grâce à sa robustesse légendaire ! (1 vie restante)',
+      'log_bear_growl': '🐻 Le grognement caverneux de l\'ours résonne dans tout le village ! Au moins un loup se tapit parmi ses voisins directs.',
+      'log_rusty_sword_slashed': '🗡️ L\'Épée Rouillée a entaillé {name} lors de l\'assaut nocturne ! Le venin le foudroiera la nuit prochaine.',
+      'log_rusty_sword_killed': '🗡️ Le venin de l\'Épée Rouillée a terrassé {name} ! Le loup expire dans d\'atroces souffrances.',
+      'log_wild_child_wolf': '🐺 Son modèle ayant péri cette nuit, l\'Enfant Sauvage ({name}) succombe à sa rage bestiale et rejoint la meute !',
+      'log_wolf_cub_died': '🐺 Le Chiot de Loup a succombé cette nuit ! La meute enragée dévorera deux victimes la nuit prochaine.',
+      'log_wolf_cub_lynched': '🐺 Le Chiot de Loup a été lynché par le village ! La meute enragée dévorera deux victimes la nuit prochaine.',
+      'log_hunter_death_choice': '🎯 Le Chasseur a été abattu ! Il a 25s pour faire feu dans son dernier souffle.',
+      'log_mayor_died': '🎖️ Le Maire est tombé ! Il dispose de 15s pour nommer son héritier.',
+      'log_mayor_opening_debate': '🎖️ {name} ouvre solennellement les débats de l\'arène (15s) !',
+      'log_player_silenced': '🔇 {name} est bâillonné par les loups ! Son tour de parole est sauté.',
+      'log_mayor_closing_debate': '⚖️ Clôture des débats : parole solennelle accordée à {name} (15s) avant l\'ouverture du scrutin !',
+      'log_mayor_closing_debate_expired': '⚖️ Temps de débat expiré : {name} prend la parole pour son discours de clôture (15s) !',
+      'log_pyre_voting_opened': '⚖️ Ouverture immédiate du scrutin du bûcher (15s).',
+      'log_speech_yielded': '🎙️ {p1} a cédé sa parole. La parole passe à {p2}.',
+      'log_raven_curse_votes': '🦅 Malédiction du Corbeau : 2 voix d\'office accablent {name} !',
+      'log_elder_curse': '📜 Malédiction de l\'Ancien : Condamné par le village, l\'Ancien maudit Thiercelieux ! Tous les villageois perdent leurs pouvoirs.',
+      'log_stuttering_judge': '⚖️ Le Juge Bègue a exigé un second vote consécutif ! Le village retourne immédiatement aux urnes.',
+      'log_fox_sniffed_wolf': '🦊 Le Renard a flairé une odeur suspecte ! Au moins un loup se cache dans le groupe observé.',
+      'log_fox_sniffed_nothing': '🦊 Le Renard n\'a rien senti d\'anormal... Son flair s\'éteint à tout jamais.',
+      'log_day1_mayor_election': '🗳️ Jour 1 : Le village se rassemble pour élire son premier Maire !',
+      'log_angel_victory_solo': '🪽 L\'Ange {name} a été condamné dès le Jour 1 ! Il remporte instantanément la victoire solitaire !',
+      'log_idiot_pardoned': '🤪 L\'Idiot du Village {name} est gracié par la compassion du village ! Il reste en vie mais perd tout droit de vote.',
+      'log_village_burned': '🔥 Le village a jeté {name} aux flammes du bûcher ! Il était {role}.',
+      'log_succumbed': '💀 {name} ({role}) a succombé.',
+      'log_grief_death': '💔 {name} ({role}) meurt de chagrin suite à la perte de son amour {lover} !',
+      'bequeath_sash_target': 'Léguer l\'écharpe à {name}',
+      'choose_survivor_hint': 'Choisir un survivant...',
+      'auto_pass_badge': 'D\'office',
+      'force_speaker_turn_mj': 'Forcer la parole au suivant (MJ)',
+      'wolves_night_total_silence': 'Nuit des Loups (Silence total)',
+      'mic_and_listen_cut': 'Micro et écoute coupés',
+      'death_cause_wolf_bite': 'Morsure des Loups',
+      'death_cause_witch_poison': 'Poison de la Sorcière',
+      'death_cause_village_vote': 'Sentence du Bûcher',
+      'death_cause_hunter_shot': 'Tir du Chasseur',
+      'death_cause_heartbreak': 'Mort de Chagrin',
+      'death_cause_elimination': 'Élimination',
+      'log_tie_break_second_ballot': '⚖️ Second scrutin décisif : votez uniquement pour les accusés ex æquo !',
+      'log_tie_mercy': '🌙 La seconde égalité persiste. La clémence l\'emporte : personne n\'est exécuté ce soir.',
+      'log_mayor_tie_break_decision': '🎖️ Le Maire {captain} tranche l\'égalité et condamne {target} !',
+      'log_defense_phase_granted': '🛡️ Phase de défense accordée aux suspects : {names} (30s chacun).',
+      'log_night_falls_salvateur': 'La première nuit tombe... Salvateur, réveillez-vous !',
+      'log_night_awakening': 'Éveil nocturne : {role}.',
     },
 
     'ar': {
@@ -1010,6 +1126,121 @@ class AppTranslations {
       'witch_victim_dying_banner': 'ضحية الذئاب : {name} (تحتضر!)',
       'captain_double_voice': '⭐ القائد (صوت مضاعف)',
       'soulmate_label': '💖 رفيق الروح : {name}',
+      'phase_tag_night': 'ليلي',
+      'phase_tag_day': 'نهاري',
+      'channel_wolves': 'قناة القطيع',
+      'successor': 'الخليفة',
+      'phase_in_progress': 'الإجراء جاري...',
+      'strategic_actions': 'إجراءات استراتيجية',
+      'witch_victim_saved': '✅ تم إنقاذ {name} بجرعتك!',
+      'witch_victim_poisoned': '☠️ تم تسميم {name} حتى الفجر!',
+      'complete_turn': 'إنهاء دوري',
+      'potion_life_count': '🧪 الحياة : {count}',
+      'potion_death_count': '☠️ الموت : {count}',
+      'victim_saved_pill': '✅ تم إنقاذ {name}',
+      'the_victim': 'الضحية',
+      'witch_victim_label': 'الضحية : {name}',
+      'save_victim_btn': 'إنقاذ',
+      'no_wolf_victim_tonight': 'لا توجد ضحايا للذئاب الليلة',
+      'poison_pill': '☠️ تم تسميم {name}',
+      'poison_target': '☠️ تسميم {name}',
+      'tap_to_poison': 'المس للتسميم',
+      'vial_empty': 'القارورة فارغة',
+      'finish': 'إنهاء',
+      'wolf_step1_select_devour': '🐺 1/2 : المس اللاعب الأول للافتراس',
+      'wolf_step2_select_mute': '🤫 2/2 : الفريسة ({name}) اختيرت • المس اللاعب الثاني لتكميمه',
+      'wolf_assault_ready': '🩸 الهجوم جاهز : {victim} (افتراس) و {muted} (تكميم)!',
+      'wolf_devour_btn': '1. افتراس (فريسة)',
+      'wolf_mute_btn': '2. تكميم (صمت)',
+      'wolf_infect_btn': '🧬 إصابة بالعدوى',
+      'wolf_infected_pill': '🧟 مصاب بالعدوى',
+      'wolves_night_total_silence': 'ليلة الذئاب (صمت تام)',
+      'mic_and_listen_cut': 'الميكروفون والاستماع مقطوعان',
+      'seer_exhausted_msg': 'نفدت رؤاكِ. تراقبين الليل كقروية عادية.',
+      'seer_visions_left': 'الرؤى المتبقية : {count}',
+      'ready_to_inspect': 'جاهزة للاستكشاف',
+      'choose_a_target': 'اختر هدفاً',
+      'defender_protected_title': '🛡️ الحماية نشطة على {name}!',
+      'defender_protected_subtitle': 'درعك يحميه من مخالب الليل حتى الفجر.',
+      'defender_consecutive_warning': 'تمت حماية {name} الليلة الماضية. لا يمكن حمايته ليلتين متتاليتين.',
+      'hunter_last_breath_banner': 'الرمق الأخير : حدد مشتبهاً به لتأخذه معك!',
+      'hunter_spectator_banner': '🏹 الصياد المحتضر يسدد بندقيته...',
+      'raven_cursed_title': 'حلت اللعنة على {name} (+صوتان غداً)',
+      'raven_cursed_subtitle': 'غربانك ستلاحق هذا المشتبه به في الاقتراع القادم.',
+      'raven_action_banner': 'لعنة الغراب : حدد مشتبهاً به (+صوتان تلقائياً غداً)',
+      'raven_curse_target': '🦅 لعن {name}',
+      'raven_select_target': '🦅 المس مشتبهاً به للعنه',
+      'mayor_testament': 'وصية العمدة',
+      'mayor_testament_subtitle': 'عيّن وريث الوشاح من بين الناجين',
+      'no_survivors_available': 'لا يوجد ناجون متاحون.',
+      'captain_dying_banner': 'العمدة المحتضر يختار خليفته...',
+      'captain_dying_subtitle': 'القرية تحبس أنفاسها أمام وصاياه الأخيرة.',
+      'captain_expired_transmission': 'انتهى الوقت — نقل اللقب تلقائياً...',
+      'mayor_open_debate_btn': '🎖️ فتح باب النقاش للقرية',
+      'mayor_opening_debate_waiting': '🎖️ {name} يفتح النقاش رسمياً...',
+      'mayor_close_debate_btn': '⚖️ اختتام وبدء التصويت للمحرقة',
+      'mayor_closing_debate_waiting': '⚖️ {name} يلقي الكلمة الختامية...',
+      'bequeath_sash_target': 'تسليم الوشاح إلى {name}',
+      'choose_survivor_hint': 'اختر أحد الناجين...',
+      'auto_pass_badge': 'تلقائياً',
+      'force_speaker_turn_mj': 'تمرير الكلمة للموالي إجبارياً (المشرف)',
+      'voting_all_recorded': 'تم تسجيل جميع الأصوات ({voted}/{total}) • فرز فوري للأصوات...',
+      'vote_cast_against': 'تم التصويت ضد {name}',
+      'suspect': 'مشتبه به',
+      'thief_available_roles': '🃏 البطاقات المتاحة في الوسط :',
+      'thief_steal_soul_target': 'سرقة الروح ({name})',
+      'thief_steal_soul': 'سرقة روح',
+      'thief_keep_status': 'الاحتفاظ بصفتي',
+      'thief_stay_thief': 'البقاء كسارق',
+      'cupid_step1': '💘 المس اللاعب الأول للربط بالحب (0/2)',
+      'cupid_step2': '💘 تم اختيار {name} • المس اللاعب الثاني (1/2)',
+      'cupid_bound': '💖 ارتبطت روحهما : {p1} و {p2} !',
+      'piper_step_last': '🎵 المس اللاعب الأخير لفتنته (0/1)',
+      'piper_step1': '🎵 المس الهدف الأول لفتنته (0/2)',
+      'piper_step2': '🎵 تم سحر {name} • المس الهدف الثاني (1/2)',
+      'piper_bound': '🎶 تم سحر الهدفين : {p1} و {p2} !',
+      'target_1': 'الهدف الأول',
+      'target_2': 'الهدف الثاني',
+      'death_cause_wolf_bite': 'عضة الذئاب',
+      'death_cause_witch_poison': 'سم الساحرة',
+      'death_cause_village_vote': 'حكم المحرقة',
+      'death_cause_hunter_shot': 'رصاصة الصياد',
+      'death_cause_heartbreak': 'الموت حزناً',
+      'death_cause_elimination': 'إقصاء',
+      'log_cupid_destiny': '💘 جمع القدر قلبين في ظلام الليل.',
+      'log_witch_potion_healed': '✨ جرعة شفاء معجزة أنقذت الضحية!',
+      'log_elder_survived': '🛡️ العجوز ({name}) يقاوم عضة الذئاب بفضل صلابته الأسطورية! (تبقى حياة واحدة)',
+      'log_bear_growl': '🐻 زئير الدب الأجش يتردد في القرية! ذئب واحد على الأقل يتربص بين جيرانه المباشرين.',
+      'log_rusty_sword_slashed': '🗡️ السيف الصدئ جرح {name} أثناء الهجوم الليلي! السم سيقضي عليه الليلة القادمة.',
+      'log_rusty_sword_killed': '🗡️ سم السيف الصدئ قضى على {name}! الذئب يلفظ أنفاسه الأخيرة في عذاب أليم.',
+      'log_wild_child_wolf': '🐺 بعد هلاك قدوته الليلة، يستسلم الطفل البري ({name}) لغضبه الوحشي وينضم إلى القطيع!',
+      'log_wolf_cub_died': '🐺 جرو الذئب هلك الليلة! القطيع الغاضب سيفترس ضحيتين الليلة القادمة.',
+      'log_wolf_cub_lynched': '🐺 تم إعدام جرو الذئب من قبل القرية! القطيع الغاضب سيفترس ضحيتين الليلة القادمة.',
+      'log_hunter_death_choice': '🎯 تم إطلاق النار على الصياد! لديه 25 ثانية لإطلاق رمقه الأخير.',
+      'log_mayor_died': '🎖️ سقط العمدة! أمامه 15 ثانية لتعيين خليفته.',
+      'log_mayor_opening_debate': '🎖️ {name} يفتح نقاشات الساحة رسمياً (15 ثانية)!',
+      'log_player_silenced': '🔇 {name} مكمم من قبل الذئاب! تم تخطي دوره في الكلام.',
+      'log_mayor_closing_debate': '⚖️ اختتام النقاش: الكلمة الرسمية ممنوحة لـ {name} (15 ثانية) قبل فتح باب التصويت!',
+      'log_mayor_closing_debate_expired': '⚖️ انتهى وقت النقاش: {name} يأخذ الكلمة لإلقاء خطابه الختامي (15 ثانية)!',
+      'log_pyre_voting_opened': '⚖️ فتح باب التصويت لمحكمة الحرق فوراً (15 ثانية).',
+      'log_speech_yielded': '🎙️ تنازل {p1} عن الكلمة. الكلمة تنتقل إلى {p2}.',
+      'log_raven_curse_votes': '🦅 لعنة الغراب: صوتان إضافيان يثقلان كاهل {name} تلقائياً!',
+      'log_elder_curse': '📜 لعنة العجوز: بعد إدانته من القرية، العجوز يلعن القرية! يفقد جميع القرويين قواهم.',
+      'log_stuttering_judge': '⚖️ القاضي المتلعثم يطلب تصويتاً ثانياً متتالياً! القرية تعود فوراً إلى صناديق الاقتراع.',
+      'log_fox_sniffed_wolf': '🦊 اشتم الثعلب رائحة مشبوهة! ذئب واحد على الأقل يختبئ في المجموعة المستهدفة.',
+      'log_fox_sniffed_nothing': '🦊 لم يشتم الثعلب أي أمر غير طبيعي... انطفأت حاسة شمه إلى الأبد.',
+      'log_day1_mayor_election': '🗳️ اليوم 1: تجتمع القرية لانتخاب أول عمدة لها!',
+      'log_angel_victory_solo': '🪽 الملاك {name} تم إعدامه في اليوم 1! يحقق فوزاً منفرداً فورياً!',
+      'log_idiot_pardoned': '🤪 معتوه القرية {name} نال عفو القرية! يظل على قيد الحياة لكنه يفقد حق التصويت.',
+      'log_village_burned': '🔥 ألقت القرية {name} في نيران المحرقة! كان {role}.',
+      'log_succumbed': '💀 هلك {name} ({role}).',
+      'log_grief_death': '💔 مات {name} ({role}) حزناً وكمداً على فراق حبيبه {lover}!',
+      'log_tie_break_second_ballot': '⚖️ تصويت حاسم ثانٍ: صوتوا فقط للمتهمين المتعادلين!',
+      'log_tie_mercy': '🌙 استمر التعادل الثاني. انتصرت الرحمة: لا أحد يُعدم الليلة.',
+      'log_mayor_tie_break_decision': '🎖️ العمدة {captain} يحسم التعادل ويقضي بإدانة {target}!',
+      'log_defense_phase_granted': '🛡️ مرحلة الدفاع ممنوحة للمتهمين: {names} (30 ثانية لكل منهم).',
+      'log_night_falls_salvateur': 'حلول الليلة الأولى... استيقظ أيها الحارس!',
+      'log_night_awakening': 'استيقاظ ليلي : {role}.',
     },
 
     'en': {
@@ -1511,6 +1742,121 @@ class AppTranslations {
       'witch_victim_dying_banner': 'Wolves victim: {name} (In agony!)',
       'captain_double_voice': '⭐ Captain (Double vote)',
       'soulmate_label': '💖 Soulmate: {name}',
+      'phase_tag_night': 'NIGHT',
+      'phase_tag_day': 'DAY',
+      'channel_wolves': 'PACK CHANNEL',
+      'successor': 'Successor',
+      'phase_in_progress': 'Action in progress...',
+      'strategic_actions': 'Strategic actions',
+      'witch_victim_saved': '✅ {name} saved by your potion!',
+      'witch_victim_poisoned': '☠️ {name} poisoned for dawn!',
+      'complete_turn': 'Complete my turn',
+      'potion_life_count': '🧪 Life: {count}',
+      'potion_death_count': '☠️ Death: {count}',
+      'victim_saved_pill': '✅ {name} saved',
+      'the_victim': 'The victim',
+      'witch_victim_label': 'Victim: {name}',
+      'save_victim_btn': 'Save',
+      'no_wolf_victim_tonight': 'No wolf victim tonight',
+      'poison_pill': '☠️ {name} poisoned',
+      'poison_target': '☠️ Poison {name}',
+      'tap_to_poison': 'Tap to poison',
+      'vial_empty': 'Vial empty',
+      'finish': 'Finish',
+      'wolf_step1_select_devour': '🐺 1/2: Tap 1st player to DEVOUR',
+      'wolf_step2_select_mute': '🤫 2/2: Prey ({name}) chosen • Tap 2nd player to MUTE',
+      'wolf_assault_ready': '🩸 Assault ready: {victim} (Devoured) & {muted} (Muted)!',
+      'wolf_devour_btn': '1. Devour (Prey)',
+      'wolf_mute_btn': '2. Mute (Silence)',
+      'wolf_infect_btn': '🧬 Infect',
+      'wolf_infected_pill': '🧟 Infected',
+      'wolves_night_total_silence': 'Night of the Wolves (Total silence)',
+      'mic_and_listen_cut': 'Mic and audio cut off',
+      'seer_exhausted_msg': 'Your visions are exhausted. You observe the night as a simple villager.',
+      'seer_visions_left': 'Visions remaining: {count}',
+      'ready_to_inspect': 'Ready to probe',
+      'choose_a_target': 'Choose a target',
+      'defender_protected_title': '🛡️ Protection active on {name}!',
+      'defender_protected_subtitle': 'Your aegis protects them from night claws until dawn.',
+      'defender_consecutive_warning': '{name} was protected last night. Impossible 2 nights in a row.',
+      'hunter_last_breath_banner': 'Last breath: Designate a suspect to take down with you!',
+      'hunter_spectator_banner': '🏹 The dying Hunter aims his weapon...',
+      'raven_cursed_title': 'Curse placed on {name} (+2 votes tomorrow)',
+      'raven_cursed_subtitle': 'Your ravens will haunt this suspect during next vote.',
+      'raven_action_banner': 'Raven\'s Curse: Pick a suspect (+2 auto-votes tomorrow)',
+      'raven_curse_target': '🦅 Curse {name}',
+      'raven_select_target': '🦅 Tap a suspect to curse',
+      'mayor_testament': 'Mayor\'s Testament',
+      'mayor_testament_subtitle': 'Designate the heir to the sash among survivors',
+      'no_survivors_available': 'No survivors available.',
+      'captain_dying_banner': 'The dying Mayor is choosing a successor...',
+      'captain_dying_subtitle': 'The village holds its breath for his final wishes.',
+      'captain_expired_transmission': 'Time expired — Title auto-transferred...',
+      'mayor_open_debate_btn': '🎖️ Open village debates',
+      'mayor_opening_debate_waiting': '🎖️ {name} solemnly opens debates...',
+      'mayor_close_debate_btn': '⚖️ Close & Launch pyre voting',
+      'mayor_closing_debate_waiting': '⚖️ {name} delivers the closing speech...',
+      'bequeath_sash_target': 'Bequeath sash to {name}',
+      'choose_survivor_hint': 'Choose a survivor...',
+      'auto_pass_badge': 'Default',
+      'force_speaker_turn_mj': 'Force speech to next (GM)',
+      'voting_all_recorded': 'All votes recorded ({voted}/{total}) • Immediate tally...',
+      'vote_cast_against': 'Vote cast against {name}',
+      'suspect': 'suspect',
+      'thief_available_roles': '🃏 Cards available at center:',
+      'thief_steal_soul_target': 'Steal soul ({name})',
+      'thief_steal_soul': 'Steal a soul',
+      'thief_keep_status': 'Keep my status',
+      'thief_stay_thief': 'Stay Thief',
+      'cupid_step1': '💘 Tap 1st player to bind with love (0/2)',
+      'cupid_step2': '💘 {name} chosen • Tap 2nd player (1/2)',
+      'cupid_bound': '💖 Soulmates bound: {p1} & {p2}!',
+      'piper_step_last': '🎵 Tap the last player to charm (0/1)',
+      'piper_step1': '🎵 Tap 1st target to charm (0/2)',
+      'piper_step2': '🎵 {name} charmed • Tap 2nd target (1/2)',
+      'piper_bound': '🎶 Targets charmed: {p1} & {p2}!',
+      'target_1': '1st Target',
+      'target_2': '2nd Target',
+      'death_cause_wolf_bite': 'Wolves\' Bite',
+      'death_cause_witch_poison': 'Witch\'s Poison',
+      'death_cause_village_vote': 'Pyre Sentence',
+      'death_cause_hunter_shot': 'Hunter\'s Shot',
+      'death_cause_heartbreak': 'Died of Heartbreak',
+      'death_cause_elimination': 'Elimination',
+      'log_cupid_destiny': '💘 Destiny has united two hearts in the night.',
+      'log_witch_potion_healed': '✨ A miraculous healing potion saved the victim!',
+      'log_elder_survived': '🛡️ The Elder ({name}) resists the wolves\' bite thanks to legendary toughness! (1 life remaining)',
+      'log_bear_growl': '🐻 The deep growl of the bear echoes through the village! At least one wolf lurks among immediate neighbors.',
+      'log_rusty_sword_slashed': '🗡️ The Rusty Sword slashed {name} during the night assault! Poison will fell them tomorrow night.',
+      'log_rusty_sword_killed': '🗡️ Poison from the Rusty Sword struck down {name}! The wolf expires in agony.',
+      'log_wild_child_wolf': '🐺 With their role model perished tonight, the Wild Child ({name}) succumbs to beastly rage and joins the pack!',
+      'log_wolf_cub_died': '🐺 The Wolf Cub fell tonight! The enraged pack will devour two victims tomorrow night.',
+      'log_wolf_cub_lynched': '🐺 The Wolf Cub was lynched by the village! The enraged pack will devour two victims tomorrow night.',
+      'log_hunter_death_choice': '🎯 The Hunter has been slain! He has 25s to fire his final shot.',
+      'log_mayor_died': '🎖️ The Mayor has fallen! 15s remaining to name a successor.',
+      'log_mayor_opening_debate': '🎖️ {name} solemnly opens the arena debates (15s)!',
+      'log_player_silenced': '🔇 {name} has been gagged by the wolves! Speaking turn skipped.',
+      'log_mayor_closing_debate': '⚖️ Debate conclusion: solemn floor granted to {name} (15s) before voting opens!',
+      'log_mayor_closing_debate_expired': '⚖️ Debate time expired: {name} takes the floor for closing speech (15s)!',
+      'log_pyre_voting_opened': '⚖️ Immediate opening of pyre voting (15s).',
+      'log_speech_yielded': '🎙️ {p1} yielded the floor. Turn passes to {p2}.',
+      'log_raven_curse_votes': '🦅 Raven\'s Curse: 2 mandatory votes cast against {name}!',
+      'log_elder_curse': '📜 Elder\'s Curse: Condemned by the village, the Elder curses the village! All villagers lose their powers.',
+      'log_stuttering_judge': '⚖️ The Stuttering Judge demanded a second consecutive vote! The village returns to ballots.',
+      'log_fox_sniffed_wolf': '🦊 The Fox sniffed a suspicious scent! At least one wolf hides in the observed group.',
+      'log_fox_sniffed_nothing': '🦊 The Fox smelled nothing unusual... Its scent is gone forever.',
+      'log_day1_mayor_election': '🗳️ Day 1: The village gathers to elect its first Mayor!',
+      'log_angel_victory_solo': '🪽 The Angel {name} was condemned on Day 1! Instant solo victory achieved!',
+      'log_idiot_pardoned': '🤪 The Village Idiot {name} is pardoned! Stays alive but loses all voting rights.',
+      'log_village_burned': '🔥 The village cast {name} into the pyre flames! He was {role}.',
+      'log_succumbed': '💀 {name} ({role}) has succumbed.',
+      'log_grief_death': '💔 {name} ({role}) dies of grief following the loss of lover {lover}!',
+      'log_tie_break_second_ballot': '⚖️ Second decisive ballot: vote only for tied suspects!',
+      'log_tie_mercy': '🌙 The second tie persists. Mercy prevails: no one is executed tonight.',
+      'log_mayor_tie_break_decision': '🎖️ The Mayor {captain} breaks the tie and condemns {target}!',
+      'log_defense_phase_granted': '🛡️ Defense phase granted to suspects: {names} (30s each).',
+      'log_night_falls_salvateur': 'The first night falls... Defender, wake up!',
+      'log_night_awakening': 'Night awakening: {role}.',
     },
   };
 
@@ -1589,5 +1935,187 @@ class AppTranslations {
       RegExp(r'([A-Z])'),
       (match) => '_${match.group(1)!.toLowerCase()}',
     ).replaceFirst(RegExp(r'^_'), '');
+  }
+
+  /// Traduit un nom de rôle donné en français brut ou identifiant
+  static String translateRoleName(BuildContext? context, String rawRole) {
+    final clean = rawRole.trim();
+    if (clean.isEmpty) return clean;
+    final direct = getText(context, 'role_$clean');
+    if (direct != 'role_$clean') return direct;
+
+    final frMap = <String, String>{
+      'villageois': 'simple_villager',
+      'simple villageois': 'simple_villager',
+      'voyante': 'seer',
+      'sorcière': 'witch',
+      'sorciere': 'witch',
+      'chasseur': 'hunter',
+      'cupidon': 'cupid',
+      'petite fille': 'little_girl',
+      'voleur': 'thief',
+      'salvateur': 'defender',
+      'ancien': 'elder',
+      'bouc émissaire': 'scapegoat',
+      'bouc emissaire': 'scapegoat',
+      'idiot du village': 'idiot',
+      'deux sœurs': 'two_sisters',
+      'deux soeurs': 'two_sisters',
+      'trois frères': 'three_brothers',
+      'trois freres': 'three_brothers',
+      'renard': 'fox',
+      'montreur d\'ours': 'bear_tamer',
+      'montreur d’ours': 'bear_tamer',
+      'juge bègue': 'stuttering_judge',
+      'juge begue': 'stuttering_judge',
+      'chevalier à l\'épée rouillée': 'knight_rusty_sword',
+      'chevalier à l’épée rouillée': 'knight_rusty_sword',
+      'servante dévouée': 'servant_maid',
+      'servante devouee': 'servant_maid',
+      'comédien': 'actor',
+      'comedien': 'actor',
+      'loup-garou': 'simple_werewolf',
+      'simple loup-garou': 'simple_werewolf',
+      'grand méchant loup': 'big_bad_wolf',
+      'grand mechant loup': 'big_bad_wolf',
+      'loup blanc': 'white_werewolf',
+      'loup-garou blanc': 'white_werewolf',
+      'loup noir': 'black_wolf',
+      'infect père des loups': 'vile_father_of_wolves',
+      'infect pere des loups': 'vile_father_of_wolves',
+      'chiot de loup': 'wolf_cub',
+      'enfant sauvage': 'wild_child',
+      'pyromane': 'pyromaniac',
+      'corbeau': 'raven',
+      'ange': 'angel',
+      'joueur de flûte': 'pied_piper',
+      'joueur de flute': 'pied_piper',
+      'abominable sectaire': 'sect_leader',
+      'voleur d\'âmes': 'thief_of_hearts',
+      'voleur d’âmes': 'thief_of_hearts',
+      'maire': 'mayor',
+      'capitaine': 'mayor',
+    };
+    final key = frMap[clean.toLowerCase()];
+    if (key != null) {
+      return getText(context, 'role_$key');
+    }
+    return clean;
+  }
+
+  /// Traduit dynamiquement une entrée de chronique ou log de jeu
+  static String translateLog(BuildContext? context, String log) {
+    if (log.isEmpty) return log;
+
+    // Direct key translation if logged as a key
+    if (_strings['fr']?.containsKey(log) == true) {
+      return getText(context, log);
+    }
+
+    Match? m;
+
+    m = RegExp(r"^💘 Le destin a uni deux c[œoe]urs dans la nuit\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_cupid_destiny');
+
+    m = RegExp(r"^✨ Une potion de guérison miraculeuse a sauvé la victime\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_witch_potion_healed');
+
+    m = RegExp(r"^🛡️ L'(?:Ancien|ancien) \((.*?)\) résiste à la morsure des loups grâce à sa robustesse légendaire\s*!\s*\(1 vie restante\)$").firstMatch(log);
+    if (m != null) return getText(context, 'log_elder_survived', {'name': m.group(1)});
+
+    m = RegExp(r"^🐻 Le grognement caverneux de l'ours résonne dans tout le village\s*!\s*Au moins un loup se tapit parmi ses voisins directs\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_bear_growl');
+
+    m = RegExp(r"^🗡️ L'Épée Rouillée a entaillé (.*?) lors de l'assaut nocturne\s*!\s*Le venin le foudroiera la nuit prochaine\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_rusty_sword_slashed', {'name': m.group(1)});
+
+    m = RegExp(r"^🗡️ Le venin de l'Épée Rouillée a terrassé (.*?)\s*!\s*Le loup expire dans d'atroces souffrances\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_rusty_sword_killed', {'name': m.group(1)});
+
+    m = RegExp(r"^🐺 Son modèle ayant péri cette nuit, l'Enfant Sauvage \((.*?)\) succombe à sa rage bestiale et rejoint la meute\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_wild_child_wolf', {'name': m.group(1)});
+
+    m = RegExp(r"^🐺 Le Chiot de Loup a succombé cette nuit\s*!\s*La meute enragée dévorera deux victimes la nuit prochaine\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_wolf_cub_died');
+
+    m = RegExp(r"^🐺 Le Chiot de Loup a été lynché par le village\s*!\s*La meute enragée dévorera deux victimes la nuit prochaine\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_wolf_cub_lynched');
+
+    m = RegExp(r"^🎯 Le Chasseur a été abattu\s*!\s*Il a 25s pour faire feu dans son dernier souffle\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_hunter_death_choice');
+
+    m = RegExp(r"^🎖️ Le Maire est tombé\s*!\s*Il dispose de 15s pour nommer son héritier\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_mayor_died');
+
+    m = RegExp(r"^🎖️ (.*?) ouvre solennellement les débats de l'arène \(15s\)\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_mayor_opening_debate', {'name': m.group(1)});
+
+    m = RegExp(r"^🔇 (.*?) est bâillonné par les loups\s*!\s*Son tour de parole est sauté\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_player_silenced', {'name': m.group(1)});
+
+    m = RegExp(r"^⚖️ Clôture des débats : parole solennelle accordée à (.*?) \(15s\) avant l'ouverture du scrutin\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_mayor_closing_debate', {'name': m.group(1)});
+
+    m = RegExp(r"^⚖️ Temps de débat expiré : (.*?) prend la parole pour son discours de clôture \(15s\)\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_mayor_closing_debate_expired', {'name': m.group(1)});
+
+    m = RegExp(r"^⚖️ Ouverture immédiate du scrutin du bûcher \(15s\)\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_pyre_voting_opened');
+
+    m = RegExp(r"^🎙️ (.*?) a cédé sa parole\.\s*La parole passe à (.*?)\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_speech_yielded', {'p1': m.group(1), 'p2': m.group(2)});
+
+    m = RegExp(r"^🦅 Malédiction du Corbeau : 2 voix d'office accablent (.*?)\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_raven_curse_votes', {'name': m.group(1)});
+
+    m = RegExp(r"^📜 Malédiction de l'Ancien : Condamné par le village, l'Ancien maudit Thiercelieux\s*!\s*Tous les villageois perdent leurs pouvoirs\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_elder_curse');
+
+    m = RegExp(r"^⚖️ Le Juge Bègue a exigé un second vote consécutif\s*!\s*Le village retourne immédiatement aux urnes\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_stuttering_judge');
+
+    m = RegExp(r"^🦊 Le Renard a flairé une odeur suspecte\s*!\s*Au moins un loup se cache dans le groupe observé\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_fox_sniffed_wolf');
+
+    m = RegExp(r"^🦊 Le Renard n'a rien senti d'anormal\.\.\.\s*Son flair s'éteint à tout jamais\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_fox_sniffed_nothing');
+
+    m = RegExp(r"^🗳️ Jour 1 : Le village se rassemble pour élire son premier Maire\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_day1_mayor_election');
+
+    m = RegExp(r"^🪽 L'Ange (.*?) a été condamné dès le Jour 1\s*!\s*Il remporte instantanément la victoire solitaire\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_angel_victory_solo', {'name': m.group(1)});
+
+    m = RegExp(r"^🤪 L'Idiot du Village (.*?) est gracié par la compassion du village\s*!\s*Il reste en vie mais perd tout droit de vote\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_idiot_pardoned', {'name': m.group(1)});
+
+    m = RegExp(r"^🔥 Le village a jeté (.*?) aux flammes du bûcher\s*!\s*Il était (.*?)\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_village_burned', {'name': m.group(1), 'role': translateRoleName(context, m.group(2)!)});
+
+    m = RegExp(r"^💀 (.*?) \((.*?)\) a succombé\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_succumbed', {'name': m.group(1), 'role': translateRoleName(context, m.group(2)!)});
+
+    m = RegExp(r"^💔 (.*?) \((.*?)\) meurt de chagrin suite à la perte de son amour (.*?)\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_grief_death', {'name': m.group(1), 'role': translateRoleName(context, m.group(2)!), 'lover': m.group(3)});
+
+    m = RegExp(r"^⚖️ Second scrutin décisif : votez uniquement pour les accusés ex [aæ]quo\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_tie_break_second_ballot');
+
+    m = RegExp(r"^🌙 La seconde égalité persiste\.\s*La clémence l'emporte : personne n'est exécuté ce soir\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_tie_mercy');
+
+    m = RegExp(r"^🎖️ Le Maire (.*?) tranche l'égalité et condamne (.*?)\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_mayor_tie_break_decision', {'captain': m.group(1), 'target': m.group(2)});
+
+    m = RegExp(r"^🛡️ Phase de défense accordée aux suspects : (.*?) \(30s chacun\)\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_defense_phase_granted', {'names': m.group(1)});
+
+    m = RegExp(r"^La première nuit tombe\.\.\.\s*Salvateur, réveillez-vous\s*!$").firstMatch(log);
+    if (m != null) return getText(context, 'log_night_falls_salvateur');
+
+    m = RegExp(r"^Éveil nocturne : (.*?)\.?$").firstMatch(log);
+    if (m != null) return getText(context, 'log_night_awakening', {'role': translateRoleName(context, m.group(1)!)});
+
+    return log;
   }
 }

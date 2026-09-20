@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../models/game_phase.dart';
 import '../../models/game_room.dart';
 import '../../models/player_model.dart';
@@ -223,16 +224,20 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
 
     final uncharmedLiving = widget.room.alivePlayers.where((p) => !p.isCharmed).toList();
     if (uncharmedLiving.length <= 1) {
+      HapticFeedback.lightImpact();
       setState(() => _piperTarget1Id = id);
       widget.onPiperCharm?.call([id]);
       return;
     }
 
     if (_piperTarget1Id == null) {
+      HapticFeedback.selectionClick();
       setState(() => _piperTarget1Id = id);
     } else if (_piperTarget1Id == id) {
+      HapticFeedback.selectionClick();
       setState(() => _piperTarget1Id = null);
     } else {
+      HapticFeedback.lightImpact();
       setState(() => _piperTarget2Id = id);
       widget.onPiperCharm?.call([_piperTarget1Id!, id]);
     }
@@ -1690,7 +1695,10 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: canShoot
-                      ? () => widget.onHunterShoot?.call(selectedTarget.id)
+                      ? () {
+                          HapticFeedback.heavyImpact();
+                          widget.onHunterShoot?.call(selectedTarget.id);
+                        }
                       : null,
                   icon: const Icon(Icons.crisis_alert_rounded, size: 15),
                   label: Text(
@@ -3117,7 +3125,12 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: dousedPlayers.isNotEmpty ? widget.onPyromaniacIgnite : null,
+            onPressed: dousedPlayers.isNotEmpty
+                ? () {
+                    HapticFeedback.heavyImpact();
+                    widget.onPyromaniacIgnite?.call();
+                  }
+                : null,
             icon: const Icon(Icons.local_fire_department_rounded, size: 15),
             label: Text(
               context.tr('ignite_count', {'count': '${dousedPlayers.length}'}),
@@ -3463,7 +3476,7 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
       }
     }
 
-    return Row(
+    final actionRow = Row(
       key: ValueKey('action_fox_${selectedTarget?.id ?? "none"}'),
       children: [
         Expanded(
@@ -3509,6 +3522,41 @@ class _BentoActionPanelState extends State<BentoActionPanel> {
         ),
       ],
     );
+
+    final lastCheck = widget.room.expandedRolesState.lastFoxCheckResult;
+    if (lastCheck == true) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0x33DC2626),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.6)),
+            ),
+            child: const Row(
+              children: [
+                Text('🐾', style: TextStyle(fontSize: 14)),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Odeur de loup détectée ! Au moins un loup se cache dans le groupe flairé.',
+                    style: TextStyle(fontSize: 10.5, color: Color(0xFFFF8B8B), fontWeight: FontWeight.w700),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actionRow,
+        ],
+      );
+    }
+
+    return actionRow;
   }
 
   /// Module Loup-Garou Blanc : Élimination solitaire d'un loup ou passer son tour

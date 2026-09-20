@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
 import '../../services/fog_of_war_service.dart';
 import '../theme/lupus_avatars.dart';
 import '../theme/lupus_theme.dart';
+import 'animated_status_badge.dart';
 import 'bento_card.dart';
+import 'game_action_visual_effects.dart';
 import 'ghost_death_badge.dart';
 
 /// Tuile individuelle représentant un joueur dans la grille Bento
@@ -22,6 +25,18 @@ class BentoPlayerTile extends StatelessWidget {
   final GameRole myRole;
   final bool myIsLover;
   final bool myIsCharmed;
+  final bool isSniffed;
+  final bool hasWolfSmell;
+  final bool isProtected;
+  final bool isWitchVictim;
+  final bool isWitchHealed;
+  final bool isWitchPoisoned;
+  final bool isCrowTarget;
+  final bool isWildChildModel;
+  final bool isContaminatedWolf;
+  final bool isBearTamerGrowling;
+  final bool isHunterImpact;
+  final bool isPyroIgnited;
   final VoidCallback? onTap;
 
   const BentoPlayerTile({
@@ -38,6 +53,18 @@ class BentoPlayerTile extends StatelessWidget {
     this.myRole = GameRole.simpleVillager,
     this.myIsLover = false,
     this.myIsCharmed = false,
+    this.isSniffed = false,
+    this.hasWolfSmell = false,
+    this.isProtected = false,
+    this.isWitchVictim = false,
+    this.isWitchHealed = false,
+    this.isWitchPoisoned = false,
+    this.isCrowTarget = false,
+    this.isWildChildModel = false,
+    this.isContaminatedWolf = false,
+    this.isBearTamerGrowling = false,
+    this.isHunterImpact = false,
+    this.isPyroIgnited = false,
     this.onTap,
   });
 
@@ -102,9 +129,15 @@ class BentoPlayerTile extends StatelessWidget {
       borderColor = LupusColors.border;
     }
 
-    return BentoCard(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      onTap: onTap,
+    return RepaintBoundary(
+      child: BentoCard(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      onTap: onTap != null
+          ? () {
+              HapticFeedback.selectionClick();
+              onTap!();
+            }
+          : null,
       borderColor: borderColor,
       glowing: isSpeaking && player.isAlive,
       backgroundColor: isDead
@@ -127,6 +160,15 @@ class BentoPlayerTile extends StatelessWidget {
                 alignment: Alignment.center,
                 clipBehavior: Clip.none,
                 children: [
+                  // 0. Halo néon pulsant Flûte
+                  if (FogOfWarService.canSeeCharmed(
+                    targetIsCharmed: player.isCharmed,
+                    observerRole: myRole,
+                    observerIsCharmed: myIsCharmed,
+                    isDevMode: isDevMode,
+                  ))
+                    const CharmedPulsingHalo(size: 44),
+
                   // Halo lumineux si le joueur parle
                   if (isSpeaking && player.isAlive)
                     Container(
@@ -187,6 +229,18 @@ class BentoPlayerTile extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                  // Effet d'impact du Chasseur 🎯
+                  if (isHunterImpact)
+                    const Positioned.fill(
+                      child: HunterImpactEffect(size: 36),
+                    ),
+
+                  // Effet de flammes du Pyromane 🔥
+                  if (isPyroIgnited)
+                    const Positioned.fill(
+                      child: PyroFlameBurstEffect(size: 36),
+                    ),
 
                   // Indicateur mort (tête de mort rouge)
                   if (isDead)
@@ -271,6 +325,108 @@ class BentoPlayerTile extends StatelessWidget {
                         ),
                       ),
                     ),
+
+                  // Badges de rôles actifs avec AnimatedStatusBadge
+                  // Renard (Flairage)
+                  if (isSniffed && !isMe)
+                    Positioned(
+                      top: -4,
+                      left: -4,
+                      child: AnimatedStatusBadge(
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: hasWolfSmell ? const Color(0xFFFF1E46) : const Color(0xFFFB8500),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 0.8),
+                          ),
+                          child: Text(
+                            hasWolfSmell ? '🐺' : '🦊',
+                            style: const TextStyle(fontSize: 8.5),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Salvateur (Bouclier)
+                  if (isProtected && !isMe)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: const AnimatedStatusBadge(
+                        child: Text('🛡️', style: TextStyle(fontSize: 9.5)),
+                      ),
+                    ),
+
+                  // Sorcière : Sauvé
+                  if (isWitchHealed && !isMe)
+                    Positioned(
+                      bottom: -4,
+                      left: -4,
+                      child: const AnimatedStatusBadge(
+                        child: Text('🧪', style: TextStyle(fontSize: 9.5)),
+                      ),
+                    ),
+
+                  // Sorcière : Empoisonné
+                  if (isWitchPoisoned && !isMe)
+                    Positioned(
+                      bottom: -4,
+                      left: -4,
+                      child: const AnimatedStatusBadge(
+                        child: Text('☠️', style: TextStyle(fontSize: 9.5)),
+                      ),
+                    ),
+
+                  // Sorcière : Cible des loups
+                  if (isWitchVictim && !isMe)
+                    Positioned(
+                      bottom: -4,
+                      right: -4,
+                      child: const AnimatedStatusBadge(
+                        child: Text('🩸', style: TextStyle(fontSize: 9.5)),
+                      ),
+                    ),
+
+                  // Corbeau
+                  if (isCrowTarget && !isMe)
+                    Positioned(
+                      top: -4,
+                      left: -4,
+                      child: const AnimatedStatusBadge(
+                        child: Text('🦅', style: TextStyle(fontSize: 9.5)),
+                      ),
+                    ),
+
+                  // Enfant Sauvage : Modèle
+                  if (isWildChildModel && !isMe)
+                    Positioned(
+                      bottom: -4,
+                      left: -4,
+                      child: const AnimatedStatusBadge(
+                        child: Text('🌱', style: TextStyle(fontSize: 9.5)),
+                      ),
+                    ),
+
+                  // Chevalier à l'épée rouillée : Contaminé
+                  if (isContaminatedWolf && !isMe)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: const AnimatedStatusBadge(
+                        child: Text('🗡️', style: TextStyle(fontSize: 9.5)),
+                      ),
+                    ),
+
+                  // Montreur d'ours : Grognement
+                  if (isBearTamerGrowling && !isMe)
+                    Positioned(
+                      bottom: -4,
+                      right: -4,
+                      child: const AnimatedStatusBadge(
+                        child: Text('🐻', style: TextStyle(fontSize: 9.5)),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -284,21 +440,29 @@ class BentoPlayerTile extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (player.isHost) ...[
-                  const Icon(Icons.star_rounded,
-                      size: 12, color: LupusColors.sunAmber),
+                  const AnimatedStatusBadge(
+                    child: Icon(Icons.star_rounded,
+                        size: 12, color: LupusColors.sunAmber),
+                  ),
                   const SizedBox(width: 2),
                 ],
                 if (player.isCaptain) ...[
-                  const Icon(Icons.military_tech_rounded,
-                      size: 12, color: Color(0xFFFFD700)),
+                  const AnimatedStatusBadge(
+                    child: Icon(Icons.military_tech_rounded,
+                        size: 12, color: Color(0xFFFFD700)),
+                  ),
                   const SizedBox(width: 2),
                 ],
                 if (isWolfPeer && !isMe && player.isAlive) ...[
-                  const Text('🐺', style: TextStyle(fontSize: 10)),
+                  const AnimatedStatusBadge(
+                    child: Text('🐺', style: TextStyle(fontSize: 10)),
+                  ),
                   const SizedBox(width: 2),
                 ],
                 if (seerDiscoveredRole != null && !isMe && player.isAlive) ...[
-                  const Text('🔮', style: TextStyle(fontSize: 10)),
+                  const AnimatedStatusBadge(
+                    child: Text('🔮', style: TextStyle(fontSize: 10)),
+                  ),
                   const SizedBox(width: 2),
                 ],
                 if (FogOfWarService.canSeeLoverBadge(
@@ -307,8 +471,10 @@ class BentoPlayerTile extends StatelessWidget {
                   observerIsLover: myIsLover,
                   isDevMode: isDevMode,
                 )) ...[
-                  const Icon(Icons.favorite_rounded,
-                      size: 11, color: LupusColors.bloodRed),
+                  const AnimatedStatusBadge(
+                    child: Icon(Icons.favorite_rounded,
+                        size: 11, color: LupusColors.bloodRed),
+                  ),
                   const SizedBox(width: 2),
                 ],
                 if (FogOfWarService.canSeeCharmedBadge(
@@ -317,18 +483,24 @@ class BentoPlayerTile extends StatelessWidget {
                   observerIsCharmed: myIsCharmed,
                   isDevMode: isDevMode,
                 )) ...[
-                  const Icon(Icons.music_note_rounded,
-                      size: 11, color: Color(0xFF06D6A0)),
+                  const AnimatedStatusBadge(
+                    child: Icon(Icons.music_note_rounded,
+                        size: 11, color: Color(0xFF06D6A0)),
+                  ),
                   const SizedBox(width: 2),
                 ],
                 if (player.isDoused && (isMe || myRole == GameRole.pyromaniac || isDevMode || isDead)) ...[
-                  const Icon(Icons.local_fire_department_rounded,
-                      size: 11, color: Color(0xFFFF4800)),
+                  const AnimatedStatusBadge(
+                    child: Icon(Icons.local_fire_department_rounded,
+                        size: 11, color: Color(0xFFFF4800)),
+                  ),
                   const SizedBox(width: 2),
                 ],
                 if (player.isMuted) ...[
-                  const Icon(Icons.mic_off_rounded,
-                      size: 11, color: Color(0xFFFF3333)),
+                  const AnimatedStatusBadge(
+                    child: Icon(Icons.mic_off_rounded,
+                        size: 11, color: Color(0xFFFF3333)),
+                  ),
                   const SizedBox(width: 2),
                 ],
                 Flexible(
@@ -399,24 +571,27 @@ class BentoPlayerTile extends StatelessWidget {
 
           // 4. Badge du nombre de votes reçus (s'il y en a)
           if (votesCount > 0)
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-              decoration: BoxDecoration(
-                color: LupusColors.bloodRed,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '$votesCount ${votesCount > 1 ? context.tr("votes_suffix") : context.tr("vote_suffix")}',
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
+            AnimatedStatusBadge(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: LupusColors.bloodRed,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$votesCount ${votesCount > 1 ? context.tr("votes_suffix") : context.tr("vote_suffix")}',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
         ],
       ),
+    ),
     );
   }
 }

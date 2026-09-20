@@ -2,6 +2,21 @@
 
 Toutes les modifications notables apportées à ce projet sont documentées dans ce fichier.
 
+## [2.5.5] - 2026-09-20
+
+### 🦊 Rendu Visuel des Rôles, Micro-Animations, Retours Haptiques & Performance 60/120 FPS
+
+#### Ajouté (Added)
+- **Témoins Visuels des Pouvoirs Actifs & Fog of War :** Rendu asymétrique et confidentiel des capacités nocturnes sur la Table Mystique et la Grille Bento — flairage du Renard avec distinction loup/innocent (`isSniffed`, `hasWolfSmell`), bouclier du Salvateur, potions de vie/mort de la Sorcière, malédiction du Corbeau, allégeance de l'Enfant Sauvage, grognement du Montreur d'Ours et contamination de l'Épée Rouillée.
+- **Micro-Animations Immersives :** Secousse d'écran amortie (`ScreenShakeWrapper`) et onde de choc d'impact pour le Chasseur, éclatement radial de flammes (`PyroFlameBurstEffect`) pour le Pyromane, halo pulsant fluide néon (`CharmedPulsingHalo`) pour le Joueur de Flûte, et entrée élastique (`AnimatedStatusBadge`) sur les badges de statut.
+- **Retours Haptiques Dédiés & Régulateur Anti-Saturation :** Retours physiques tactiles distincts (`heavyImpact` pour Chasseur/Pyromane, `lightImpact` pour Flûte/sélection) et régulateur `HapticThrottler` (debounce 120ms) prévenant l'engorgement du moteur de vibration.
+- **Couverture de Tests :** Suite de tests unitaires complète `test/expanded_night_and_role_handlers_test.dart` (814 lignes) validant tous les rôles étendus et la préservation stricte du secret asymétrique.
+
+#### Optimisé (Performance & Fluidité)
+- **Isolation GPU (`RepaintBoundary`) :** Isolation stricte des animations continues (halo de Flûte, burst Pyromane, screen shake Chasseur), du panneau d'actions et des tuiles de joueurs garantissant 60/120 FPS sans re-rastérisation inutile.
+- **Éradication de la Boucle $O(N^2)$ :** Hissage hors-boucle $O(1)$ des calculs de Fog of War et de l'utilisateur observateur dans `MysticRadialTable` et `BentoPlayerGrid`.
+- **Réduction des Rebuilds & Allocations :** Algorithme de balayage arrière $O(1)$ pour le mini-ticker, sélecteur fin Riverpod `select()` pour les Chroniques du Village, et élimination du `setState` post-frame superflu lors des annonces de mort.
+
 ---
 
 ## [2.5.4] - 2026-09-20

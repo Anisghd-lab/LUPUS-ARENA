@@ -50,6 +50,8 @@ class LupusGameState {
   final bool isOmniscientVoice;
   final String? currentVoiceChannel;
   final Map<String, GameRole> seerInspectedRoles;
+  final List<String> foxSniffedPlayerIds;
+  final bool? foxWolfDetected;
   final Set<String> wolfPlayerIds;
   final bool isVictoryVoiceExpired;
 
@@ -71,6 +73,8 @@ class LupusGameState {
     this.isOmniscientVoice = false,
     this.currentVoiceChannel,
     this.seerInspectedRoles = const {},
+    this.foxSniffedPlayerIds = const [],
+    this.foxWolfDetected,
     this.wolfPlayerIds = const {},
     this.isVictoryVoiceExpired = false,
   });
@@ -134,6 +138,9 @@ class LupusGameState {
     bool? isOmniscientVoice,
     String? currentVoiceChannel,
     Map<String, GameRole>? seerInspectedRoles,
+    List<String>? foxSniffedPlayerIds,
+    bool? foxWolfDetected,
+    bool clearFoxSniff = false,
     Set<String>? wolfPlayerIds,
     bool? isVictoryVoiceExpired,
     bool clearRoom = false,
@@ -161,6 +168,12 @@ class LupusGameState {
       isOmniscientVoice: isOmniscientVoice ?? this.isOmniscientVoice,
       currentVoiceChannel: currentVoiceChannel ?? this.currentVoiceChannel,
       seerInspectedRoles: seerInspectedRoles ?? this.seerInspectedRoles,
+      foxSniffedPlayerIds: clearFoxSniff
+          ? const []
+          : (foxSniffedPlayerIds ?? this.foxSniffedPlayerIds),
+      foxWolfDetected: clearFoxSniff
+          ? null
+          : (foxWolfDetected ?? this.foxWolfDetected),
       wolfPlayerIds: wolfPlayerIds ?? this.wolfPlayerIds,
       isVictoryVoiceExpired:
           isVictoryVoiceExpired ?? this.isVictoryVoiceExpired,
@@ -3083,11 +3096,22 @@ class GameNotifier extends StateNotifier<LupusGameState> {
         : room.players.keys.toList();
     final aliveIds = seatingOrder.where((id) => room.players[id]?.isAlive == true).toList();
 
+    final trio = ExpandedRolesCoordinator.getFoxTrioIds(
+      targetPlayerId: targetPlayerId,
+      alivePlayerIdsInOrder: aliveIds,
+    );
+
     final hasWolf = ExpandedRolesCoordinator.resolveFoxSniff(
       targetPlayerId: targetPlayerId,
       alivePlayerIdsInOrder: aliveIds,
       playerRoles: realRoles,
       infectedPlayerId: room.expandedRolesState.infectedPlayerId ?? room.infectedPlayerId,
+    );
+
+    // Mémorisation locale immédiate pour le Renard (Fog of War asymétrique)
+    state = state.copyWith(
+      foxSniffedPlayerIds: trio,
+      foxWolfDetected: hasWolf,
     );
 
     final inMemoryState = GameState(
@@ -3106,6 +3130,10 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     );
 
     final updates = <String, dynamic>{};
+    for (final id in trio) {
+      updates['players/$id/isSniffed'] = true;
+      updates['players/$id/hasWolfSmell'] = hasWolf;
+    }
     final updatedExpanded = room.expandedRolesState.copyWith(
       foxPowerActive: hasWolf,
       lastFoxCheckResult: hasWolf,
@@ -3120,6 +3148,9 @@ class GameNotifier extends StateNotifier<LupusGameState> {
     }
     updates['logs'] = logs;
     await _syncState(updates);
+
+    // Délai de 2.5 secondes pour permettre l'observation visuelle immédiate sur la table avant transition
+    await Future.delayed(const Duration(milliseconds: 2500));
     await processNightTransitions();
     return hasWolf;
   }
@@ -4378,11 +4409,17 @@ class GameNotifier extends StateNotifier<LupusGameState> {
           ],
         };
         // Rétablir la parole pour les joueurs réduits au silence par le Loup Noir
+        // et réinitialiser les marqueurs éphémères de flairage du Renard du cycle précédent
         for (final p in state.room!.players.values) {
           if (p.isMuted) {
             updates['players/${p.id}/isMuted'] = false;
           }
+          if (p.isSniffed || p.hasWolfSmell) {
+            updates['players/${p.id}/isSniffed'] = false;
+            updates['players/${p.id}/hasWolfSmell'] = false;
+          }
         }
+        state = state.copyWith(clearFoxSniff: true);
         _resetAllVotes(updates);
         await _syncState(updates);
       }
@@ -6579,7 +6616,11 @@ class GameNotifier extends StateNotifier<LupusGameState> {
       _phaseExpirationTimer = null;
 
       await _voiceService.leaveChannel();
-      state = state.copyWith(clearRoom: true, isVictoryVoiceExpired: false);
+      state = state.copyWith(
+        clearRoom: true,
+        isVictoryVoiceExpired: false,
+        clearFoxSniff: true,
+      );
     }
   }
 

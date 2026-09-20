@@ -203,12 +203,6 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
         }
       }
     }
-
-    if (hasNewDeaths && mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() {});
-      });
-    }
   }
 
   @override
@@ -514,92 +508,94 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // PANNEAU D'ACTIONS STRATÉGIQUES STITCH
-                        BentoActionPanel(
-                          room: room,
-                          currentUserId: gameState.effectiveUserId,
-                          selectedTargetId: _selectedPlayerId,
-                          inspectedRole: gameState.inspectedRole,
-                          isHost: gameState.isHost,
-                          isAdmin: isDevMode,
-                          onNextPhase: () => ref
-                              .read(gameNotifierProvider.notifier)
-                              .nextPhase(),
-                          onVote: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .castVote(targetId),
-                          onInspect: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .inspectPlayer(targetId),
-                          onCompleteSeerTurn: () => ref
-                              .read(gameNotifierProvider.notifier)
-                              .completeSeerTurn(),
-                          onWitchSave: ([targetId]) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .witchSaveVictim(targetId),
-                          onWitchPoison: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .witchPoison(targetId),
-                          onWitchPass: () => ref
-                              .read(gameNotifierProvider.notifier)
-                              .witchPass(),
-                          onDefenderProtect: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .defenderProtect(targetId),
-                          onCupidBind: (p1, p2) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .cupidBindLovers(p1, p2),
-                          onThiefSteal: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .thiefSteal(targetId),
-                          onThiefChooseRole: (role) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .thiefChooseRole(role),
-                          onPiperCharm: (targets) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .piperCharmPlayers(targets),
-                          onInfect: (victimId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .infectWolfInfect(victimId),
-                          onHunterShoot: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .hunterShoot(targetId),
-                          onCaptainPass: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .designateCaptainSuccessor(targetId),
-                          onCrowDesignate: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .crowDesignate(targetId),
-                          onPyromaniacDouse: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .pyromaniacDouse(targetId),
-                          onPyromaniacIgnite: () => ref
-                              .read(gameNotifierProvider.notifier)
-                              .pyromaniacIgnite(),
-                          onPyromaniacPass: () => ref
-                              .read(gameNotifierProvider.notifier)
-                              .pyromaniacPass(),
-                          onFoxSniff: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .foxSniff(targetId),
-                          onFoxPass: () => ref
-                              .read(gameNotifierProvider.notifier)
-                              .foxPass(),
-                          onWhiteWolfDevour: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .whiteWolfDevour(targetId),
-                          onWhiteWolfPass: () => ref
-                              .read(gameNotifierProvider.notifier)
-                              .whiteWolfPass(),
-                          onBlackWolfSilence: (targetId) => ref
-                              .read(gameNotifierProvider.notifier)
-                              .werewolfSilence(targetId),
-                          onPassDebate: () => ref
-                              .read(gameNotifierProvider.notifier)
-                              .passTurnDebate(),
-                          countdownListenable: _countdownNotifier,
-                          onSelectTarget: (id) =>
-                              setState(() => _selectedPlayerId = id),
+                        // PANNEAU D'ACTIONS STRATÉGIQUES STITCH (Isolé via RepaintBoundary)
+                        RepaintBoundary(
+                          child: BentoActionPanel(
+                            room: room,
+                            currentUserId: gameState.effectiveUserId,
+                            selectedTargetId: _selectedPlayerId,
+                            inspectedRole: gameState.inspectedRole,
+                            isHost: gameState.isHost,
+                            isAdmin: isDevMode,
+                            onNextPhase: () => ref
+                                .read(gameNotifierProvider.notifier)
+                                .nextPhase(),
+                            onVote: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .castVote(targetId),
+                            onInspect: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .inspectPlayer(targetId),
+                            onCompleteSeerTurn: () => ref
+                                .read(gameNotifierProvider.notifier)
+                                .completeSeerTurn(),
+                            onWitchSave: ([targetId]) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .witchSaveVictim(targetId),
+                            onWitchPoison: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .witchPoison(targetId),
+                            onWitchPass: () => ref
+                                .read(gameNotifierProvider.notifier)
+                                .witchPass(),
+                            onDefenderProtect: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .defenderProtect(targetId),
+                            onCupidBind: (p1, p2) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .cupidBindLovers(p1, p2),
+                            onThiefSteal: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .thiefSteal(targetId),
+                            onThiefChooseRole: (role) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .thiefChooseRole(role),
+                            onPiperCharm: (targets) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .piperCharmPlayers(targets),
+                            onInfect: (victimId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .infectWolfInfect(victimId),
+                            onHunterShoot: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .hunterShoot(targetId),
+                            onCaptainPass: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .designateCaptainSuccessor(targetId),
+                            onCrowDesignate: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .crowDesignate(targetId),
+                            onPyromaniacDouse: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .pyromaniacDouse(targetId),
+                            onPyromaniacIgnite: () => ref
+                                .read(gameNotifierProvider.notifier)
+                                .pyromaniacIgnite(),
+                            onPyromaniacPass: () => ref
+                                .read(gameNotifierProvider.notifier)
+                                .pyromaniacPass(),
+                            onFoxSniff: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .foxSniff(targetId),
+                            onFoxPass: () => ref
+                                .read(gameNotifierProvider.notifier)
+                                .foxPass(),
+                            onWhiteWolfDevour: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .whiteWolfDevour(targetId),
+                            onWhiteWolfPass: () => ref
+                                .read(gameNotifierProvider.notifier)
+                                .whiteWolfPass(),
+                            onBlackWolfSilence: (targetId) => ref
+                                .read(gameNotifierProvider.notifier)
+                                .werewolfSilence(targetId),
+                            onPassDebate: () => ref
+                                .read(gameNotifierProvider.notifier)
+                                .passTurnDebate(),
+                            countdownListenable: _countdownNotifier,
+                            onSelectTarget: (id) =>
+                                setState(() => _selectedPlayerId = id),
+                          ),
                         ),
                         const SizedBox(height: 8),
 
@@ -1325,6 +1321,31 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     }).toList();
   }
 
+  /// Recherche optimisée O(1) en balayage inverse du dernier log visible pour le mini-ticker
+  String? _findLatestVisibleLog(
+    List<String> logs,
+    GameRoom room,
+    LupusGameState gameState,
+  ) {
+    if (logs.isEmpty) return null;
+    final isEvilOrAdmin = gameState.myRole.isEvil || gameState.isAdmin;
+    if (isEvilOrAdmin || !room.phase.isNight) {
+      return logs.last;
+    }
+    for (int i = logs.length - 1; i >= 0; i--) {
+      final l = logs[i].toLowerCase();
+      if (l.contains('🐺') ||
+          l.contains('silence') ||
+          l.contains('victime dans l\'ombre') ||
+          l.contains('réduit(e) au silence') ||
+          l.contains('intimé le silence')) {
+        continue;
+      }
+      return logs[i];
+    }
+    return null;
+  }
+
   /// Mini-Ticker compact affichant uniquement le dernier log du village
   Widget _buildMiniTicker(
     BuildContext context,
@@ -1333,13 +1354,16 @@ class _ArenaGameScreenState extends ConsumerState<ArenaGameScreen> {
     GameRoom room,
     LupusGameState gameState,
   ) {
-    final filteredLogs = _filterConfidentialLogs(logs, room, gameState);
-    if (filteredLogs.isEmpty) return const SizedBox.shrink();
-    final latestLog = filteredLogs.last;
+    final latestLog = _findLatestVisibleLog(logs, room, gameState);
+    if (latestLog == null) return const SizedBox.shrink();
     final displayLog = _formatLogForDisplay(context, latestLog);
 
     return GestureDetector(
-      onTap: () => _openChroniclesBottomSheet(context, filteredLogs, roomCode),
+      onTap: () => _openChroniclesBottomSheet(
+        context,
+        _filterConfidentialLogs(logs, room, gameState),
+        roomCode,
+      ),
       child: Container(
         height: 24,
         margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 1),

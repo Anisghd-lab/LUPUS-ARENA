@@ -35,20 +35,30 @@ class ExpandedRolesCoordinator {
   }
 
   /// 2. POUVOIR DU RENARD : Vérifie si un loup est dans le trio (cible + ses 2 voisins vivants)
+  static List<String> getFoxTrioIds({
+    required String targetPlayerId,
+    required List<String> alivePlayerIdsInOrder,
+  }) {
+    final targetIndex = alivePlayerIdsInOrder.indexOf(targetPlayerId);
+    if (targetIndex == -1) return [targetPlayerId];
+
+    final n = alivePlayerIdsInOrder.length;
+    final leftNeighborId = alivePlayerIdsInOrder[(targetIndex - 1 + n) % n];
+    final rightNeighborId = alivePlayerIdsInOrder[(targetIndex + 1) % n];
+
+    return [targetPlayerId, leftNeighborId, rightNeighborId];
+  }
+
   static bool resolveFoxSniff({
     required String targetPlayerId,
     required List<String> alivePlayerIdsInOrder,
     required Map<String, GameRole> playerRoles,
     required String? infectedPlayerId,
   }) {
-    final targetIndex = alivePlayerIdsInOrder.indexOf(targetPlayerId);
-    if (targetIndex == -1) return false;
-
-    final n = alivePlayerIdsInOrder.length;
-    final leftNeighborId = alivePlayerIdsInOrder[(targetIndex - 1 + n) % n];
-    final rightNeighborId = alivePlayerIdsInOrder[(targetIndex + 1) % n];
-
-    final trio = [targetPlayerId, leftNeighborId, rightNeighborId];
+    final trio = getFoxTrioIds(
+      targetPlayerId: targetPlayerId,
+      alivePlayerIdsInOrder: alivePlayerIdsInOrder,
+    );
 
     return trio.any((id) {
       final role = playerRoles[id];

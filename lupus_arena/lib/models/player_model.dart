@@ -24,6 +24,8 @@ class PlayerModel {
   final bool isCharmed; // Envoûté par le Joueur de Flûte
   final bool isDoused; // Aspergé d'huile/essence par le Pyromane
   final bool isInfected; // Transformé en Loup par l'Infect Père des Loups
+  final bool isSniffed; // Ciblé par le flairage du Renard
+  final bool hasWolfSmell; // Présence d'un loup dans le trio flairé
   final bool hasUsedHealPotion;
   final bool hasUsedPoisonPotion;
   final int agoraUid;
@@ -59,6 +61,8 @@ class PlayerModel {
     this.isCharmed = false,
     this.isDoused = false,
     this.isInfected = false,
+    this.isSniffed = false,
+    this.hasWolfSmell = false,
     this.hasUsedHealPotion = false,
     this.hasUsedPoisonPotion = false,
     this.agoraUid = 0,
@@ -105,6 +109,9 @@ class PlayerModel {
     bool? isCharmed,
     bool? isDoused,
     bool? isInfected,
+    bool? isSniffed,
+    bool? hasWolfSmell,
+    bool clearFoxSniff = false,
     bool? hasUsedHealPotion,
     bool? hasUsedPoisonPotion,
     int? agoraUid,
@@ -140,6 +147,8 @@ class PlayerModel {
       isCharmed: isCharmed ?? this.isCharmed,
       isDoused: isDoused ?? this.isDoused,
       isInfected: isInfected ?? this.isInfected,
+      isSniffed: clearFoxSniff ? false : (isSniffed ?? this.isSniffed),
+      hasWolfSmell: clearFoxSniff ? false : (hasWolfSmell ?? this.hasWolfSmell),
       hasUsedHealPotion: hasUsedHealPotion ?? this.hasUsedHealPotion,
       hasUsedPoisonPotion: hasUsedPoisonPotion ?? this.hasUsedPoisonPotion,
       agoraUid: agoraUid ?? this.agoraUid,
@@ -197,6 +206,8 @@ class PlayerModel {
       'isCharmed': isCharmed,
       'isDoused': isDoused,
       'isInfected': isInfected,
+      'isSniffed': isSniffed,
+      'hasWolfSmell': hasWolfSmell,
       'hasUsedHealPotion': hasUsedHealPotion,
       'hasUsedPoisonPotion': hasUsedPoisonPotion,
       'agoraUid': agoraUid,
@@ -285,6 +296,8 @@ class PlayerModel {
       isCharmed: map['isCharmed'] == true,
       isDoused: map['isDoused'] == true,
       isInfected: map['isInfected'] == true,
+      isSniffed: map['isSniffed'] == true,
+      hasWolfSmell: map['hasWolfSmell'] == true,
       hasUsedHealPotion: map['hasUsedHealPotion'] == true,
       hasUsedPoisonPotion: map['hasUsedPoisonPotion'] == true,
       agoraUid: (map['agoraUid'] is int)

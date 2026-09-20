@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/player_model.dart';
 import '../../services/app_translations.dart';
+import '../../services/fog_of_war_service.dart';
 import '../theme/lupus_theme.dart';
 import 'bento_player_tile.dart';
 
@@ -19,7 +20,21 @@ class BentoPlayerGrid extends StatelessWidget {
   final bool isDevRoom;
   final GameRole myRole;
   final Map<String, GameRole> seerInspectedRoles;
+  final List<String> foxSniffedPlayerIds;
+  final bool? foxWolfDetected;
   final Set<String> wolfPlayerIds;
+  final String? currentProtectedPlayerId;
+  final bool witchHealed;
+  final String? witchPoisonVictimId;
+  final String? nightVictimId;
+  final bool isNightWitch;
+  final String? crowTargetId;
+  final String? wildChildModelId;
+  final bool bearGrowledThisMorning;
+  final String? rustyKnightContaminatedWolfId;
+  final bool isDayTime;
+  final String? hunterShotTargetId;
+  final Set<String>? pyroIgnitedPlayerIds;
 
   const BentoPlayerGrid({
     super.key,
@@ -35,7 +50,21 @@ class BentoPlayerGrid extends StatelessWidget {
     this.isDevRoom = false,
     this.myRole = GameRole.simpleVillager,
     this.seerInspectedRoles = const {},
+    this.foxSniffedPlayerIds = const [],
+    this.foxWolfDetected,
     this.wolfPlayerIds = const {},
+    this.currentProtectedPlayerId,
+    this.witchHealed = false,
+    this.witchPoisonVictimId,
+    this.nightVictimId,
+    this.isNightWitch = false,
+    this.crowTargetId,
+    this.wildChildModelId,
+    this.bearGrowledThisMorning = false,
+    this.rustyKnightContaminatedWolfId,
+    this.isDayTime = false,
+    this.hunterShotTargetId,
+    this.pyroIgnitedPlayerIds,
   });
 
   @override
@@ -70,6 +99,25 @@ class BentoPlayerGrid extends StatelessWidget {
         ? 0.64
         : (screenWidth < 500 ? 0.70 : 0.78);
 
+    // Pré-calculs uniques O(1) hors-boucle pour le rendu de la grille
+    final isDevMode = isDevModeActive || isDevRoom;
+    final isMeWolfTeam = isMeEvil ||
+        myRole.isEvil ||
+        myRole.isWolfTeam ||
+        wolfPlayerIds.contains(currentUserId);
+
+    PlayerModel? me;
+    if (currentUserId != null) {
+      for (final p in players) {
+        if (p.id == currentUserId) {
+          me = p;
+          break;
+        }
+      }
+    }
+    final myIsLover = me?.isLover ?? false;
+    final myIsCharmed = me?.isCharmed ?? false;
+
     return GridView.builder(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       padding: const EdgeInsets.only(top: 4, bottom: 12),
@@ -90,25 +138,59 @@ class BentoPlayerGrid extends StatelessWidget {
         final isSpeaking = (isVoiceActive || hasFloor) && player.isAlive;
         final isSelected = selectedPlayerId == player.id;
         final votes = votesPerPlayer[player.id] ?? 0;
-        final isDevMode = isDevModeActive || isDevRoom;
-        final isMeWolfTeam = isMeEvil ||
-            myRole.isEvil ||
-            myRole.isWolfTeam ||
-            wolfPlayerIds.contains(currentUserId);
         final isOtherWolf = player.role.isEvil ||
             player.role.isWolfTeam ||
             wolfPlayerIds.contains(player.id);
         final isWolfPeer = isMeWolfTeam && isOtherWolf;
         final seerRole = seerInspectedRoles[player.id];
 
-        final me = players.cast<PlayerModel?>().firstWhere(
-              (p) => p?.id == currentUserId,
-              orElse: () => null,
-            );
-        final myIsLover = me?.isLover ?? false;
-        final myIsCharmed = me?.isCharmed ?? false;
+        final isProtected = FogOfWarService.canSeeDefenderShield(
+          targetIsProtected: currentProtectedPlayerId == player.id,
+          observerRole: myRole,
+          isDevMode: isDevMode,
+        );
+        final isWitchVictim = FogOfWarService.canSeeWitchWolfVictim(
+          targetIsVictim: nightVictimId == player.id,
+          observerRole: myRole,
+          isNightWitch: isNightWitch,
+          isDevMode: isDevMode,
+        );
+        final isWitchHealed = FogOfWarService.canSeeWitchHealed(
+          targetIsHealed: witchHealed && (nightVictimId == player.id),
+          observerRole: myRole,
+          isDevMode: isDevMode,
+        );
+        final isWitchPoisoned = FogOfWarService.canSeeWitchPoisoned(
+          targetIsPoisoned: witchPoisonVictimId == player.id,
+          observerRole: myRole,
+          isDevMode: isDevMode,
+        );
+        final isCrowTarget = FogOfWarService.canSeeCrowTarget(
+          targetIsCrowTarget: crowTargetId == player.id,
+          isDayTime: isDayTime,
+          observerRole: myRole,
+          isDevMode: isDevMode,
+        );
+        final isWildChildModel = FogOfWarService.canSeeWildChildModel(
+          targetIsModel: wildChildModelId == player.id,
+          observerRole: myRole,
+          isDevMode: isDevMode,
+        );
+        final isContaminatedWolf = FogOfWarService.canSeeRustyKnightContamination(
+          targetIsContaminated: rustyKnightContaminatedWolfId == player.id,
+          isObserverWolf: isMeWolfTeam,
+          isObserverContaminated: rustyKnightContaminatedWolfId == currentUserId,
+          isDevMode: isDevMode,
+        );
+        final isBearTamerGrowling = FogOfWarService.canSeeBearGrowl(
+          targetIsBearTamer: player.role == GameRole.bearTamer || player.roleInitial == GameRole.bearTamer,
+          bearGrowledThisMorning: bearGrowledThisMorning,
+          isDayTime: isDayTime,
+          isDevMode: isDevMode,
+        );
 
         return BentoPlayerTile(
+          key: ValueKey('player_tile_${player.id}'),
           player: player,
           isMe: isMe,
           isSpeaking: isSpeaking,
@@ -117,6 +199,18 @@ class BentoPlayerGrid extends StatelessWidget {
           showRole: revealRoles || (!player.isAlive) || isDevMode,
           isWolfPeer: isWolfPeer,
           seerDiscoveredRole: seerRole,
+          isSniffed: foxSniffedPlayerIds.contains(player.id) || player.isSniffed,
+          hasWolfSmell: foxWolfDetected ?? player.hasWolfSmell,
+          isProtected: isProtected,
+          isWitchVictim: isWitchVictim,
+          isWitchHealed: isWitchHealed,
+          isWitchPoisoned: isWitchPoisoned,
+          isCrowTarget: isCrowTarget,
+          isWildChildModel: isWildChildModel,
+          isContaminatedWolf: isContaminatedWolf,
+          isBearTamerGrowling: isBearTamerGrowling,
+          isHunterImpact: hunterShotTargetId == player.id,
+          isPyroIgnited: pyroIgnitedPlayerIds?.contains(player.id) == true,
           isDevMode: isDevMode,
           myRole: myRole,
           myIsLover: myIsLover,

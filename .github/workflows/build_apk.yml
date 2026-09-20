@@ -123,16 +123,16 @@ jobs:
           tag_name: ${{ env.APP_VERSION }}
           name: "Lupus Arena ${{ env.APP_VERSION }}"
           body: |
-            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Stabilisation Multijoueur & Sécurité Réseau)
+            ### 🐺 Lupus Arena - ${{ env.APP_VERSION }} (Rendu Visuel des Rôles, Micro-Animations & 60/120 FPS)
 
-            Mise à jour majeure de robustesse multijoueur, sécurité serveur et résilience réseau suite à l'audit senior complet :
+            Mise à jour majeure apportant le rendu visuel complet des pouvoirs nocturnes, des micro-animations immersives, des retours haptiques ciblés et des optimisations poussées de framerate :
 
             #### 🌟 Nouveautés & Corrections Majeures :
-            - **🛡️ Failover & Déconnexion d'Hôte (LA-003)** : Détection temps réel de la déconnexion ou du crash de l'hôte, passation automatique et reprise immédiate des minuteurs serveur sans interruption ni gel de partie.
-            - **🔄 Revanche & Rematch Atomique (LA-004)** : Élimination définitive de la race condition lors du clic simultané sur "Rejouer", quorum exclusif à l'Hôte avec verrou mutex anti-double reset, et correction des chemins de rôles secrets.
-            - **🔐 Règles de Sécurité & Validation Serveur Firebase RTDB (LA-005)** : Règles `.validate` serveur actives empêchant les rollbacks de tour, verrouillant le cimetière et interdisant les votes aux défunts.
-            - **⚖️ Dépouillement Autoritaire & Consensus de Meute (LA-007)** : Dépouillement diurne et élection du Maire basés sur une lecture directe autoritaire Firebase (`votes.get()`), et calcul de consensus majoritaire pour la chasse nocturne des loups.
-            - **🧹 Réinitialisation Automatique & Synchronisation Atomique** : Purge systématique et atomique de tous les votes, sélections de cibles et visions de voyante à chaque transition de phase ou de cycle nocturne.
+            - **🦊 Témoins Visuels des Pouvoirs & Fog of War** : Rendu asymétrique sécurisé des capacités nocturnes (flairage du Renard avec distinction de loup `isSniffed`/`hasWolfSmell`, bouclier du Salvateur, potions de la Sorcière, malédiction du Corbeau, modèle de l'Enfant Sauvage, grognement de l'Ours, contamination de l'Épée Rouillée).
+            - **✨ Micro-Animations & Effets Visuels** : Secousse d'écran amortie (`ScreenShakeWrapper`) et flash d'impact pour le Chasseur, propagation de flammes incandescentes (`PyroFlameBurstEffect`) pour le Pyromane, halo pulsant fluide néon (`CharmedPulsingHalo`) pour la Flûte, et entrée élastique douce des badges.
+            - **📳 Retours Haptiques Dédiés & Régulateur Anti-Saturation** : Retours physiques distincts (`heavyImpact` pour Chasseur/Pyromane, `lightImpact` pour Flûte/sélection) et module `HapticThrottler` (debounce 120ms) évitant l'engorgement du moteur de vibration.
+            - **⚡ Optimisation Pipeline de Rendu & 60/120 FPS** : Frontières GPU `RepaintBoundary` isolant les animations continues, suppression de la complexité $O(N^2)$ sur la table et la grille via hissage $O(1)$, et recherche arrière $O(1)$ sur le mini-ticker.
+            - **🧪 Tests de Non-Régression** : Suite de tests unitaires complète (814 lignes) validant tous les rôles étendus et le respect strict du secret asymétrique.
 
             ---
             #### 📲 Binaires Téléchargeables :

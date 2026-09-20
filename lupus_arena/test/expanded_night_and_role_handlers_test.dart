@@ -17,6 +17,26 @@ import 'package:lupus_arena/engine/handlers/pyromaniac_handler.dart';
 import 'package:lupus_arena/engine/handlers/cupid_handler.dart';
 import 'package:lupus_arena/engine/handlers/defender_handler.dart';
 import 'package:lupus_arena/engine/handlers/hunter_handler.dart';
+import 'package:lupus_arena/engine/handlers/seer_handler.dart';
+import 'package:lupus_arena/engine/handlers/witch_handler.dart';
+import 'package:lupus_arena/engine/handlers/crow_handler.dart';
+import 'package:lupus_arena/engine/handlers/bear_tamer_handler.dart';
+import 'package:lupus_arena/engine/handlers/rusty_sword_knight_handler.dart';
+import 'package:lupus_arena/engine/handlers/elder_handler.dart';
+import 'package:lupus_arena/engine/handlers/wild_child_handler.dart';
+import 'package:lupus_arena/engine/handlers/infect_father_of_wolves_handler.dart';
+import 'package:lupus_arena/engine/handlers/big_bad_wolf_handler.dart';
+import 'package:lupus_arena/engine/handlers/wolf_cub_handler.dart';
+import 'package:lupus_arena/engine/handlers/stuttering_judge_handler.dart';
+import 'package:lupus_arena/engine/handlers/scapegoat_handler.dart';
+import 'package:lupus_arena/engine/handlers/devoted_servant_handler.dart';
+import 'package:lupus_arena/engine/handlers/actor_handler.dart';
+import 'package:lupus_arena/engine/handlers/thief_handler.dart';
+import 'package:lupus_arena/engine/handlers/abominable_sectarian_handler.dart';
+import 'package:lupus_arena/engine/handlers/soul_stealer_handler.dart';
+import 'package:lupus_arena/engine/handlers/two_sisters_handler.dart';
+import 'package:lupus_arena/engine/handlers/three_brothers_handler.dart';
+import 'package:lupus_arena/services/fog_of_war_service.dart';
 
 void main() {
   setUp(() {
@@ -124,6 +144,13 @@ void main() {
 
       expect(nextState.expandedRolesState.foxPowerActive, isTrue);
       expect(nextState.expandedRolesState.lastFoxCheckResult, isTrue);
+      expect(nextState.players['p1']!.isSniffed, isTrue);
+      expect(nextState.players['p1']!.hasWolfSmell, isTrue);
+      expect(nextState.players['p2']!.isSniffed, isTrue);
+      expect(nextState.players['p2']!.hasWolfSmell, isTrue);
+      expect(nextState.players['p3']!.isSniffed, isTrue);
+      expect(nextState.players['p3']!.hasWolfSmell, isTrue);
+      expect(nextState.players['p4']!.isSniffed, isFalse);
     });
 
     test('Le Renard perd son flair si aucun loup n\'est dans le trio', () {
@@ -157,6 +184,13 @@ void main() {
 
       expect(nextState.expandedRolesState.foxPowerActive, isFalse);
       expect(nextState.expandedRolesState.lastFoxCheckResult, isFalse);
+      expect(nextState.players['p2']!.isSniffed, isTrue);
+      expect(nextState.players['p2']!.hasWolfSmell, isFalse);
+      expect(nextState.players['p3']!.isSniffed, isTrue);
+      expect(nextState.players['p3']!.hasWolfSmell, isFalse);
+      expect(nextState.players['p4']!.isSniffed, isTrue);
+      expect(nextState.players['p4']!.hasWolfSmell, isFalse);
+      expect(nextState.players['p1']!.isSniffed, isFalse);
     });
 
     test('Le Renard peut passer son tour et préserver son pouvoir', () {
@@ -495,6 +529,786 @@ void main() {
       );
 
       expect(nextState.players['target']?.isAlive, isFalse);
+    });
+  });
+
+  group('FogOfWarService Active Roles Canonical Visibility Tests', () {
+    test('Bouclier du Salvateur : visible uniquement par le Salvateur ou DevMode', () {
+      expect(
+        FogOfWarService.canSeeDefenderShield(
+          targetIsProtected: true,
+          observerRole: GameRole.defender,
+        ),
+        isTrue,
+      );
+      expect(
+        FogOfWarService.canSeeDefenderShield(
+          targetIsProtected: true,
+          observerRole: GameRole.simpleWerewolf,
+        ),
+        isFalse,
+      );
+      expect(
+        FogOfWarService.canSeeDefenderShield(
+          targetIsProtected: true,
+          observerRole: GameRole.simpleVillager,
+          isDevMode: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('Sorcière : Sauvé, Empoisonné, Victime des loups', () {
+      expect(
+        FogOfWarService.canSeeWitchHealed(
+          targetIsHealed: true,
+          observerRole: GameRole.witch,
+        ),
+        isTrue,
+      );
+      expect(
+        FogOfWarService.canSeeWitchHealed(
+          targetIsHealed: true,
+          observerRole: GameRole.simpleVillager,
+        ),
+        isFalse,
+      );
+
+      expect(
+        FogOfWarService.canSeeWitchPoisoned(
+          targetIsPoisoned: true,
+          observerRole: GameRole.witch,
+        ),
+        isTrue,
+      );
+      expect(
+        FogOfWarService.canSeeWitchPoisoned(
+          targetIsPoisoned: true,
+          observerRole: GameRole.simpleWerewolf,
+        ),
+        isFalse,
+      );
+
+      expect(
+        FogOfWarService.canSeeWitchWolfVictim(
+          targetIsVictim: true,
+          observerRole: GameRole.witch,
+          isNightWitch: true,
+        ),
+        isTrue,
+      );
+      expect(
+        FogOfWarService.canSeeWitchWolfVictim(
+          targetIsVictim: true,
+          observerRole: GameRole.witch,
+          isNightWitch: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('Corbeau : invisible la nuit pour les villageois, public le jour', () {
+      expect(
+        FogOfWarService.canSeeCrowTarget(
+          targetIsCrowTarget: true,
+          isDayTime: false,
+          observerRole: GameRole.raven,
+        ),
+        isTrue,
+      );
+      expect(
+        FogOfWarService.canSeeCrowTarget(
+          targetIsCrowTarget: true,
+          isDayTime: false,
+          observerRole: GameRole.simpleVillager,
+        ),
+        isFalse,
+      );
+      expect(
+        FogOfWarService.canSeeCrowTarget(
+          targetIsCrowTarget: true,
+          isDayTime: true,
+          observerRole: GameRole.simpleVillager,
+        ),
+        isTrue,
+      );
+    });
+
+    test('Enfant Sauvage : Modèle visible uniquement par l\'enfant', () {
+      expect(
+        FogOfWarService.canSeeWildChildModel(
+          targetIsModel: true,
+          observerRole: GameRole.wildChild,
+        ),
+        isTrue,
+      );
+      expect(
+        FogOfWarService.canSeeWildChildModel(
+          targetIsModel: true,
+          observerRole: GameRole.simpleVillager,
+        ),
+        isFalse,
+      );
+    });
+
+    test('Épée Rouillée : Loup contaminé visible pour les loups et le contaminé', () {
+      expect(
+        FogOfWarService.canSeeRustyKnightContamination(
+          targetIsContaminated: true,
+          isObserverWolf: true,
+          isObserverContaminated: false,
+        ),
+        isTrue,
+      );
+      expect(
+        FogOfWarService.canSeeRustyKnightContamination(
+          targetIsContaminated: true,
+          isObserverWolf: false,
+          isObserverContaminated: true,
+        ),
+        isTrue,
+      );
+      expect(
+        FogOfWarService.canSeeRustyKnightContamination(
+          targetIsContaminated: true,
+          isObserverWolf: false,
+          isObserverContaminated: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('Montreur d\'Ours : Grognement public le jour', () {
+      expect(
+        FogOfWarService.canSeeBearGrowl(
+          targetIsBearTamer: true,
+          bearGrowledThisMorning: true,
+          isDayTime: true,
+        ),
+        isTrue,
+      );
+      expect(
+        FogOfWarService.canSeeBearGrowl(
+          targetIsBearTamer: true,
+          bearGrowledThisMorning: false,
+          isDayTime: true,
+        ),
+        isFalse,
+      );
+      expect(
+        FogOfWarService.canSeeBearGrowl(
+          targetIsBearTamer: true,
+          bearGrowledThisMorning: true,
+          isDayTime: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('SeerHandler Strategic Actions', () {
+    test('La Voyante peut agir pendant son tour nocturne et sonde une âme', () {
+      final handler = SeerHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.nightSeer,
+        players: {
+          'seer': const PlayerModel(id: 'seer', name: 'Voyante', isAlive: true, role: GameRole.seer),
+          'target': const PlayerModel(id: 'target', name: 'Cible', isAlive: true, role: GameRole.simpleWerewolf),
+        },
+      );
+
+      expect(handler.canAct(state, 'seer'), isTrue);
+      expect(handler.canAct(state, 'target'), isFalse);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'seer',
+        actionPayload: {'targetId': 'target'},
+      );
+
+      expect(nextState.nightAcknowledgedPlayerIds, contains('seer'));
+
+      final controls = handler.getUIControls(state, 'seer');
+      expect(controls.availableTargetIds, contains('target'));
+      expect(controls.availableTargetIds, isNot(contains('seer')));
+    });
+  });
+
+  group('WitchHandler Strategic Actions', () {
+    test('La Sorcière sauve la victime des loups avec sa potion de vie', () {
+      final handler = WitchHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.nightWitch,
+        nightPrimaryVictimId: 'victim1',
+        players: {
+          'witch': const PlayerModel(id: 'witch', name: 'Sorcière', isAlive: true, role: GameRole.witch),
+          'victim1': const PlayerModel(id: 'victim1', name: 'Victime', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'witch',
+        actionPayload: {'save': true},
+      );
+
+      expect(nextState.nightPrimaryVictimId, isNull, reason: 'La victime est sauvée');
+      expect(nextState.nightAcknowledgedPlayerIds, contains('witch'));
+    });
+
+    test('La Sorcière empoisonne un suspect avec sa potion de mort', () {
+      final handler = WitchHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.nightWitch,
+        players: {
+          'witch': const PlayerModel(id: 'witch', name: 'Sorcière', isAlive: true, role: GameRole.witch),
+          'suspect': const PlayerModel(id: 'suspect', name: 'Suspect', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'witch',
+        actionPayload: {'poisonTargetId': 'suspect'},
+      );
+
+      expect(nextState.nightSecondaryDeaths, contains('suspect'));
+      expect(nextState.nightAcknowledgedPlayerIds, contains('witch'));
+    });
+
+    test('La Sorcière passe son tour sans utiliser de potion', () {
+      final handler = WitchHandler();
+      final state = GameState(
+        currentTurn: 1,
+        currentPhase: GamePhase.nightWitch,
+        nightPrimaryVictimId: 'victim1',
+        players: {
+          'witch': const PlayerModel(id: 'witch', name: 'Sorcière', isAlive: true, role: GameRole.witch),
+          'victim1': const PlayerModel(id: 'victim1', name: 'Victime', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'witch',
+        actionPayload: {'skip': true},
+      );
+
+      expect(nextState.nightPrimaryVictimId, equals('victim1'));
+      expect(nextState.nightSecondaryDeaths, isEmpty);
+      expect(nextState.nightAcknowledgedPlayerIds, contains('witch'));
+    });
+  });
+
+  group('CrowHandler Directive Tests', () {
+    test('Le Corbeau désigne un suspect pour recevoir 2 votes d\'office', () {
+      final handler = CrowHandler();
+      final state = GameState(
+        currentTurn: 1,
+        players: {
+          'crow': const PlayerModel(id: 'crow', name: 'Corbeau', isAlive: true, role: GameRole.raven),
+          'suspect': const PlayerModel(id: 'suspect', name: 'Suspect', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      expect(handler.canAct(state, 'crow'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'crow',
+        actionPayload: {'targetId': 'suspect'},
+      );
+
+      expect(nextState.expandedRolesState.crowTargetId, equals('suspect'));
+    });
+  });
+
+  group('BearTamerHandler Dawn Growl Resolution', () {
+    test('L\'ours grogne à l\'aube si au moins un voisin vivant est un loup', () {
+      final state = GameState(
+        alivePlayerIdsInOrder: ['p1', 'p2', 'p3', 'p4'],
+        playerRoles: {
+          'p1': GameRole.simpleVillager,
+          'p2': GameRole.bearTamer,
+          'p3': GameRole.simpleWerewolf,
+          'p4': GameRole.simpleVillager,
+        },
+        players: {
+          'p1': const PlayerModel(id: 'p1', name: 'V1', isAlive: true, role: GameRole.simpleVillager),
+          'p2': const PlayerModel(id: 'p2', name: 'Tamer', isAlive: true, role: GameRole.bearTamer),
+          'p3': const PlayerModel(id: 'p3', name: 'Wolf', isAlive: true, role: GameRole.simpleWerewolf),
+          'p4': const PlayerModel(id: 'p4', name: 'V2', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      final nextState = BearTamerHandler.resolveMorningGrowl(state);
+      expect(nextState.expandedRolesState.bearGrowledThisMorning, isTrue);
+    });
+
+    test('L\'ours reste silencieux si aucun voisin vivant n\'est un loup', () {
+      final state = GameState(
+        alivePlayerIdsInOrder: ['p1', 'p2', 'p3', 'p4'],
+        playerRoles: {
+          'p1': GameRole.simpleVillager,
+          'p2': GameRole.bearTamer,
+          'p3': GameRole.simpleVillager,
+          'p4': GameRole.simpleWerewolf,
+        },
+        players: {
+          'p1': const PlayerModel(id: 'p1', name: 'V1', isAlive: true, role: GameRole.simpleVillager),
+          'p2': const PlayerModel(id: 'p2', name: 'Tamer', isAlive: true, role: GameRole.bearTamer),
+          'p3': const PlayerModel(id: 'p3', name: 'V2', isAlive: true, role: GameRole.simpleVillager),
+          'p4': const PlayerModel(id: 'p4', name: 'Wolf', isAlive: true, role: GameRole.simpleWerewolf),
+        },
+      );
+
+      final nextState = BearTamerHandler.resolveMorningGrowl(state);
+      expect(nextState.expandedRolesState.bearGrowledThisMorning, isFalse);
+    });
+
+    test('L\'ours grogne systématiquement si le Montreur d\'Ours est infecté', () {
+      final state = GameState(
+        alivePlayerIdsInOrder: ['p1', 'p2', 'p3'],
+        playerRoles: {
+          'p1': GameRole.simpleVillager,
+          'p2': GameRole.bearTamer,
+          'p3': GameRole.simpleVillager,
+        },
+        players: {
+          'p1': const PlayerModel(id: 'p1', name: 'V1', isAlive: true, role: GameRole.simpleVillager),
+          'p2': const PlayerModel(id: 'p2', name: 'Tamer', isAlive: true, role: GameRole.bearTamer),
+          'p3': const PlayerModel(id: 'p3', name: 'V2', isAlive: true, role: GameRole.simpleVillager),
+        },
+        expandedRolesState: const ExpandedRolesState(infectedPlayerId: 'p2'),
+      );
+
+      final nextState = BearTamerHandler.resolveMorningGrowl(state);
+      expect(nextState.expandedRolesState.bearGrowledThisMorning, isTrue);
+    });
+  });
+
+  group('RustySwordKnightHandler Devoured Resolution', () {
+    test('Infecte le premier loup à sa gauche lors de sa mort', () {
+      final state = GameState(
+        currentTurn: 2,
+        alivePlayerIdsInOrder: ['k', 'v1', 'w1', 'w2'],
+        playerRoles: {
+          'k': GameRole.knightRustySword,
+          'v1': GameRole.simpleVillager,
+          'w1': GameRole.simpleWerewolf,
+          'w2': GameRole.simpleWerewolf,
+        },
+      );
+
+      // Le chevalier est à l'index 0. À sa gauche (circulaire vers l'arrière) :
+      // index - 1 -> index 3 qui est w2 !
+      final nextState = RustySwordKnightHandler.onDevouredByWolves(state, 'k');
+      expect(nextState.expandedRolesState.rustyKnightContaminatedWolfId, equals('w2'));
+      expect(nextState.expandedRolesState.rustyKnightDeathNight, equals(2));
+    });
+  });
+
+  group('ElderHandler Resistance and Curse Tests', () {
+    test('L\'Ancien survit à la première attaque des loups', () {
+      final state = GameState(
+        alivePlayerIdsInOrder: ['elder'],
+        players: {
+          'elder': const PlayerModel(id: 'elder', name: 'Ancien', isAlive: true, role: GameRole.elder),
+        },
+        expandedRolesState: const ExpandedRolesState(ancientLives: {'elder': 2}),
+      );
+
+      final nextState = ElderHandler.handleWolfAttack(state, 'elder');
+      expect(nextState.expandedRolesState.ancientLives['elder'], equals(1));
+      expect(nextState.isAlive('elder'), isTrue);
+    });
+
+    test('L\'Ancien meurt à la seconde morsure des loups', () {
+      final state = GameState(
+        alivePlayerIdsInOrder: ['elder'],
+        players: {
+          'elder': const PlayerModel(id: 'elder', name: 'Ancien', isAlive: true, role: GameRole.elder),
+        },
+        expandedRolesState: const ExpandedRolesState(ancientLives: {'elder': 1}),
+      );
+
+      final nextState = ElderHandler.handleWolfAttack(state, 'elder');
+      expect(nextState.isAlive('elder'), isFalse);
+    });
+
+    test('L\'élimination par le village fait perdre tous les pouvoirs au village', () {
+      const state = GameState();
+      final nextState = ElderHandler.handleVillageKill(state, 'elder');
+      expect(nextState.expandedRolesState.ancientPowerLost, isTrue);
+    });
+  });
+
+  group('WildChildHandler Model and Transformation', () {
+    test('L\'Enfant Sauvage choisit son modèle la première nuit', () {
+      final handler = WildChildHandler();
+      final state = GameState(
+        currentTurn: 1,
+        players: {
+          'wc': const PlayerModel(id: 'wc', name: 'Enfant', isAlive: true, role: GameRole.wildChild),
+          'model': const PlayerModel(id: 'model', name: 'Modèle', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      expect(handler.canAct(state, 'wc'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'wc',
+        actionPayload: {'modelPlayerId': 'model'},
+      );
+
+      expect(nextState.expandedRolesState.wildChildModelId, equals('model'));
+    });
+
+    test('L\'Enfant Sauvage mute en loup à la mort de son modèle', () {
+      const state = GameState(
+        expandedRolesState: ExpandedRolesState(
+          wildChildModelId: 'model',
+          wildChildTransformed: false,
+        ),
+      );
+
+      final nextState = WildChildHandler.checkModelDeath(state, 'model');
+      expect(nextState.expandedRolesState.wildChildTransformed, isTrue);
+    });
+  });
+
+  group('InfectFatherOfWolvesHandler Infection Mechanics', () {
+    test('L\'Infect Père des Loups transforme la victime en loup-garou', () {
+      final handler = InfectFatherOfWolvesHandler();
+      final state = GameState(
+        currentTurn: 1,
+        nightPrimaryVictimId: 'victim',
+        players: {
+          'father': const PlayerModel(id: 'father', name: 'Père', isAlive: true, role: GameRole.vileFatherOfWolves),
+          'victim': const PlayerModel(id: 'victim', name: 'Victime', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      expect(handler.canAct(state, 'father'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'father',
+        actionPayload: {'infect': true},
+      );
+
+      expect(nextState.nightPrimaryVictimId, isNull, reason: 'Victime sauvée de la mort');
+      expect(nextState.expandedRolesState.infectedPlayerId, equals('victim'));
+      expect(nextState.expandedRolesState.hasUsedInfection, isTrue);
+    });
+  });
+
+  group('BigBadWolfHandler Double Attack Mechanics', () {
+    test('Le Grand Méchant Loup peut agir tant qu\'aucun loup n\'est mort', () {
+      final handler = BigBadWolfHandler();
+      final state = GameState(
+        alivePlayerIdsInOrder: ['bbw', 'w1', 'v1'],
+        playerRoles: {
+          'bbw': GameRole.bigBadWolf,
+          'w1': GameRole.simpleWerewolf,
+          'v1': GameRole.simpleVillager,
+        },
+        players: {
+          'bbw': const PlayerModel(id: 'bbw', name: 'Grand Méchant', isAlive: true, role: GameRole.bigBadWolf),
+          'w1': const PlayerModel(id: 'w1', name: 'Loup', isAlive: true, role: GameRole.simpleWerewolf),
+          'v1': const PlayerModel(id: 'v1', name: 'Villageois', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      expect(handler.canAct(state, 'bbw'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'bbw',
+        actionPayload: {'targetId': 'v1'},
+      );
+
+      expect(nextState.nightSecondaryDeaths, contains('v1'));
+    });
+
+    test('Le Grand Méchant Loup perd son pouvoir dès qu\'un loup meurt', () {
+      final handler = BigBadWolfHandler();
+      final state = GameState(
+        alivePlayerIdsInOrder: ['bbw', 'v1'],
+        playerRoles: {
+          'bbw': GameRole.bigBadWolf,
+          'w1': GameRole.simpleWerewolf,
+          'v1': GameRole.simpleVillager,
+        },
+        players: {
+          'bbw': const PlayerModel(id: 'bbw', name: 'Grand Méchant', isAlive: true, role: GameRole.bigBadWolf),
+          'w1': const PlayerModel(id: 'w1', name: 'Loup Mort', isAlive: false, role: GameRole.simpleWerewolf),
+          'v1': const PlayerModel(id: 'v1', name: 'Villageois', isAlive: true, role: GameRole.simpleVillager),
+        },
+      );
+
+      expect(handler.canAct(state, 'bbw'), isFalse);
+    });
+  });
+
+  group('WolfCubHandler Revenge Mechanics', () {
+    test('La mort du Chiot Loup enregistre la double vengeance pour la nuit suivante', () {
+      const state = GameState();
+      final nextState = WolfCubHandler.onCubDeath(state);
+      expect(nextState.expandedRolesState.cubDiedYesterday, isTrue);
+    });
+  });
+
+  group('StutteringJudgeHandler Second Vote Mechanics', () {
+    test('Le Juge Bègue déclenche un second vote consécutif le jour', () {
+      final handler = StutteringJudgeHandler();
+      final state = GameState(
+        currentPhase: GamePhase.dayVoting,
+        players: {
+          'judge': const PlayerModel(id: 'judge', name: 'Juge', isAlive: true, role: GameRole.stutteringJudge),
+        },
+        expandedRolesState: const ExpandedRolesState(judgeSecondVoteAvailable: true),
+      );
+
+      expect(handler.canAct(state, 'judge'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'judge',
+        actionPayload: {},
+      );
+
+      expect(nextState.expandedRolesState.judgeSecondVoteAvailable, isFalse);
+      expect(nextState.expandedRolesState.isSecondVoteTriggered, isTrue);
+    });
+  });
+
+  group('ScapegoatHandler Tie Execution Mechanics', () {
+    test('Le Bouc Émissaire désigne les joueurs interdits de vote après son sacrifice', () {
+      final handler = ScapegoatHandler();
+      const state = GameState(
+        lastEliminatedPlayerId: 'goat',
+        expandedRolesState: ExpandedRolesState(scapegoatNeedsToBan: true),
+      );
+
+      expect(handler.canAct(state, 'goat'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'goat',
+        actionPayload: {
+          'bannedVoterIds': ['p1', 'p2'],
+        },
+      );
+
+      expect(nextState.expandedRolesState.bannedVotersForToday, containsAll(['p1', 'p2']));
+      expect(nextState.expandedRolesState.scapegoatNeedsToBan, isFalse);
+    });
+  });
+
+  group('DevotedServantHandler Role Steal Mechanics', () {
+    test('La Servante Dévouée échange son identité avec celle du condamné', () {
+      final handler = DevotedServantHandler();
+      final state = GameState(
+        pendingExecutedPlayerId: 'condemned',
+        playerRoles: {
+          'servant': GameRole.servantMaid,
+          'condemned': GameRole.seer,
+        },
+        players: {
+          'servant': const PlayerModel(id: 'servant', name: 'Servante', isAlive: true, role: GameRole.servantMaid),
+          'condemned': const PlayerModel(id: 'condemned', name: 'Condamné', isAlive: true, role: GameRole.seer),
+        },
+      );
+
+      expect(handler.canAct(state, 'servant'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'servant',
+        actionPayload: {'swap': true},
+      );
+
+      expect(nextState.playerRoles['servant'], equals(GameRole.seer));
+      expect(nextState.playerRoles['condemned'], equals(GameRole.simpleVillager));
+    });
+  });
+
+  group('ActorHandler Role Choice Mechanics', () {
+    test('Le Comédien consomme un rôle parmi les cartes écartées', () {
+      final handler = ActorHandler();
+      final state = GameState(
+        players: {
+          'actor': const PlayerModel(id: 'actor', name: 'Comédien', isAlive: true, role: GameRole.actor),
+        },
+        expandedRolesState: const ExpandedRolesState(
+          actorAvailableRoles: {
+            'actor': [GameRole.hunter, GameRole.witch, GameRole.defender],
+          },
+        ),
+      );
+
+      expect(handler.canAct(state, 'actor'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'actor',
+        actionPayload: {'chosenRole': 'hunter'},
+      );
+
+      final remaining = nextState.expandedRolesState.actorAvailableRoles['actor']!;
+      expect(remaining, containsAll([GameRole.witch, GameRole.defender]));
+      expect(remaining, isNot(contains(GameRole.hunter)));
+    });
+  });
+
+  group('ThiefHandler Role Robbery Mechanics', () {
+    test('Le Voleur subtilise le rôle d\'un citoyen actif', () {
+      final handler = ThiefHandler();
+      final state = GameState(
+        currentTurn: 1,
+        playerRoles: {
+          'thief': GameRole.thief,
+          'target': GameRole.cupid,
+        },
+        players: {
+          'thief': const PlayerModel(id: 'thief', name: 'Voleur', isAlive: true, role: GameRole.thief),
+          'target': const PlayerModel(id: 'target', name: 'Cible', isAlive: true, role: GameRole.cupid),
+        },
+      );
+
+      expect(handler.canAct(state, 'thief'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'thief',
+        actionPayload: {'targetId': 'target'},
+      );
+
+      expect(nextState.playerRoles['thief'], equals(GameRole.cupid));
+      expect(nextState.playerRoles['target'], equals(GameRole.simpleVillager));
+    });
+  });
+
+  group('AbominableSectarianHandler Clan Partition Mechanics', () {
+    test('Scinde le village équitablement en deux clans alternés', () {
+      final handler = AbominableSectarianHandler();
+      final state = GameState(
+        currentTurn: 1,
+        alivePlayerIdsInOrder: ['p1', 'p2', 'p3', 'p4'],
+        players: {
+          'sect': const PlayerModel(id: 'sect', name: 'Sectaire', isAlive: true, role: GameRole.sectLeader),
+        },
+      );
+
+      expect(handler.canAct(state, 'sect'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'sect',
+        actionPayload: {},
+      );
+
+      final teams = nextState.expandedRolesState.sectarianTeams;
+      expect(teams['teamA'], equals(['p1', 'p3']));
+      expect(teams['teamB'], equals(['p2', 'p4']));
+    });
+  });
+
+  group('SoulStealerHandler Soul Theft Mechanics', () {
+    test('Le Voleur d\'Âmes échange son identité lors de la nuit 1', () {
+      final handler = SoulStealerHandler();
+      final state = GameState(
+        currentTurn: 1,
+        playerRoles: {
+          'stealer': GameRole.thiefOfHearts,
+          'target': GameRole.seer,
+        },
+        players: {
+          'stealer': const PlayerModel(id: 'stealer', name: 'Voleur d\'Âmes', isAlive: true, role: GameRole.thiefOfHearts),
+          'target': const PlayerModel(id: 'target', name: 'Cible', isAlive: true, role: GameRole.seer),
+        },
+      );
+
+      expect(handler.canAct(state, 'stealer'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'stealer',
+        actionPayload: {'targetId': 'target'},
+      );
+
+      expect(nextState.playerRoles['stealer'], equals(GameRole.seer));
+      expect(nextState.playerRoles['target'], equals(GameRole.simpleVillager));
+    });
+  });
+
+  group('TwoSisters and ThreeBrothers Recognition Mechanics', () {
+    test('Les Deux Sœurs s\'identifient mutuellement la 1re nuit', () {
+      final handler = TwoSistersHandler();
+      final state = GameState(
+        currentTurn: 1,
+        playerRoles: {
+          's1': GameRole.twoSisters,
+          's2': GameRole.twoSisters,
+        },
+        players: {
+          's1': const PlayerModel(id: 's1', name: 'Sœur 1', isAlive: true, role: GameRole.twoSisters),
+          's2': const PlayerModel(id: 's2', name: 'Sœur 2', isAlive: true, role: GameRole.twoSisters),
+        },
+      );
+
+      expect(handler.canAct(state, 's1'), isTrue);
+      final controls = handler.getUIControls(state, 's1');
+      expect(controls.instruction, contains('Sœur 2'));
+    });
+
+    test('Les Trois Frères se reconnaissent la 1re nuit', () {
+      final handler = ThreeBrothersHandler();
+      final state = GameState(
+        currentTurn: 1,
+        playerRoles: {
+          'b1': GameRole.threeBrothers,
+          'b2': GameRole.threeBrothers,
+          'b3': GameRole.threeBrothers,
+        },
+        players: {
+          'b1': const PlayerModel(id: 'b1', name: 'Frère 1', isAlive: true, role: GameRole.threeBrothers),
+          'b2': const PlayerModel(id: 'b2', name: 'Frère 2', isAlive: true, role: GameRole.threeBrothers),
+          'b3': const PlayerModel(id: 'b3', name: 'Frère 3', isAlive: true, role: GameRole.threeBrothers),
+        },
+      );
+
+      expect(handler.canAct(state, 'b1'), isTrue);
+      final controls = handler.getUIControls(state, 'b1');
+      expect(controls.instruction, contains('Frère 2'));
+      expect(controls.instruction, contains('Frère 3'));
+    });
+  });
+
+  group('AngelHandler Victory Condition Tests', () {
+    test('L\'Ange remporte la victoire s\'il est éliminé le 1er jour', () {
+      final handler = AngelHandler();
+      final state = GameState(
+        currentTurn: 1,
+        players: {
+          'angel': const PlayerModel(id: 'angel', name: 'Ange', isAlive: true, role: GameRole.angel),
+        },
+      );
+
+      expect(handler.canAct(state, 'angel'), isTrue);
+
+      final nextState = handler.executeAction(
+        state,
+        actorId: 'angel',
+        actionPayload: {'eliminatedOnDay1': true},
+      );
+
+      expect(nextState.expandedRolesState.angelWon, isTrue);
     });
   });
 }

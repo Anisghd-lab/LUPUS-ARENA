@@ -44,7 +44,20 @@ class FoxHandler extends RoleActionHandler {
       lastFoxCheckResult: hasWolf,
     );
 
-    return state.copyWith(expandedRolesState: updatedExpanded);
+    final updatedPlayers = Map<String, PlayerModel>.from(state.players);
+    for (final pid in trio) {
+      if (updatedPlayers.containsKey(pid)) {
+        updatedPlayers[pid] = updatedPlayers[pid]!.copyWith(
+          isSniffed: true,
+          hasWolfSmell: hasWolf,
+        );
+      }
+    }
+
+    return state.copyWith(
+      players: updatedPlayers,
+      expandedRolesState: updatedExpanded,
+    );
   }
 
   @override

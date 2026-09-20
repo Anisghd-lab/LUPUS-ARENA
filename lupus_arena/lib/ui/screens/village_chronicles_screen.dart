@@ -33,8 +33,8 @@ class _VillageChroniclesScreenState extends ConsumerState<VillageChroniclesScree
   String _selectedFilter = 'all'; // 'all', 'deaths', 'night', 'debate', 'powers'
 
   List<String> get _currentLogs {
-    final liveRoom = ref.watch(gameNotifierProvider).room;
-    return liveRoom?.logs ?? widget.logs;
+    final liveLogs = ref.watch(gameNotifierProvider.select((s) => s.room?.logs));
+    return liveLogs ?? widget.logs;
   }
 
   List<String> get _filteredLogs {

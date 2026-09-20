@@ -200,7 +200,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
     // - En mode paysage ou écrans courts : s'adapte automatiquement pour que tout reste visible et accessible.
     final topSpacing = isLandscape
         ? 16.0
-        : (wolfFrameBottom + 10.0).clamp(80.0, screenSize.height * 0.65);
+        : (wolfFrameBottom - 25.0).clamp(60.0, screenSize.height * 0.58);
 
     return SizedBox.expand(
       child: Stack(
@@ -268,7 +268,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> with WidgetsBindingOb
                         children: [
                           SizedBox(height: topSpacing),
                           _buildActionButtonsColumn(context, gameState),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 48),
                         ],
                       ),
                     ),
@@ -1487,9 +1487,9 @@ class LobbyActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double buttonHeight = 32.0;
-    const double buttonWidth = 110.0;
-    final borderRadius = BorderRadius.circular(8);
+    const double buttonHeight = 42.0;
+    const double buttonWidth = 144.0;
+    final borderRadius = BorderRadius.circular(10);
 
     return Center(
       child: SizedBox(
@@ -1500,7 +1500,7 @@ class LobbyActionButtons extends StatelessWidget {
           children: [
             // 1. Bouton "CRÉER UN SALON"
             // Dégradé vertical riche du violet/mauve néon au violet très sombre : [Color(0xFFAB47BC), Color(0xFF6A1B9A), Color(0xFF311B92)]
-            // Bordure dorée fine (Color(0xFFFFD700) avec opacité 0.7)
+            // Bordure dorée fine (Color(0xFFFFD700) avec opacité 0.75)
             Container(
               height: buttonHeight,
               decoration: BoxDecoration(
@@ -1515,18 +1515,18 @@ class LobbyActionButtons extends StatelessWidget {
                   end: Alignment.bottomCenter,
                 ),
                 border: Border.all(
-                  color: const Color(0xFFFFD700).withValues(alpha: 0.7),
-                  width: 1.1,
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.75),
+                  width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF6A1B9A).withValues(alpha: 0.45),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
                   ),
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.4),
-                    blurRadius: 5,
+                    blurRadius: 6,
                     offset: const Offset(0, 1),
                   ),
                 ],
@@ -1537,14 +1537,14 @@ class LobbyActionButtons extends StatelessWidget {
                   borderRadius: borderRadius,
                   onTap: gameState.isLoading ? null : onCreate,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Center(
                       child: gameState.isLoading
                           ? const SizedBox(
-                              width: 14,
-                              height: 14,
+                              width: 16,
+                              height: 16,
                               child: CircularProgressIndicator(
-                                strokeWidth: 1.8,
+                                strokeWidth: 2.0,
                                 color: Colors.white,
                               ),
                             )
@@ -1556,16 +1556,16 @@ class LobbyActionButtons extends StatelessWidget {
                                   const Icon(
                                     Icons.add_rounded,
                                     color: Colors.white,
-                                    size: 14,
+                                    size: 16,
                                   ),
-                                  const SizedBox(width: 3),
+                                  const SizedBox(width: 4),
                                   Text(
                                     context.tr('create_room').toUpperCase(),
                                     style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 10,
+                                      fontSize: 11.5,
                                       fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
+                                      letterSpacing: 0.6,
                                       shadows: [
                                         Shadow(
                                           color: Colors.black87,
@@ -1584,7 +1584,7 @@ class LobbyActionButtons extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
             // 2. Bouton / Champ "CODE DU SALON"
             // Dégradé sombre et mystique : [Color(0xFF2E1A47), Color(0xFF160D24)]
@@ -1602,13 +1602,13 @@ class LobbyActionButtons extends StatelessWidget {
                   end: Alignment.bottomCenter,
                 ),
                 border: Border.all(
-                  color: const Color(0xFF9E7BB5).withValues(alpha: 0.55),
-                  width: 1.1,
+                  color: const Color(0xFF9E7BB5).withValues(alpha: 0.6),
+                  width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    blurRadius: 6,
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 7,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -1622,9 +1622,9 @@ class LobbyActionButtons extends StatelessWidget {
                   cursorColor: const Color(0xFFFFD700),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 10.5,
+                    fontSize: 12.0,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+                    letterSpacing: 1.4,
                     shadows: [
                       Shadow(
                         color: Colors.black87,
@@ -1636,26 +1636,26 @@ class LobbyActionButtons extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: context.tr('enter_room_code').toUpperCase(),
                     hintStyle: const TextStyle(
-                      color: Color(0xFF8E82A6),
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+                       color: Color(0xFF8E82A6),
+                       fontSize: 9.5,
+                       fontWeight: FontWeight.bold,
+                       letterSpacing: 0.6,
                     ),
                     counterText: '',
                     border: InputBorder.none,
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   ),
                   onSubmitted: (_) => onJoin(),
                 ),
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
             // 3. Bouton "REJOINDRE" (Sans emoji/icône porte)
             // Dégradé vertical du vert éclatant au vert forêt sombre : [Color(0xFF43A047), Color(0xFF2E7D32), Color(0xFF1B5E20)]
-            // Bordure dorée fine (Color(0xFFFFD700) avec opacité 0.7)
+            // Bordure dorée fine (Color(0xFFFFD700) avec opacité 0.75)
             Container(
               height: buttonHeight,
               decoration: BoxDecoration(
@@ -1670,18 +1670,18 @@ class LobbyActionButtons extends StatelessWidget {
                   end: Alignment.bottomCenter,
                 ),
                 border: Border.all(
-                  color: const Color(0xFFFFD700).withValues(alpha: 0.7),
-                  width: 1.1,
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.75),
+                  width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF2E7D32).withValues(alpha: 0.45),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
                   ),
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.4),
-                    blurRadius: 5,
+                    blurRadius: 6,
                     offset: const Offset(0, 1),
                   ),
                 ],
@@ -1692,7 +1692,7 @@ class LobbyActionButtons extends StatelessWidget {
                   borderRadius: borderRadius,
                   onTap: gameState.isLoading ? null : onJoin,
                   child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    padding: EdgeInsets.symmetric(horizontal: 8),
                     child: Center(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
@@ -1700,9 +1700,9 @@ class LobbyActionButtons extends StatelessWidget {
                           'REJOINDRE',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: 12.0,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.6,
+                            letterSpacing: 0.8,
                             shadows: [
                               Shadow(
                                 color: Colors.black87,
